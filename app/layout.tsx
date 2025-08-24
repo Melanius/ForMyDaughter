@@ -1,6 +1,5 @@
 import './globals.css'
-
-// 로컬 폰트 사용으로 변경 (Google Fonts 연결 문제 해결)
+import TabNavigation from '../components/ui/TabNavigation'
 
 export const metadata = {
   title: '우리 아이 용돈 관리',
@@ -23,9 +22,12 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <main className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
-          {children}
-        </main>
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+          <TabNavigation />
+          <main>
+            {children}
+          </main>
+        </div>
       </body>
     </html>
   )

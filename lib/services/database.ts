@@ -5,6 +5,11 @@ import {
   UserSettings, 
   DB_CONFIG 
 } from '../types/mission'
+import { 
+  AllowanceTransaction, 
+  AllowanceBalance, 
+  ALLOWANCE_DB_CONFIG 
+} from '../types/allowance'
 
 class DatabaseService {
   private db: IDBDatabase | null = null
@@ -62,6 +67,20 @@ class DatabaseService {
         // User Settings Store
         if (!db.objectStoreNames.contains(DB_CONFIG.STORES.USER_SETTINGS)) {
           db.createObjectStore(DB_CONFIG.STORES.USER_SETTINGS, { keyPath: 'id' })
+        }
+
+        // Allowance Transactions Store
+        if (!db.objectStoreNames.contains(ALLOWANCE_DB_CONFIG.STORES.TRANSACTIONS)) {
+          const transactionsStore = db.createObjectStore(ALLOWANCE_DB_CONFIG.STORES.TRANSACTIONS, { keyPath: 'id' })
+          transactionsStore.createIndex(ALLOWANCE_DB_CONFIG.INDEXES.TRANSACTIONS_BY_DATE, 'date')
+          transactionsStore.createIndex(ALLOWANCE_DB_CONFIG.INDEXES.TRANSACTIONS_BY_TYPE, 'type')
+          transactionsStore.createIndex(ALLOWANCE_DB_CONFIG.INDEXES.TRANSACTIONS_BY_CATEGORY, 'category')
+        }
+
+        // Allowance Balances Store
+        if (!db.objectStoreNames.contains(ALLOWANCE_DB_CONFIG.STORES.BALANCES)) {
+          const balancesStore = db.createObjectStore(ALLOWANCE_DB_CONFIG.STORES.BALANCES, { keyPath: 'date' })
+          balancesStore.createIndex(ALLOWANCE_DB_CONFIG.INDEXES.BALANCES_BY_DATE, 'date')
         }
       }
     })
@@ -264,6 +283,75 @@ class DatabaseService {
     return await this.get<UserSettings>(DB_CONFIG.STORES.USER_SETTINGS, 'default')
   }
 
+  // Allowance Transaction operations
+  async createTransaction(transaction: Omit<AllowanceTransaction, 'id' | 'createdAt'>): Promise<string> {
+    const newTransaction: AllowanceTransaction = {
+      id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      ...transaction,
+      createdAt: new Date().toISOString()
+    }
+    await this.add(ALLOWANCE_DB_CONFIG.STORES.TRANSACTIONS, newTransaction)
+    return newTransaction.id
+  }
+
+  async updateTransaction(id: string, updates: Partial<AllowanceTransaction>): Promise<void> {
+    const existing = await this.get<AllowanceTransaction>(ALLOWANCE_DB_CONFIG.STORES.TRANSACTIONS, id)
+    if (!existing) throw new Error('Transaction not found')
+
+    const updated: AllowanceTransaction = {
+      ...existing,
+      ...updates
+    }
+    await this.update(ALLOWANCE_DB_CONFIG.STORES.TRANSACTIONS, updated)
+  }
+
+  async getTransaction(id: string): Promise<AllowanceTransaction | null> {
+    return await this.get<AllowanceTransaction>(ALLOWANCE_DB_CONFIG.STORES.TRANSACTIONS, id)
+  }
+
+  async getTransactionsByDate(date: string): Promise<AllowanceTransaction[]> {
+    return await this.getByIndex<AllowanceTransaction>(ALLOWANCE_DB_CONFIG.STORES.TRANSACTIONS, ALLOWANCE_DB_CONFIG.INDEXES.TRANSACTIONS_BY_DATE, date)
+  }
+
+  async getTransactionsByType(type: 'income' | 'expense'): Promise<AllowanceTransaction[]> {
+    return await this.getByIndex<AllowanceTransaction>(ALLOWANCE_DB_CONFIG.STORES.TRANSACTIONS, ALLOWANCE_DB_CONFIG.INDEXES.TRANSACTIONS_BY_TYPE, type)
+  }
+
+  async getTransactionsByCategory(category: string): Promise<AllowanceTransaction[]> {
+    return await this.getByIndex<AllowanceTransaction>(ALLOWANCE_DB_CONFIG.STORES.TRANSACTIONS, ALLOWANCE_DB_CONFIG.INDEXES.TRANSACTIONS_BY_CATEGORY, category)
+  }
+
+  async getAllTransactions(): Promise<AllowanceTransaction[]> {
+    return await this.getAll<AllowanceTransaction>(ALLOWANCE_DB_CONFIG.STORES.TRANSACTIONS)
+  }
+
+  async deleteTransaction(id: string): Promise<void> {
+    await this.delete(ALLOWANCE_DB_CONFIG.STORES.TRANSACTIONS, id)
+  }
+
+  // Allowance Balance operations
+  async updateBalance(balance: AllowanceBalance): Promise<void> {
+    await this.update(ALLOWANCE_DB_CONFIG.STORES.BALANCES, balance)
+  }
+
+  async getBalance(date: string): Promise<AllowanceBalance | null> {
+    return await this.get<AllowanceBalance>(ALLOWANCE_DB_CONFIG.STORES.BALANCES, date)
+  }
+
+  async getBalancesInRange(startDate: string, endDate: string): Promise<AllowanceBalance[]> {
+    const db = await this.getDB()
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([ALLOWANCE_DB_CONFIG.STORES.BALANCES], 'readonly')
+      const store = transaction.objectStore(ALLOWANCE_DB_CONFIG.STORES.BALANCES)
+      const index = store.index(ALLOWANCE_DB_CONFIG.INDEXES.BALANCES_BY_DATE)
+      const range = IDBKeyRange.bound(startDate, endDate)
+      const request = index.getAll(range)
+
+      request.onsuccess = () => resolve(request.result || [])
+      request.onerror = () => reject(request.error)
+    })
+  }
+
   // Utility functions
   async clearAllData(): Promise<void> {
     const db = await this.getDB()
@@ -271,7 +359,9 @@ class DatabaseService {
       DB_CONFIG.STORES.MISSION_TEMPLATES,
       DB_CONFIG.STORES.MISSION_INSTANCES,
       DB_CONFIG.STORES.DATE_SUMMARIES,
-      DB_CONFIG.STORES.USER_SETTINGS
+      DB_CONFIG.STORES.USER_SETTINGS,
+      ALLOWANCE_DB_CONFIG.STORES.TRANSACTIONS,
+      ALLOWANCE_DB_CONFIG.STORES.BALANCES
     ]
 
     for (const storeName of storeNames) {

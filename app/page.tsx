@@ -7,6 +7,7 @@ import DateMissionPanel from '../components/DateMissionPanel'
 import { MissionInstance } from '../lib/types/mission'
 import MigrationService from '../lib/services/migration'
 import missionService from '../lib/services/mission'
+import allowanceService from '../lib/services/allowance'
 
 // 기존 Mission 인터페이스 유지 (하위 호환성)
 interface Mission {
@@ -121,12 +122,22 @@ export default function HomePage() {
 
         setMissions(compatibleMissions)
 
-        // 4. 용돈 정보 로드 (기존 방식 유지)
-        const savedAllowance = localStorage.getItem('currentAllowance')
-        if (savedAllowance) {
-          setCurrentAllowance(parseInt(savedAllowance))
-        } else {
-          localStorage.setItem('currentAllowance', '7500')
+        // 4. 용돈 정보 로드 - 용돈 서비스에서 현재 잔액 가져오기
+        try {
+          const currentBalance = await allowanceService.getCurrentBalance()
+          setCurrentAllowance(currentBalance)
+          // localStorage와 동기화
+          localStorage.setItem('currentAllowance', currentBalance.toString())
+        } catch (error) {
+          console.error('Failed to load current balance:', error)
+          // 에러 시 기존 localStorage 값 사용
+          const savedAllowance = localStorage.getItem('currentAllowance')
+          if (savedAllowance) {
+            setCurrentAllowance(parseInt(savedAllowance))
+          } else {
+            setCurrentAllowance(7500)
+            localStorage.setItem('currentAllowance', '7500')
+          }
         }
 
       } catch (error) {
@@ -184,6 +195,9 @@ export default function HomePage() {
         if (MigrationService.isMigrationCompleted()) {
           // 새로운 데이터베이스 사용
           await missionService.uncompleteMission(missionId)
+          
+          // 미션과 연결된 용돈 수입 내역 삭제
+          await allowanceService.removeMissionIncome(missionId)
         }
         
         // UI 상태 업데이트
@@ -540,15 +554,29 @@ export default function HomePage() {
                 try {
                   const pendingMissions = missions.filter(m => m.isCompleted && !m.isTransferred)
                   const pendingReward = pendingMissions.reduce((sum, m) => sum + m.reward, 0)
+                  const today = new Date().toISOString().split('T')[0]
                   
                   if (MigrationService.isMigrationCompleted()) {
                     // 새로운 데이터베이스 사용
                     const missionIds = pendingMissions.map(m => m.id)
                     await missionService.transferMissions(missionIds)
+                    
+                    // 각 미션에 대해 용돈 내역에 수입 추가
+                    for (const mission of pendingMissions) {
+                      await allowanceService.addMissionIncome(
+                        mission.id, 
+                        mission.reward, 
+                        mission.title, 
+                        today
+                      )
+                    }
                   }
 
-                  // UI 상태 업데이트
-                  setCurrentAllowance(prev => prev + pendingReward)
+                  // UI 상태 업데이트 - 용돈 서비스에서 현재 잔액 다시 가져오기
+                  const updatedBalance = await allowanceService.getCurrentBalance()
+                  setCurrentAllowance(updatedBalance)
+                  localStorage.setItem('currentAllowance', updatedBalance.toString())
+                  
                   setMissions(prev => prev.map(m => 
                     m.isCompleted && !m.isTransferred 
                       ? { ...m, isTransferred: true }
