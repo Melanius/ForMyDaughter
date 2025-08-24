@@ -7,7 +7,7 @@
 @layer base {
   body {
     @apply bg-gradient-to-br from-blue-50 to-purple-50 text-gray-900;
-    font-family: 'Malgun Gothic', '맑은 고딕', 'Noto Sans KR', 'Apple SD Gothic Neo', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Noto Sans KR', 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   }
 }
 
