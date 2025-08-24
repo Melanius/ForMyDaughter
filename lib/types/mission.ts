@@ -65,7 +65,7 @@ export interface UserSettings {
 
 // 데이터베이스 설정
 export const DB_CONFIG = {
-  NAME: 'KidsAllowanceDB',
+  NAME: 'KidsAllowanceDB_v2',
   VERSION: 1,
   STORES: {
     MISSION_TEMPLATES: 'missionTemplates',
