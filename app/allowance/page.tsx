@@ -232,7 +232,7 @@ export default function AllowancePage() {
                           </span>
                           {transaction.missionId && (
                             <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
-                              🎯 미션보상
+                              미션보상
                             </span>
                           )}
                         </div>

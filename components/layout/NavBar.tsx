@@ -23,7 +23,6 @@ export function NavBar() {
           {/* 로고 */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2 text-white">
-              <div className="text-2xl">💰</div>
               <span className="text-xl font-bold tracking-tight">MoneySeed</span>
             </Link>
           </div>
@@ -40,7 +39,7 @@ export function NavBar() {
                       : 'text-white/80 hover:text-white hover:bg-white/10'
                   }`}
                 >
-                  🏠 홈
+                  홈
                 </Link>
                 <Link 
                   href="/allowance" 
@@ -50,7 +49,7 @@ export function NavBar() {
                       : 'text-white/80 hover:text-white hover:bg-white/10'
                   }`}
                 >
-                  💳 내 지갑
+                  내 지갑
                 </Link>
                 {profile.user_type === 'parent' && (
                   <Link 
@@ -61,7 +60,7 @@ export function NavBar() {
                         : 'text-white/80 hover:text-white hover:bg-white/10'
                     }`}
                   >
-                    👨‍👩‍👧‍👦 우리 가족
+                    가족
                   </Link>
                 )}
               </div>
@@ -81,7 +80,7 @@ export function NavBar() {
                         isActivePath('/') ? 'bg-white/20' : 'hover:bg-white/10'
                       }`}
                     >
-                      <span className="text-white text-lg">🏠</span>
+                      <span className="text-white text-lg">홈</span>
                     </Link>
                     <Link 
                       href="/allowance" 
@@ -89,7 +88,7 @@ export function NavBar() {
                         isActivePath('/allowance') ? 'bg-white/20' : 'hover:bg-white/10'
                       }`}
                     >
-                      <span className="text-white text-lg">💳</span>
+                      <span className="text-white text-lg">지갑</span>
                     </Link>
                     {profile.user_type === 'parent' && (
                       <Link 
@@ -98,7 +97,7 @@ export function NavBar() {
                           isActivePath('/family') ? 'bg-white/20' : 'hover:bg-white/10'
                         }`}
                       >
-                        <span className="text-white text-lg">👨‍👩‍👧‍👦</span>
+                        <span className="text-white text-lg">가족</span>
                       </Link>
                     )}
                   </div>
@@ -117,7 +116,7 @@ export function NavBar() {
                     <div className="hidden sm:block">
                       <p className="text-sm font-medium text-white">{profile.full_name}</p>
                       <p className="text-xs text-white/70">
-                        {profile.user_type === 'parent' ? '👨‍👩‍👧‍👦 부모님' : '🧒 자녀'}
+                        {profile.user_type === 'parent' ? '부모님' : '자녀'}
                       </p>
                     </div>
                   </div>

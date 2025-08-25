@@ -41,7 +41,7 @@ export function MissionCard({ mission, onComplete, onEdit, onDelete }: MissionCa
               {mission.title}
             </h3>
             {mission.isCompleted && (
-              <span className="text-2xl">✅</span>
+              <span className="text-2xl text-green-500">✓</span>
             )}
           </div>
           
@@ -51,7 +51,7 @@ export function MissionCard({ mission, onComplete, onEdit, onDelete }: MissionCa
           
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1">
-              <span className="text-yellow-500">💰</span>
+              <span className="text-yellow-500">결</span>
               <span className="font-semibold text-green-600">{mission.reward.toLocaleString()}원</span>
             </div>
             

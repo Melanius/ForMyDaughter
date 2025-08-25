@@ -351,11 +351,11 @@ export default function HomePage() {
   return (
     <div className="p-8">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-5xl font-bold text-center text-gray-800 mb-4">
-          우리 아이 용돈 관리
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-center text-gray-800 mb-4">
+          미션<span className="hidden sm:inline"> 어드벤처</span>
         </h1>
-        <p className="text-xl text-center text-gray-600 mb-12">
-          미션을 완료하고 용돈을 모으는 재미있는 여행을 시작해요!
+        <p className="text-lg sm:text-xl text-center text-gray-600 mb-8 sm:mb-12 px-4">
+          재미있는 미션을 클리어하고 용돈을 모아보자!
         </p>
         
         <div className="mb-12">
@@ -364,48 +364,48 @@ export default function HomePage() {
             <div className="flex border-b border-gray-200 mb-6">
               <button
                 onClick={() => setActiveTab('missions')}
-                className={`px-6 py-3 font-medium transition-colors ${
+                className={`px-2 sm:px-6 py-2 sm:py-3 font-medium transition-colors text-sm sm:text-base ${
                   activeTab === 'missions'
                     ? 'text-blue-600 border-b-2 border-blue-600'
                     : 'text-gray-600 hover:text-gray-800'
                 }`}
               >
-                📅 미션 관리
+                오늘<span className="hidden sm:inline">의 미션</span>
               </button>
               <button
                 onClick={() => setActiveTab('templates')}
-                className={`px-6 py-3 font-medium transition-colors ${
+                className={`px-2 sm:px-6 py-2 sm:py-3 font-medium transition-colors text-sm sm:text-base ${
                   activeTab === 'templates'
                     ? 'text-blue-600 border-b-2 border-blue-600'
                     : 'text-gray-600 hover:text-gray-800'
                 }`}
               >
-                🔧 템플릿 관리
+                만들기
               </button>
             </div>
 
             {activeTab === 'missions' ? (
               <div>
-                <div className="flex justify-between items-center mb-6">
-                  <div className="flex items-center space-x-4">
-                    <h2 className="text-2xl font-bold text-gray-800">
-                      {selectedDate === new Date().toISOString().split('T')[0] ? '오늘의 미션' : 
-                       `${new Date(selectedDate).getMonth() + 1}월 ${new Date(selectedDate).getDate()}일 미션`}
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
+                      {selectedDate === new Date().toISOString().split('T')[0] ? '오늘<span className="hidden sm:inline">의 미션</span>' : 
+                       `${new Date(selectedDate).getMonth() + 1}월 ${new Date(selectedDate).getDate()}일`}
                     </h2>
-                    <span className="text-sm text-gray-500">{selectedDate}</span>
+                    <span className="text-xs sm:text-sm text-gray-500">{selectedDate}</span>
                   </div>
-                  <div className="flex space-x-2">
+                  <div className="flex gap-2">
                     <button
                       onClick={() => setShowCalendar(!showCalendar)}
-                      className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                      className="bg-indigo-500 hover:bg-indigo-600 text-white px-2 sm:px-4 py-2 rounded-lg transition-colors text-xs sm:text-sm font-medium flex-1 sm:flex-none"
                     >
-                      {showCalendar ? '목록 보기' : '달력 보기'}
+                      {showCalendar ? '목록' : '달력'}
                     </button>
                     <button
                       onClick={() => setShowAddModal(true)}
-                      className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                      className="bg-blue-500 hover:bg-blue-600 text-white px-2 sm:px-4 py-2 rounded-lg transition-colors text-xs sm:text-sm font-medium flex-1 sm:flex-none"
                     >
-                      미션 추가
+                      추가
                     </button>
                   </div>
                 </div>
@@ -461,7 +461,7 @@ export default function HomePage() {
                       </div>
                     ) : (
                       <>
-                        <p className="text-sm text-gray-400">현재 미션 개수: {missions.length}</p>
+                        <p className="text-xs sm:text-sm text-gray-400">미션: {missions.length}개</p>
                       
                         {missions.map(mission => (
                           <div key={mission.id} className={`p-6 rounded-xl border-2 transition-all duration-200 ${
@@ -515,15 +515,15 @@ export default function HomePage() {
                                     </button>
                                     <button
                                       onClick={() => handleEditMission(mission)}
-                                      className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded transition-colors text-xs"
+                                      className="bg-blue-500 hover:bg-blue-600 text-white px-2 sm:px-3 py-1 rounded transition-colors text-xs whitespace-nowrap"
                                     >
-                                      수정
+                                      ✏️ 수정
                                     </button>
                                     <button
                                       onClick={() => handleDeleteMission(mission.id)}
-                                      className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded transition-colors text-xs"
+                                      className="bg-red-500 hover:bg-red-600 text-white px-2 sm:px-3 py-1 rounded transition-colors text-xs whitespace-nowrap"
                                     >
-                                      삭제
+                                      🗑️ 삭제
                                     </button>
                                   </>
                                 ) : mission.isTransferred ? (
@@ -546,15 +546,15 @@ export default function HomePage() {
                                     </button>
                                     <button
                                       onClick={() => handleEditMission(mission)}
-                                      className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded transition-colors text-xs"
+                                      className="bg-blue-500 hover:bg-blue-600 text-white px-2 sm:px-3 py-1 rounded transition-colors text-xs whitespace-nowrap"
                                     >
-                                      수정
+                                      ✏️ 수정
                                     </button>
                                     <button
                                       onClick={() => handleDeleteMission(mission.id)}
-                                      className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded transition-colors text-xs"
+                                      className="bg-red-500 hover:bg-red-600 text-white px-2 sm:px-3 py-1 rounded transition-colors text-xs whitespace-nowrap"
                                     >
-                                      삭제
+                                      🗑️ 삭제
                                     </button>
                                   </>
                                 )}
@@ -573,16 +573,16 @@ export default function HomePage() {
           </div>
         </div>
         
-        <div className="bg-white rounded-xl shadow-lg p-8 text-center mb-8">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">현재 상황</h2>
-          <div className="grid grid-cols-2 gap-6 mb-6">
-            <div>
-              <p className="text-3xl font-bold text-green-600">{currentAllowance.toLocaleString()}원</p>
-              <p className="text-gray-600">현재 용돈</p>
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-8 text-center mb-6 sm:mb-8">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 sm:mb-6">내<span className="hidden sm:inline"> 지갑</span></h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
+            <div className="bg-green-50 rounded-lg p-4">
+              <p className="text-2xl sm:text-3xl font-bold text-green-600">{currentAllowance.toLocaleString()}원</p>
+              <p className="text-sm sm:text-base text-gray-600">보유<span className="hidden sm:inline"> 금액</span></p>
             </div>
-            <div>
-              <p className="text-3xl font-bold text-orange-600">{missions.filter(m => m.isCompleted && !m.isTransferred).reduce((sum, m) => sum + m.reward, 0).toLocaleString()}원</p>
-              <p className="text-gray-600">받을 용돈</p>
+            <div className="bg-orange-50 rounded-lg p-4">
+              <p className="text-2xl sm:text-3xl font-bold text-orange-600">{missions.filter(m => m.isCompleted && !m.isTransferred).reduce((sum, m) => sum + m.reward, 0).toLocaleString()}원</p>
+              <p className="text-sm sm:text-base text-gray-600">받을<span className="hidden sm:inline"> 금액</span></p>
             </div>
           </div>
           {missions.filter(m => m.isCompleted && !m.isTransferred).length > 0 && (
@@ -623,40 +623,40 @@ export default function HomePage() {
                   console.error('Failed to transfer missions:', error)
                 }
               }}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg transition-colors font-medium"
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 sm:px-6 py-3 rounded-lg transition-colors font-medium text-sm sm:text-base"
             >
-              용돈 전달 완료
+              받기
             </button>
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">이번 주 목표</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+            <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4">성과</h3>
             <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600">완료한 미션</span>
-                <span className="font-semibold">{missions.filter(m => m.isCompleted).length}개</span>
+              <div className="flex justify-between items-center bg-green-50 rounded-lg p-3">
+                <span className="text-sm sm:text-base text-gray-700">완료<span className="hidden sm:inline">한 미션</span></span>
+                <span className="font-bold text-green-600">{missions.filter(m => m.isCompleted).length}개</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">남은 미션</span>
-                <span className="font-semibold">{missions.filter(m => !m.isCompleted).length}개</span>
+              <div className="flex justify-between items-center bg-blue-50 rounded-lg p-3">
+                <span className="text-sm sm:text-base text-gray-700">진행중<span className="hidden sm:inline">인 미션</span></span>
+                <span className="font-bold text-blue-600">{missions.filter(m => !m.isCompleted).length}개</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">이번 주 획득 용돈</span>
-                <span className="font-semibold text-green-600">
+              <div className="flex justify-between items-center bg-yellow-50 rounded-lg p-3">
+                <span className="text-sm sm:text-base text-gray-700">획득<span className="hidden sm:inline"> 금액</span></span>
+                <span className="font-bold text-green-600 text-sm sm:text-base">
                   {missions.filter(m => m.isCompleted).reduce((sum, m) => sum + m.reward, 0).toLocaleString()}원
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">달력</h3>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-blue-600">{new Date().getDate()}</p>
-              <p className="text-gray-600">{new Date().toLocaleDateString('ko-KR', { month: 'long', year: 'numeric' })}</p>
-              <p className="text-sm text-gray-500 mt-2">
+          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+            <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4">오늘</h3>
+            <div className="text-center bg-blue-50 rounded-lg p-4">
+              <p className="text-3xl sm:text-4xl font-bold text-blue-600 mb-2">{new Date().getDate()}</p>
+              <p className="text-sm sm:text-base text-gray-600">{new Date().toLocaleDateString('ko-KR', { month: 'long', year: 'numeric' })}</p>
+              <p className="text-xs sm:text-sm text-gray-500 mt-2">
                 {new Date().toLocaleDateString('ko-KR', { weekday: 'long' })}
               </p>
             </div>
@@ -664,7 +664,7 @@ export default function HomePage() {
         </div>
         
         <div className="text-center">
-          <p className="text-gray-500">웹앱이 성공적으로 실행되었습니다!</p>
+          <p className="text-xs sm:text-sm text-gray-500">미션<span className="hidden sm:inline"> 어드벤처가</span> 시작!</p>
         </div>
       </div>
       

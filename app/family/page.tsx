@@ -266,14 +266,14 @@ export default function FamilyPage() {
           <h2 className="text-xl font-semibold mb-4">가족 연결 상태</h2>
           {profile.parent_id ? (
             <div className="text-green-600">
-              <p className="font-medium">✅ 부모 계정과 연결되어 있습니다</p>
+              <p className="font-medium">부모 계정과 연결되어 있습니다</p>
               <p className="text-sm text-gray-600 mt-2">
                 모든 미션과 용돈 관리가 부모님과 공유됩니다.
               </p>
             </div>
           ) : (
             <div className="text-yellow-600">
-              <p className="font-medium">⏳ 부모님의 승인을 기다리고 있습니다</p>
+              <p className="font-medium">부모님의 승인을 기다리고 있습니다</p>
               <p className="text-sm text-gray-600 mt-2">
                 부모님께서 연결 요청을 승인해주시면 이용할 수 있습니다.
               </p>
