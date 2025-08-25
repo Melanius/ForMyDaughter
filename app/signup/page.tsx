@@ -54,7 +54,13 @@ export default function SignupPage() {
       await new Promise(resolve => setTimeout(resolve, 1000))
 
       // 3. 프로필 생성
-      const profileData: any = {
+      const profileData: {
+        id: string;
+        email: string;
+        full_name: string;
+        user_type: 'parent' | 'child';
+        family_code?: string;
+      } = {
         id: authData.user.id,
         email,
         full_name: fullName,
