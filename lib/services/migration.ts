@@ -241,7 +241,7 @@ export class MigrationService {
   }
 
   // 백업 데이터 확인
-  static getBackupData(): any {
+  static getBackupData(): unknown {
     const backup = localStorage.getItem(this.BACKUP_KEY)
     return backup ? JSON.parse(backup) : null
   }

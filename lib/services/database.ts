@@ -144,7 +144,7 @@ class DatabaseService {
     })
   }
 
-  private async getByIndex<T>(storeName: string, indexName: string, value: any): Promise<T[]> {
+  private async getByIndex<T>(storeName: string, indexName: string, value: unknown): Promise<T[]> {
     const db = await this.getDB()
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([storeName], 'readonly')
