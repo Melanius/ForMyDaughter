@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Confetti from '../ui/Confetti'
 
 interface Mission {
   id: string
@@ -20,17 +19,11 @@ interface MissionCardProps {
 
 export function MissionCard({ mission, onComplete, onEdit, onDelete }: MissionCardProps) {
   const [isCompleting, setIsCompleting] = useState(false)
-  const [showConfetti, setShowConfetti] = useState(false)
 
   const handleComplete = async () => {
     setIsCompleting(true)
-    setShowConfetti(true)
     await onComplete(mission.id)
     setIsCompleting(false)
-  }
-
-  const handleConfettiComplete = () => {
-    setShowConfetti(false)
   }
 
   return (
@@ -94,8 +87,6 @@ export function MissionCard({ mission, onComplete, onEdit, onDelete }: MissionCa
           </button>
         </div>
       </div>
-      
-      <Confetti trigger={showConfetti} onComplete={handleConfettiComplete} />
     </div>
   )
 }
