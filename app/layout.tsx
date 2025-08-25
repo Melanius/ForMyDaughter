@@ -1,5 +1,4 @@
 import './globals.css'
-import TabNavigation from '../components/ui/TabNavigation'
 
 export const metadata = {
   title: '우리 아이 용돈 관리',
@@ -23,7 +22,21 @@ export default function RootLayout({
       </head>
       <body>
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
-          <TabNavigation />
+          <nav className="bg-white shadow-sm border-b">
+            <div className="max-w-4xl mx-auto px-8 py-4">
+              <div className="flex justify-between items-center">
+                <h1 className="text-xl font-bold text-gray-800">MoneySeed 💰</h1>
+                <div className="flex space-x-4">
+                  <a href="/" className="text-blue-600 hover:text-blue-800 font-medium">
+                    홈
+                  </a>
+                  <a href="/allowance" className="text-blue-600 hover:text-blue-800 font-medium">
+                    용돈 관리
+                  </a>
+                </div>
+              </div>
+            </div>
+          </nav>
           <main>
             {children}
           </main>
