@@ -410,161 +410,162 @@ export default function HomePage() {
                   </div>
                 </div>
             
-            {showCalendar ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <MonthlyCalendar 
-                  selectedDate={selectedDate}
-                  onDateSelect={setSelectedDate}
-                />
-                <DateMissionPanel 
-                  selectedDate={selectedDate}
-                  onDateChange={() => {
-                    // 날짜 변경 시 미션 목록 새로고침
-                    const initializeData = async () => {
-                      setLoading(true)
-                      try {
-                        let dateMissions: MissionInstance[] = []
-                        if (MigrationService.isMigrationCompleted()) {
-                          dateMissions = await missionService.getMissionsByDate(selectedDate)
-                          const today = new Date().toISOString().split('T')[0]
-                          if (selectedDate >= today && dateMissions.length === 0) {
-                            dateMissions = await missionService.generateDailyMissionsForDate(selectedDate)
+                {showCalendar ? (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <MonthlyCalendar 
+                      selectedDate={selectedDate}
+                      onDateSelect={setSelectedDate}
+                    />
+                    <DateMissionPanel 
+                      selectedDate={selectedDate}
+                      onDateChange={() => {
+                        // 날짜 변경 시 미션 목록 새로고침
+                        const initializeData = async () => {
+                          setLoading(true)
+                          try {
+                            let dateMissions: MissionInstance[] = []
+                            if (MigrationService.isMigrationCompleted()) {
+                              dateMissions = await missionService.getMissionsByDate(selectedDate)
+                              const today = new Date().toISOString().split('T')[0]
+                              if (selectedDate >= today && dateMissions.length === 0) {
+                                dateMissions = await missionService.generateDailyMissionsForDate(selectedDate)
+                              }
+                            }
+                            const compatibleMissions: Mission[] = dateMissions.map(instance => ({
+                              id: instance.id,
+                              title: instance.title,
+                              description: instance.description,
+                              reward: instance.reward,
+                              isCompleted: instance.isCompleted,
+                              completedAt: instance.completedAt,
+                              isTransferred: instance.isTransferred,
+                              category: instance.category,
+                              missionType: instance.missionType === 'daily' ? '데일리' : '이벤트'
+                            }))
+                            setMissions(compatibleMissions)
+                          } catch (error) {
+                            console.error('Failed to refresh missions:', error)
+                          } finally {
+                            setLoading(false)
                           }
                         }
-                        const compatibleMissions: Mission[] = dateMissions.map(instance => ({
-                          id: instance.id,
-                          title: instance.title,
-                          description: instance.description,
-                          reward: instance.reward,
-                          isCompleted: instance.isCompleted,
-                          completedAt: instance.completedAt,
-                          isTransferred: instance.isTransferred,
-                          category: instance.category,
-                          missionType: instance.missionType === 'daily' ? '데일리' : '이벤트'
-                        }))
-                        setMissions(compatibleMissions)
-                      } catch (error) {
-                        console.error('Failed to refresh missions:', error)
-                      } finally {
-                        setLoading(false)
-                      }
-                    }
-                    initializeData()
-                  }}
-                />
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {loading ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-600">미션을 불러오는 중...</p>
+                        initializeData()
+                      }}
+                    />
                   </div>
                 ) : (
-                  <>
-                    <p className="text-sm text-gray-400">현재 미션 개수: {missions.length}</p>
-                  
-                  {missions.map(mission => (
-                    <div key={mission.id} className={`p-6 rounded-xl border-2 transition-all duration-200 ${
-                      mission.isCompleted 
-                        ? 'bg-green-50 border-green-200' 
-                        : 'bg-white border-gray-200'
-                    }`}>
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h3 className={`text-lg font-semibold ${
-                              mission.isCompleted ? 'text-green-800 line-through' : 'text-gray-800'
-                            }`}>
-                              {mission.title}
-                            </h3>
-                            {mission.missionType && (
-                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                mission.missionType === '데일리' 
-                                  ? 'bg-blue-100 text-blue-800' 
-                                  : 'bg-purple-100 text-purple-800'
-                              }`}>
-                                {mission.missionType === '데일리' ? '📅 데일리' : '⭐ 이벤트'}
-                              </span>
-                            )}
-                            {mission.category && (
-                              <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">
-                                {mission.category}
-                              </span>
-                            )}
-                            {mission.isCompleted && <span className="text-2xl">✅</span>}
-                          </div>
-                          {mission.description && (
-                            <p className="text-gray-600 text-sm mb-3">{mission.description}</p>
-                          )}
-                          <div className="flex items-center gap-4">
-                            <span className="font-semibold text-green-600">{mission.reward.toLocaleString()}원</span>
-                            <span className="text-xs text-gray-500">
-                              {mission.isCompleted ? '완료됨' : '미완료'}
-                            </span>
-                          </div>
-                        </div>
-                        
-                        <div className="flex flex-col gap-2 ml-4">
-                          {!mission.isCompleted ? (
-                            <>
-                              <button
-                                onClick={() => handleMissionComplete(mission.id)}
-                                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
-                              >
-                                완료
-                              </button>
-                              <button
-                                onClick={() => handleEditMission(mission)}
-                                className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded transition-colors text-xs"
-                              >
-                                수정
-                              </button>
-                              <button
-                                onClick={() => handleDeleteMission(mission.id)}
-                                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded transition-colors text-xs"
-                              >
-                                삭제
-                              </button>
-                            </>
-                          ) : mission.isTransferred ? (
-                            <div className="text-center">
-                              <div className="text-sm text-gray-500 bg-gray-100 px-3 py-2 rounded mb-2">전달 완료</div>
-                              <button
-                                onClick={() => handleUndoTransfer(mission.id)}
-                                className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded transition-colors text-xs"
-                              >
-                                되돌리기
-                              </button>
-                            </div>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => handleUndoComplete(mission.id)}
-                                className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
-                              >
-                                취소
-                              </button>
-                              <button
-                                onClick={() => handleEditMission(mission)}
-                                className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded transition-colors text-xs"
-                              >
-                                수정
-                              </button>
-                              <button
-                                onClick={() => handleDeleteMission(mission.id)}
-                                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded transition-colors text-xs"
-                              >
-                                삭제
-                              </button>
-                            </>
-                          )}
-                        </div>
+                  <div className="space-y-4">
+                    {loading ? (
+                      <div className="text-center py-8">
+                        <p className="text-gray-600">미션을 불러오는 중...</p>
                       </div>
-                    </div>
-                    ))}
-                  </>
+                    ) : (
+                      <>
+                        <p className="text-sm text-gray-400">현재 미션 개수: {missions.length}</p>
+                      
+                        {missions.map(mission => (
+                          <div key={mission.id} className={`p-6 rounded-xl border-2 transition-all duration-200 ${
+                            mission.isCompleted 
+                              ? 'bg-green-50 border-green-200' 
+                              : 'bg-white border-gray-200'
+                          }`}>
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <h3 className={`text-lg font-semibold ${
+                                    mission.isCompleted ? 'text-green-800 line-through' : 'text-gray-800'
+                                  }`}>
+                                    {mission.title}
+                                  </h3>
+                                  {mission.missionType && (
+                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                      mission.missionType === '데일리' 
+                                        ? 'bg-blue-100 text-blue-800' 
+                                        : 'bg-purple-100 text-purple-800'
+                                    }`}>
+                                      {mission.missionType === '데일리' ? '📅 데일리' : '⭐ 이벤트'}
+                                    </span>
+                                  )}
+                                  {mission.category && (
+                                    <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">
+                                      {mission.category}
+                                    </span>
+                                  )}
+                                  {mission.isCompleted && <span className="text-2xl">✅</span>}
+                                </div>
+                                {mission.description && (
+                                  <p className="text-gray-600 text-sm mb-3">{mission.description}</p>
+                                )}
+                                <div className="flex items-center gap-4">
+                                  <span className="font-semibold text-green-600">{mission.reward.toLocaleString()}원</span>
+                                  <span className="text-xs text-gray-500">
+                                    {mission.isCompleted ? '완료됨' : '미완료'}
+                                  </span>
+                                </div>
+                              </div>
+                              
+                              <div className="flex flex-col gap-2 ml-4">
+                                {!mission.isCompleted ? (
+                                  <>
+                                    <button
+                                      onClick={() => handleMissionComplete(mission.id)}
+                                      className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                                    >
+                                      완료
+                                    </button>
+                                    <button
+                                      onClick={() => handleEditMission(mission)}
+                                      className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded transition-colors text-xs"
+                                    >
+                                      수정
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteMission(mission.id)}
+                                      className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded transition-colors text-xs"
+                                    >
+                                      삭제
+                                    </button>
+                                  </>
+                                ) : mission.isTransferred ? (
+                                  <div className="text-center">
+                                    <div className="text-sm text-gray-500 bg-gray-100 px-3 py-2 rounded mb-2">전달 완료</div>
+                                    <button
+                                      onClick={() => handleUndoTransfer(mission.id)}
+                                      className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded transition-colors text-xs"
+                                    >
+                                      되돌리기
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() => handleUndoComplete(mission.id)}
+                                      className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                                    >
+                                      취소
+                                    </button>
+                                    <button
+                                      onClick={() => handleEditMission(mission)}
+                                      className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded transition-colors text-xs"
+                                    >
+                                      수정
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteMission(mission.id)}
+                                      className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded transition-colors text-xs"
+                                    >
+                                      삭제
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
                 )}
-              </div>
               </div>
             ) : (
               <TemplateManager />
