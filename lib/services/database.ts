@@ -19,7 +19,7 @@ class DatabaseService {
     this.initializeDB()
   }
 
-  private async initializeDB(): Promise<IDBDatabase> {
+  private async initializeDB(): Promise<IDBDatabase | undefined> {
     if (this.dbPromise) {
       return this.dbPromise
     }
@@ -27,7 +27,7 @@ class DatabaseService {
     // 서버 사이드에서는 IndexedDB를 사용할 수 없음 (에러 대신 무시)
     if (typeof window === 'undefined' || !window.indexedDB) {
       console.warn('IndexedDB is not available in server environment')
-      return // 서버 사이드에서는 초기화 건너뛰기
+      return undefined // 서버 사이드에서는 초기화 건너뛰기
     }
 
     this.dbPromise = new Promise((resolve, reject) => {
@@ -88,7 +88,7 @@ class DatabaseService {
     return this.dbPromise
   }
 
-  private async getDB(): Promise<IDBDatabase> {
+  private async getDB(): Promise<IDBDatabase | undefined> {
     if (this.db) {
       return this.db
     }
@@ -98,6 +98,7 @@ class DatabaseService {
   // Generic CRUD operations
   private async add<T>(storeName: string, data: T): Promise<string> {
     const db = await this.getDB()
+    if (!db) throw new Error('Database not available')
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([storeName], 'readwrite')
       const store = transaction.objectStore(storeName)
@@ -110,6 +111,7 @@ class DatabaseService {
 
   private async update<T>(storeName: string, data: T): Promise<void> {
     const db = await this.getDB()
+    if (!db) throw new Error('Database not available')
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([storeName], 'readwrite')
       const store = transaction.objectStore(storeName)
@@ -122,6 +124,7 @@ class DatabaseService {
 
   private async get<T>(storeName: string, key: string): Promise<T | null> {
     const db = await this.getDB()
+    if (!db) return null
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([storeName], 'readonly')
       const store = transaction.objectStore(storeName)
@@ -134,6 +137,7 @@ class DatabaseService {
 
   private async getAll<T>(storeName: string): Promise<T[]> {
     const db = await this.getDB()
+    if (!db) return []
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([storeName], 'readonly')
       const store = transaction.objectStore(storeName)
@@ -146,11 +150,12 @@ class DatabaseService {
 
   private async getByIndex<T>(storeName: string, indexName: string, value: unknown): Promise<T[]> {
     const db = await this.getDB()
+    if (!db) return []
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([storeName], 'readonly')
       const store = transaction.objectStore(storeName)
       const index = store.index(indexName)
-      const request = index.getAll(value)
+      const request = index.getAll(value as IDBValidKey)
 
       request.onsuccess = () => resolve(request.result || [])
       request.onerror = () => reject(request.error)
@@ -159,6 +164,7 @@ class DatabaseService {
 
   private async delete(storeName: string, key: string): Promise<void> {
     const db = await this.getDB()
+    if (!db) throw new Error('Database not available')
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([storeName], 'readwrite')
       const store = transaction.objectStore(storeName)
@@ -262,6 +268,7 @@ class DatabaseService {
 
   async getDateSummariesInRange(startDate: string, endDate: string): Promise<DateSummary[]> {
     const db = await this.getDB()
+    if (!db) return []
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([DB_CONFIG.STORES.DATE_SUMMARIES], 'readonly')
       const store = transaction.objectStore(DB_CONFIG.STORES.DATE_SUMMARIES)
@@ -340,6 +347,7 @@ class DatabaseService {
 
   async getBalancesInRange(startDate: string, endDate: string): Promise<AllowanceBalance[]> {
     const db = await this.getDB()
+    if (!db) return []
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([ALLOWANCE_DB_CONFIG.STORES.BALANCES], 'readonly')
       const store = transaction.objectStore(ALLOWANCE_DB_CONFIG.STORES.BALANCES)
@@ -355,6 +363,7 @@ class DatabaseService {
   // Utility functions
   async clearAllData(): Promise<void> {
     const db = await this.getDB()
+    if (!db) return
     const storeNames = [
       DB_CONFIG.STORES.MISSION_TEMPLATES,
       DB_CONFIG.STORES.MISSION_INSTANCES,

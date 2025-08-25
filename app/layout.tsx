@@ -1,9 +1,10 @@
 import './globals.css'
-import Link from 'next/link'
+import { AuthProvider } from '@/components/auth/AuthProvider'
+import { NavBar } from '@/components/layout/NavBar'
 
 export const metadata = {
-  title: '우리 아이 용돈 관리',
-  description: '아이들을 위한 재미있는 용돈 관리 앱',
+  title: 'MoneySeed - 스마트 용돈 관리',
+  description: '부모와 자녀를 위한 스마트 용돈 관리 앱',
 }
 
 export default function RootLayout({
@@ -22,26 +23,14 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
-          <nav className="bg-white shadow-sm border-b">
-            <div className="max-w-4xl mx-auto px-8 py-4">
-              <div className="flex justify-between items-center">
-                <h1 className="text-xl font-bold text-gray-800">MoneySeed 💰</h1>
-                <div className="flex space-x-4">
-                  <Link href="/" className="text-blue-600 hover:text-blue-800 font-medium">
-                    홈
-                  </Link>
-                  <Link href="/allowance" className="text-blue-600 hover:text-blue-800 font-medium">
-                    용돈 관리
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </nav>
-          <main>
-            {children}
-          </main>
-        </div>
+        <AuthProvider>
+          <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+            <NavBar />
+            <main>
+              {children}
+            </main>
+          </div>
+        </AuthProvider>
       </body>
     </html>
   )
