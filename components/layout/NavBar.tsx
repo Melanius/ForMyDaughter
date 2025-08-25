@@ -111,10 +111,10 @@ export function NavBar() {
                         ? 'bg-blue-500 text-white' 
                         : 'bg-green-500 text-white'
                     }`}>
-                      {profile.full_name.charAt(0)}
+                      {profile.full_name?.charAt(0) || 'U'}
                     </div>
                     <div className="hidden sm:block">
-                      <p className="text-sm font-medium text-white">{profile.full_name}</p>
+                      <p className="text-sm font-medium text-white">{profile.full_name || '사용자'}</p>
                       <p className="text-xs text-white/70">
                         {profile.user_type === 'parent' ? '부모님' : '자녀'}
                       </p>
