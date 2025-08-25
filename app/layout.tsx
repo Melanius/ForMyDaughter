@@ -1,4 +1,5 @@
 import './globals.css'
+import Link from 'next/link'
 
 export const metadata = {
   title: '우리 아이 용돈 관리',
@@ -27,12 +28,12 @@ export default function RootLayout({
               <div className="flex justify-between items-center">
                 <h1 className="text-xl font-bold text-gray-800">MoneySeed 💰</h1>
                 <div className="flex space-x-4">
-                  <a href="/" className="text-blue-600 hover:text-blue-800 font-medium">
+                  <Link href="/" className="text-blue-600 hover:text-blue-800 font-medium">
                     홈
-                  </a>
-                  <a href="/allowance" className="text-blue-600 hover:text-blue-800 font-medium">
+                  </Link>
+                  <Link href="/allowance" className="text-blue-600 hover:text-blue-800 font-medium">
                     용돈 관리
-                  </a>
+                  </Link>
                 </div>
               </div>
             </div>
