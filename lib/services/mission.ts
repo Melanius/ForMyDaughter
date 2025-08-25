@@ -292,6 +292,117 @@ export class MissionService {
   async deleteTemplate(templateId: string): Promise<void> {
     await databaseService.deleteTemplate(templateId)
   }
+
+  // 기본 템플릿 생성 (처음 사용할 때)
+  async createDefaultTemplates(): Promise<void> {
+    try {
+      const existingTemplates = await this.getAllTemplates()
+      if (existingTemplates.length > 0) {
+        console.log('Templates already exist, skipping default template creation')
+        return
+      }
+
+      console.log('Creating default mission templates...')
+
+      const defaultTemplates = [
+        {
+          title: '방 청소하기',
+          description: '침실 정리정돈하고 먼지 털기, 옷 정리하기',
+          reward: 1000,
+          category: '집안일',
+          missionType: 'daily' as const,
+          isActive: true
+        },
+        {
+          title: '숙제 완료하기',
+          description: '학교에서 낸 숙제 모두 끝내기',
+          reward: 1500,
+          category: '공부',
+          missionType: 'daily' as const,
+          isActive: true
+        },
+        {
+          title: '책 읽기',
+          description: '하루 30분 이상 책 읽고 독서 일기 쓰기',
+          reward: 800,
+          category: '독서',
+          missionType: 'daily' as const,
+          isActive: true
+        },
+        {
+          title: '식사 후 설거지 도움',
+          description: '식사 후 그릇 정리하고 설거지 도와주기',
+          reward: 500,
+          category: '집안일',
+          missionType: 'daily' as const,
+          isActive: true
+        },
+        {
+          title: '운동하기',
+          description: '30분 이상 운동하기 (산책, 자전거 타기, 줄넘기 등)',
+          reward: 600,
+          category: '운동',
+          missionType: 'daily' as const,
+          isActive: false
+        },
+        {
+          title: '일찍 일어나기',
+          description: '정해진 시간에 일어나서 세면하고 아침 준비하기',
+          reward: 300,
+          category: '건강',
+          missionType: 'daily' as const,
+          isActive: false
+        },
+        {
+          title: '생일파티 준비',
+          description: '가족이나 친구 생일을 위한 특별한 준비 돕기',
+          reward: 2000,
+          category: '기타',
+          missionType: 'event' as const,
+          isActive: true
+        },
+        {
+          title: '대청소 도움',
+          description: '집 전체 대청소를 도와주기 (창문 닦기, 바닥 청소 등)',
+          reward: 3000,
+          category: '집안일',
+          missionType: 'event' as const,
+          isActive: true
+        },
+        {
+          title: '특별한 요리 도움',
+          description: '특별한 날 요리를 만들 때 도와주기',
+          reward: 1500,
+          category: '집안일',
+          missionType: 'event' as const,
+          isActive: true
+        }
+      ]
+
+      for (const template of defaultTemplates) {
+        await this.createTemplate(template)
+      }
+
+      console.log(`✅ Created ${defaultTemplates.length} default templates`)
+    } catch (error) {
+      console.error('Failed to create default templates:', error)
+    }
+  }
+
+  // 활성화된 데일리 템플릿이 있는지 확인하고, 없으면 기본 템플릿 생성
+  async ensureTemplatesExist(): Promise<void> {
+    try {
+      const activeTemplates = await databaseService.getActiveTemplates()
+      const dailyTemplates = activeTemplates.filter(t => t.missionType === 'daily')
+      
+      if (dailyTemplates.length === 0) {
+        console.log('No active daily templates found, creating default templates...')
+        await this.createDefaultTemplates()
+      }
+    } catch (error) {
+      console.error('Failed to ensure templates exist:', error)
+    }
+  }
 }
 
 // 싱글톤 인스턴스

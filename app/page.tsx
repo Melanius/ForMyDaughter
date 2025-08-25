@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { AddMissionModal } from '../components/mission/AddMissionModal'
+import { TemplateManager } from '../components/mission/TemplateManager'
 import MonthlyCalendar from '../components/MonthlyCalendar'
 import DateMissionPanel from '../components/DateMissionPanel'
 import { MissionInstance } from '../lib/types/mission'
@@ -30,6 +31,7 @@ export default function HomePage() {
   const [editingMission, setEditingMission] = useState<Mission | null>(null)
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0])
   const [showCalendar, setShowCalendar] = useState(false)
+  const [activeTab, setActiveTab] = useState<'missions' | 'templates'>('missions')
 
   useEffect(() => {
     const initializeData = async () => {
@@ -46,7 +48,12 @@ export default function HomePage() {
           }
         }
 
-        // 2. 선택된 날짜의 미션 로드
+        // 2. 기본 템플릿 확인 및 생성
+        if (MigrationService.isMigrationCompleted()) {
+          await missionService.ensureTemplatesExist()
+        }
+
+        // 3. 선택된 날짜의 미션 로드
         let dateMissions: MissionInstance[] = []
         const today = new Date().toISOString().split('T')[0]
 
@@ -107,7 +114,7 @@ export default function HomePage() {
           }
         }
 
-        // 3. Mission 형태로 변환 (기존 UI 호환성을 위해)
+        // 4. Mission 형태로 변환 (기존 UI 호환성을 위해)
         const compatibleMissions: Mission[] = dateMissions.map(instance => ({
           id: instance.id,
           title: instance.title,
@@ -122,7 +129,7 @@ export default function HomePage() {
 
         setMissions(compatibleMissions)
 
-        // 4. 용돈 정보 로드 - 용돈 서비스에서 현재 잔액 가져오기
+        // 5. 용돈 정보 로드 - 용돈 서비스에서 현재 잔액 가져오기
         try {
           const currentBalance = await allowanceService.getCurrentBalance()
           setCurrentAllowance(currentBalance)
@@ -353,29 +360,55 @@ export default function HomePage() {
         
         <div className="mb-12">
           <div className="bg-white rounded-xl shadow-lg p-8">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center space-x-4">
-                <h2 className="text-2xl font-bold text-gray-800">
-                  {selectedDate === new Date().toISOString().split('T')[0] ? '오늘의 미션' : 
-                   `${new Date(selectedDate).getMonth() + 1}월 ${new Date(selectedDate).getDate()}일 미션`}
-                </h2>
-                <span className="text-sm text-gray-500">{selectedDate}</span>
-              </div>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => setShowCalendar(!showCalendar)}
-                  className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
-                >
-                  {showCalendar ? '목록 보기' : '달력 보기'}
-                </button>
-                <button
-                  onClick={() => setShowAddModal(true)}
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
-                >
-                  미션 추가
-                </button>
-              </div>
+            {/* 탭 네비게이션 */}
+            <div className="flex border-b border-gray-200 mb-6">
+              <button
+                onClick={() => setActiveTab('missions')}
+                className={`px-6 py-3 font-medium transition-colors ${
+                  activeTab === 'missions'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                📅 미션 관리
+              </button>
+              <button
+                onClick={() => setActiveTab('templates')}
+                className={`px-6 py-3 font-medium transition-colors ${
+                  activeTab === 'templates'
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                🔧 템플릿 관리
+              </button>
             </div>
+
+            {activeTab === 'missions' ? (
+              <div>
+                <div className="flex justify-between items-center mb-6">
+                  <div className="flex items-center space-x-4">
+                    <h2 className="text-2xl font-bold text-gray-800">
+                      {selectedDate === new Date().toISOString().split('T')[0] ? '오늘의 미션' : 
+                       `${new Date(selectedDate).getMonth() + 1}월 ${new Date(selectedDate).getDate()}일 미션`}
+                    </h2>
+                    <span className="text-sm text-gray-500">{selectedDate}</span>
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => setShowCalendar(!showCalendar)}
+                      className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                    >
+                      {showCalendar ? '목록 보기' : '달력 보기'}
+                    </button>
+                    <button
+                      onClick={() => setShowAddModal(true)}
+                      className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                    >
+                      미션 추가
+                    </button>
+                  </div>
+                </div>
             
             {showCalendar ? (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -427,8 +460,8 @@ export default function HomePage() {
                     <p className="text-gray-600">미션을 불러오는 중...</p>
                   </div>
                 ) : (
-                <>
-                  <p className="text-sm text-gray-400">현재 미션 개수: {missions.length}</p>
+                  <>
+                    <p className="text-sm text-gray-400">현재 미션 개수: {missions.length}</p>
                   
                   {missions.map(mission => (
                     <div key={mission.id} className={`p-6 rounded-xl border-2 transition-all duration-200 ${
@@ -528,10 +561,13 @@ export default function HomePage() {
                         </div>
                       </div>
                     </div>
-                  ))}
-                </>
+                    ))}
+                  </>
                 )}
               </div>
+              </div>
+            ) : (
+              <TemplateManager />
             )}
           </div>
         </div>
