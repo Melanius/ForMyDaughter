@@ -226,9 +226,9 @@ export default function HomePage() {
               mission.id === payload.missionId 
                 ? { 
                     ...mission, 
-                    isCompleted: payload.data.isCompleted,
-                    completedAt: payload.data.completedAt,
-                    isTransferred: payload.data.isTransferred || false
+                    isCompleted: payload.data.isCompleted ?? mission.isCompleted,
+                    completedAt: payload.data.completedAt ?? mission.completedAt,
+                    isTransferred: payload.data.isTransferred ?? mission.isTransferred ?? false
                   }
                 : mission
             )
