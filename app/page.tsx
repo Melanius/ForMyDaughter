@@ -389,8 +389,11 @@ export default function HomePage() {
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-3">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                     <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
-                      {selectedDate === new Date().toISOString().split('T')[0] ? '오늘<span className="hidden sm:inline">의 미션</span>' : 
-                       `${new Date(selectedDate).getMonth() + 1}월 ${new Date(selectedDate).getDate()}일`}
+                      {selectedDate === new Date().toISOString().split('T')[0] ? (
+                        <>오늘<span className="hidden sm:inline">의 미션</span></>
+                      ) : (
+                        `${new Date(selectedDate).getMonth() + 1}월 ${new Date(selectedDate).getDate()}일`
+                      )}
                     </h2>
                     <span className="text-xs sm:text-sm text-gray-500">{selectedDate}</span>
                   </div>
