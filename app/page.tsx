@@ -397,7 +397,7 @@ export default function HomePage() {
               >
                 오늘<span className="hidden sm:inline">의 미션</span>
               </button>
-              {profile.user_type === 'parent' && (
+              {profile?.user_type === 'parent' && (
                 <button
                   onClick={() => setActiveTab('templates')}
                   className={`px-2 sm:px-6 py-2 sm:py-3 font-medium transition-colors text-sm sm:text-base ${
@@ -431,7 +431,7 @@ export default function HomePage() {
                     >
                       {showCalendar ? '목록' : '달력'}
                     </button>
-                    {profile.user_type === 'parent' && (
+                    {profile?.user_type === 'parent' && (
                       <button
                         onClick={() => setShowAddModal(true)}
                         className="bg-blue-500 hover:bg-blue-600 text-white px-2 sm:px-4 py-2 rounded-lg transition-colors text-xs sm:text-sm font-medium flex-1 sm:flex-none"
@@ -545,7 +545,7 @@ export default function HomePage() {
                                     >
                                       완료
                                     </button>
-                                    {profile.user_type === 'parent' && (
+                                    {profile?.user_type === 'parent' && (
                                       <>
                                         <button
                                           onClick={() => handleEditMission(mission)}
@@ -580,7 +580,7 @@ export default function HomePage() {
                                     >
                                       취소
                                     </button>
-                                    {profile.user_type === 'parent' && (
+                                    {profile?.user_type === 'parent' && (
                                       <>
                                         <button
                                           onClick={() => handleEditMission(mission)}
@@ -626,7 +626,7 @@ export default function HomePage() {
             </div>
           </div>
           {missions.filter(m => m.isCompleted && !m.isTransferred).length > 0 && (
-            profile.user_type === 'parent' ? (
+            profile?.user_type === 'parent' ? (
               <button
                 onClick={async () => {
                   // 부모 확인 다이얼로그

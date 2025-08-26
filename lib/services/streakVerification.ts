@@ -1,4 +1,6 @@
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
+
+const supabase = createClient()
 
 export class StreakVerificationService {
   // 보너스 지급 내역 검증
