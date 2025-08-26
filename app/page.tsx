@@ -10,6 +10,9 @@ import MigrationService from '../lib/services/migration'
 import missionService from '../lib/services/mission'
 import allowanceService from '../lib/services/allowance'
 import { useAuth } from '@/components/auth/AuthProvider'
+import { StreakDisplay } from '@/components/streak/StreakDisplay'
+import { StreakSettingsModal } from '@/components/streak/StreakSettings'
+import streakService from '@/lib/services/streak'
 
 // 기존 Mission 인터페이스 유지 (하위 호환성)
 interface Mission {
@@ -34,6 +37,7 @@ export default function HomePage() {
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0])
   const [showCalendar, setShowCalendar] = useState(false)
   const [activeTab, setActiveTab] = useState<'missions' | 'templates'>('missions')
+  const [showStreakSettings, setShowStreakSettings] = useState(false)
 
   useEffect(() => {
     const initializeData = async () => {
@@ -176,11 +180,24 @@ export default function HomePage() {
 
   const handleMissionComplete = async (missionId: string) => {
     const mission = missions.find(m => m.id === missionId)
-    if (mission && !mission.isCompleted) {
+    if (mission && !mission.isCompleted && profile?.id) {
       try {
         if (MigrationService.isMigrationCompleted()) {
           // 새로운 데이터베이스 사용
           await missionService.completeMission(missionId)
+        }
+        
+        // 연속 완료 카운터 업데이트
+        try {
+          const streakResult = await streakService.updateStreak(profile.id)
+          
+          if (streakResult.shouldCelebrate) {
+            // TODO: 축하 이펙트 표시
+            alert(`🎉 ${streakResult.newStreak}일 연속 완료! +${streakResult.bonusEarned}원 보너스!`)
+          }
+        } catch (streakError) {
+          console.error('연속 카운터 업데이트 실패:', streakError)
+          // 연속 카운터 실패해도 미션 완료는 유지
         }
         
         // UI 상태 업데이트
@@ -661,6 +678,28 @@ export default function HomePage() {
           )}
         </div>
 
+        {/* 연속 완료 표시 */}
+        <div className="mb-6 sm:mb-8">
+          <div className="flex justify-between items-start mb-4">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-800">연속 완료 도전</h2>
+            {profile?.user_type === 'parent' && (
+              <button
+                onClick={() => setShowStreakSettings(true)}
+                className="text-gray-500 hover:text-gray-700 p-2"
+                title="연속 완료 설정"
+              >
+                ⚙️
+              </button>
+            )}
+          </div>
+          <StreakDisplay onStreakUpdate={(newStreak, bonusEarned) => {
+            if (bonusEarned > 0) {
+              // 용돈 잔액 업데이트
+              setCurrentAllowance(prev => prev + bonusEarned)
+            }
+          }} />
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
             <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4">성과</h3>
@@ -707,6 +746,16 @@ export default function HomePage() {
           defaultDate={selectedDate}
         />
       )}
+
+      {/* 연속 완료 설정 모달 */}
+      <StreakSettingsModal
+        isOpen={showStreakSettings}
+        onClose={() => setShowStreakSettings(false)}
+        onSave={() => {
+          // 설정이 변경되면 UI 새로고침
+          window.location.reload()
+        }}
+      />
     </div>
   )
 }
