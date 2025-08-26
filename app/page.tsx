@@ -12,6 +12,7 @@ import allowanceService from '../lib/services/allowance'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { StreakDisplay } from '@/components/streak/StreakDisplay'
 import { StreakSettingsModal } from '@/components/streak/StreakSettings'
+import { StreakTester } from '@/components/streak/StreakTester'
 import streakService from '@/lib/services/streak'
 
 // 기존 Mission 인터페이스 유지 (하위 호환성)
@@ -38,6 +39,7 @@ export default function HomePage() {
   const [showCalendar, setShowCalendar] = useState(false)
   const [activeTab, setActiveTab] = useState<'missions' | 'templates'>('missions')
   const [showStreakSettings, setShowStreakSettings] = useState(false)
+  const [celebrationTrigger, setCelebrationTrigger] = useState<{ streakCount: number; bonusAmount: number; timestamp: number } | null>(null)
 
   useEffect(() => {
     const initializeData = async () => {
@@ -192,8 +194,12 @@ export default function HomePage() {
           const streakResult = await streakService.updateStreak(profile.id)
           
           if (streakResult.shouldCelebrate) {
-            // TODO: 축하 이펙트 표시
-            alert(`🎉 ${streakResult.newStreak}일 연속 완료! +${streakResult.bonusEarned}원 보너스!`)
+            // 축하 이펙트 트리거
+            setCelebrationTrigger({
+              streakCount: streakResult.newStreak,
+              bonusAmount: streakResult.bonusEarned,
+              timestamp: Date.now()
+            })
           }
         } catch (streakError) {
           console.error('연속 카운터 업데이트 실패:', streakError)
@@ -692,12 +698,18 @@ export default function HomePage() {
               </button>
             )}
           </div>
-          <StreakDisplay onStreakUpdate={(newStreak, bonusEarned) => {
-            if (bonusEarned > 0) {
-              // 용돈 잔액 업데이트
-              setCurrentAllowance(prev => prev + bonusEarned)
-            }
-          }} />
+          <StreakDisplay 
+            onStreakUpdate={(newStreak, bonusEarned) => {
+              if (bonusEarned > 0) {
+                // 용돈 잔액 업데이트
+                setCurrentAllowance(prev => prev + bonusEarned)
+              }
+            }}
+            triggerCelebration={celebrationTrigger}
+          />
+          
+          {/* 개발 테스트 도구 (부모만 표시) */}
+          <StreakTester />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">

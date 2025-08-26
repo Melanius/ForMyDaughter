@@ -3,22 +3,42 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/components/auth/AuthProvider'
 import streakService, { UserProgress, StreakSettings } from '@/lib/services/streak'
+import { CelebrationEffect } from './CelebrationEffect'
 
 interface StreakDisplayProps {
   onStreakUpdate?: (newStreak: number, bonusEarned: number) => void
+  triggerCelebration?: { streakCount: number; bonusAmount: number; timestamp: number } | null
 }
 
-export function StreakDisplay({ onStreakUpdate }: StreakDisplayProps) {
+export function StreakDisplay({ onStreakUpdate, triggerCelebration }: StreakDisplayProps) {
   const { user } = useAuth()
   const [progress, setProgress] = useState<UserProgress | null>(null)
   const [settings, setSettings] = useState<StreakSettings | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showCelebration, setShowCelebration] = useState(false)
+  const [celebrationData, setCelebrationData] = useState<{ streakCount: number; bonusAmount: number } | null>(null)
 
   useEffect(() => {
     if (user?.id) {
       loadStreakData()
     }
   }, [user?.id])
+
+  // 축하 효과 트리거
+  useEffect(() => {
+    if (triggerCelebration && !showCelebration) {
+      setCelebrationData({
+        streakCount: triggerCelebration.streakCount,
+        bonusAmount: triggerCelebration.bonusAmount
+      })
+      setShowCelebration(true)
+      
+      // 데이터 새로고침
+      setTimeout(() => {
+        loadStreakData()
+      }, 500)
+    }
+  }, [triggerCelebration, showCelebration])
 
   const loadStreakData = async () => {
     if (!user?.id) return
@@ -55,6 +75,11 @@ export function StreakDisplay({ onStreakUpdate }: StreakDisplayProps) {
   const progressPercent = Math.min((progress.streak_count % settings.streak_target) / settings.streak_target * 100, 100)
   const daysToNext = settings.streak_target - (progress.streak_count % settings.streak_target)
   const isAtTarget = progress.streak_count > 0 && progress.streak_count % settings.streak_target === 0
+  
+  // 진행률 표시 개선을 위한 계산
+  const nextMilestone = Math.ceil(progress.streak_count / settings.streak_target) * settings.streak_target
+  const currentCycleProgress = progress.streak_count % settings.streak_target || (isAtTarget ? settings.streak_target : 0)
+  const progressWidth = isAtTarget ? 100 : (currentCycleProgress / settings.streak_target) * 100
 
   return (
     <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-xl shadow-lg p-4 border border-orange-200">
@@ -83,10 +108,10 @@ export function StreakDisplay({ onStreakUpdate }: StreakDisplayProps) {
         </div>
       </div>
 
-      {/* 진행률 바 */}
+      {/* 진행률 바 - 개선된 버전 */}
       <div className="mb-3">
         <div className="flex justify-between text-xs text-gray-600 mb-1">
-          <span>목표까지</span>
+          <span>진행률 ({currentCycleProgress}/{settings.streak_target})</span>
           <span>
             {isAtTarget 
               ? '🎉 달성!' 
@@ -94,18 +119,41 @@ export function StreakDisplay({ onStreakUpdate }: StreakDisplayProps) {
             }
           </span>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-3">
+        <div className="w-full bg-gray-200 rounded-full h-4 relative overflow-hidden">
+          {/* 배경 패턴 */}
+          <div className="absolute inset-0 bg-gradient-to-r from-gray-100 to-gray-200"></div>
+          
+          {/* 진행률 바 */}
           <div 
-            className={`h-3 rounded-full transition-all duration-500 ${
+            className={`h-full rounded-full transition-all duration-700 ease-out relative ${
               isAtTarget 
-                ? 'bg-gradient-to-r from-green-400 to-green-600' 
-                : 'bg-gradient-to-r from-orange-400 to-red-500'
+                ? 'bg-gradient-to-r from-green-400 to-green-600 shadow-lg' 
+                : progressWidth > 80 
+                  ? 'bg-gradient-to-r from-yellow-400 to-orange-500 shadow-md'
+                  : 'bg-gradient-to-r from-orange-400 to-red-500'
             }`}
             style={{ 
-              width: isAtTarget ? '100%' : `${progressPercent}%` 
+              width: `${progressWidth}%`
             }}
-          ></div>
+          >
+            {/* 진행률이 높을 때 반짝이는 효과 */}
+            {progressWidth > 60 && (
+              <div className="absolute inset-0 bg-white opacity-20 rounded-full animate-pulse"></div>
+            )}
+          </div>
+          
+          {/* 목표점 표시 */}
+          {!isAtTarget && (
+            <div className="absolute right-0 top-0 h-full w-1 bg-gray-400 opacity-50"></div>
+          )}
         </div>
+        
+        {/* 다음 마일스톤 힌트 */}
+        {progress.streak_count > 0 && !isAtTarget && (
+          <div className="text-xs text-gray-500 mt-1 text-center">
+            다음 목표: {nextMilestone}일 연속 완료
+          </div>
+        )}
       </div>
 
       {/* 상태 메시지 */}
@@ -138,6 +186,19 @@ export function StreakDisplay({ onStreakUpdate }: StreakDisplayProps) {
             </p>
           </div>
         </div>
+      )}
+
+      {/* 축하 효과 */}
+      {celebrationData && (
+        <CelebrationEffect
+          isVisible={showCelebration}
+          streakCount={celebrationData.streakCount}
+          bonusAmount={celebrationData.bonusAmount}
+          onComplete={() => {
+            setShowCelebration(false)
+            setCelebrationData(null)
+          }}
+        />
       )}
     </div>
   )

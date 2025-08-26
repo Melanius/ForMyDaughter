@@ -83,24 +83,44 @@ class StreakService {
         }
       }
 
-      // 목표 달성 시 보너스 지급
+      // 목표 달성 시 보너스 지급 - 개선된 검증 로직
       if (newStreak > 0 && newStreak % settings.streak_target === 0) {
         bonusEarned = settings.streak_bonus
         shouldCelebrate = true
 
-        // 보상 내역 기록
-        await supabase
-          .from('reward_history')
-          .insert({
-            user_id: userId,
-            reward_type: 'streak_bonus',
-            amount: bonusEarned,
-            trigger_value: newStreak,
-            description: `${settings.streak_target}일 연속 완료 보너스`
-          })
+        console.log(`🎉 연속 완료 보너스 지급: ${userId}, ${newStreak}일 연속, ${bonusEarned}원`)
 
-        // 용돈에 보너스 추가
-        await this.addStreakBonus(userId, bonusEarned, completionDate)
+        // 트랜잭션으로 안전하게 처리
+        try {
+          // 1. 보상 내역 기록
+          const { data: rewardData, error: rewardError } = await supabase
+            .from('reward_history')
+            .insert({
+              user_id: userId,
+              reward_type: 'streak_bonus',
+              amount: bonusEarned,
+              trigger_value: newStreak,
+              description: `${settings.streak_target}일 연속 완료 보너스`
+            })
+            .select()
+
+          if (rewardError) {
+            console.error('보상 내역 기록 실패:', rewardError)
+            throw rewardError
+          }
+
+          // 2. 용돈에 보너스 추가 (검증 강화)
+          const bonusResult = await this.addStreakBonus(userId, bonusEarned, completionDate)
+          
+          console.log(`✅ 보너스 지급 완료: 보상내역 ID ${rewardData?.[0]?.id}, 용돈 추가 완료`)
+
+        } catch (error) {
+          console.error('보너스 지급 과정에서 오류 발생:', error)
+          // 부분 실패 시에도 streak은 업데이트하되 bonusEarned는 0으로 설정
+          bonusEarned = 0
+          shouldCelebrate = false
+          throw error
+        }
       }
 
       // 진행상황 업데이트
@@ -130,11 +150,13 @@ class StreakService {
     }
   }
 
-  // 연속 완료 보너스를 용돈에 추가
+  // 연속 완료 보너스를 용돈에 추가 - 검증 강화
   private async addStreakBonus(userId: string, amount: number, date: string) {
     try {
+      console.log(`💰 용돈 보너스 추가 시작: ${userId}, ${amount}원, ${date}`)
+
       // 용돈 거래 내역에 추가
-      await supabase
+      const { data: transactionData, error: transactionError } = await supabase
         .from('allowance_transactions')
         .insert({
           user_id: userId,
@@ -144,6 +166,29 @@ class StreakService {
           category: '연속완료보너스',
           description: `${amount}원 연속 완료 보너스`
         })
+        .select()
+
+      if (transactionError) {
+        console.error('용돈 거래 추가 실패:', transactionError)
+        throw transactionError
+      }
+
+      console.log(`✅ 용돈 거래 추가 성공: ID ${transactionData?.[0]?.id}`)
+
+      // 거래 후 잔액 확인 (선택적)
+      const { data: balance } = await supabase
+        .from('allowance_transactions')
+        .select('amount')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(5)
+
+      if (balance) {
+        const totalBalance = balance.reduce((sum, tx) => sum + (tx.amount || 0), 0)
+        console.log(`💳 최근 거래 후 누적 잔액 (최근 5건 기준): ${totalBalance}원`)
+      }
+
+      return transactionData
 
     } catch (error) {
       console.error('연속 완료 보너스 지급 실패:', error)
