@@ -221,14 +221,15 @@ export default function HomePage() {
         console.log('🔥 탭 간 미션 동기화 수신:', payload)
         
         if (payload.type === 'mission_update' && payload.data) {
+          const data = payload.data
           setMissions(prev => 
             prev.map(mission => 
               mission.id === payload.missionId 
                 ? { 
                     ...mission, 
-                    isCompleted: payload.data.isCompleted ?? mission.isCompleted,
-                    completedAt: payload.data.completedAt ?? mission.completedAt,
-                    isTransferred: payload.data.isTransferred ?? mission.isTransferred ?? false
+                    isCompleted: data.isCompleted ?? mission.isCompleted,
+                    completedAt: data.completedAt ?? mission.completedAt,
+                    isTransferred: data.isTransferred ?? mission.isTransferred ?? false
                   }
                 : mission
             )
