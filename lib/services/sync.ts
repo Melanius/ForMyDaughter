@@ -7,7 +7,12 @@
 export interface MissionSyncPayload {
   type: 'mission_update' | 'mission_create' | 'mission_delete'
   missionId: string
-  data?: any
+  data?: {
+    isCompleted?: boolean
+    completedAt?: string | null
+    isTransferred?: boolean
+    [key: string]: unknown
+  }
   timestamp: number
   userId?: string
   date?: string
@@ -85,7 +90,7 @@ class SyncService {
   }
 
   // 미션 업데이트 이벤트 발생
-  notifyMissionUpdate(missionId: string, data: any, userId?: string, date?: string) {
+  notifyMissionUpdate(missionId: string, data: Record<string, unknown>, userId?: string, date?: string) {
     const payload: MissionSyncPayload = {
       type: 'mission_update',
       missionId,
@@ -100,7 +105,7 @@ class SyncService {
   }
 
   // 미션 생성 이벤트 발생
-  notifyMissionCreate(missionId: string, data: any, userId?: string, date?: string) {
+  notifyMissionCreate(missionId: string, data: Record<string, unknown>, userId?: string, date?: string) {
     const payload: MissionSyncPayload = {
       type: 'mission_create',
       missionId,

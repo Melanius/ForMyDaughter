@@ -13,8 +13,8 @@ export interface MissionUpdatePayload {
 
 export interface MissionRealtimeListener {
   onMissionUpdate: (payload: MissionUpdatePayload) => void
-  onMissionInsert: (payload: any) => void
-  onMissionDelete: (payload: any) => void
+  onMissionInsert: (payload: Record<string, unknown>) => void
+  onMissionDelete: (payload: Record<string, unknown>) => void
 }
 
 class RealtimeService {

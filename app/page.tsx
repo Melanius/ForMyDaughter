@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { AddMissionModal } from '../components/mission/AddMissionModal'
 import { TemplateManager } from '../components/mission/TemplateManager'
-import DateMissionPanel from '../components/DateMissionPanel'
 import { MissionInstance } from '../lib/types/mission'
 import MigrationService from '../lib/services/migration'
 import missionService from '../lib/services/mission'
@@ -36,11 +35,11 @@ export default function HomePage() {
   const [currentAllowance, setCurrentAllowance] = useState(7500)
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingMission, setEditingMission] = useState<Mission | null>(null)
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [selectedDate] = useState(() => new Date().toISOString().split('T')[0])
   const [activeTab, setActiveTab] = useState<'missions' | 'templates'>('missions')
   const [showStreakSettings, setShowStreakSettings] = useState(false)
   const [celebrationTrigger, setCelebrationTrigger] = useState<{ streakCount: number; bonusAmount: number; timestamp: number } | null>(null)
-  const [connectedChildren, setConnectedChildren] = useState<any[]>([])
+  const [connectedChildren, setConnectedChildren] = useState<{id: string; full_name: string; family_code: string}[]>([])
   const [isParentWithChild, setIsParentWithChild] = useState(false)
 
   useEffect(() => {
@@ -211,7 +210,7 @@ export default function HomePage() {
     }
 
     initializeData()
-  }, [selectedDate])
+  }, [selectedDate, profile?.id, profile?.user_type])
 
   // 실시간 미션 업데이트 구독 (탭 간 동기화)
   useEffect(() => {
