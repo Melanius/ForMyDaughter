@@ -372,16 +372,18 @@ export default function HomePage() {
               >
                 오늘<span className="hidden sm:inline">의 미션</span>
               </button>
-              <button
-                onClick={() => setActiveTab('templates')}
-                className={`px-2 sm:px-6 py-2 sm:py-3 font-medium transition-colors text-sm sm:text-base ${
-                  activeTab === 'templates'
-                    ? 'text-blue-600 border-b-2 border-blue-600'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-              >
-                만들기
-              </button>
+              {profile.user_type === 'parent' && (
+                <button
+                  onClick={() => setActiveTab('templates')}
+                  className={`px-2 sm:px-6 py-2 sm:py-3 font-medium transition-colors text-sm sm:text-base ${
+                    activeTab === 'templates'
+                      ? 'text-blue-600 border-b-2 border-blue-600'
+                      : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  만들기
+                </button>
+              )}
             </div>
 
             {activeTab === 'missions' ? (
@@ -404,12 +406,14 @@ export default function HomePage() {
                     >
                       {showCalendar ? '목록' : '달력'}
                     </button>
-                    <button
-                      onClick={() => setShowAddModal(true)}
-                      className="bg-blue-500 hover:bg-blue-600 text-white px-2 sm:px-4 py-2 rounded-lg transition-colors text-xs sm:text-sm font-medium flex-1 sm:flex-none"
-                    >
-                      추가
-                    </button>
+                    {profile.user_type === 'parent' && (
+                      <button
+                        onClick={() => setShowAddModal(true)}
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-2 sm:px-4 py-2 rounded-lg transition-colors text-xs sm:text-sm font-medium flex-1 sm:flex-none"
+                      >
+                        추가
+                      </button>
+                    )}
                   </div>
                 </div>
             
@@ -516,18 +520,22 @@ export default function HomePage() {
                                     >
                                       완료
                                     </button>
-                                    <button
-                                      onClick={() => handleEditMission(mission)}
-                                      className="bg-blue-500 hover:bg-blue-600 text-white px-2 sm:px-3 py-1 rounded transition-colors text-xs whitespace-nowrap"
-                                    >
-                                      ✏️ 수정
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteMission(mission.id)}
-                                      className="bg-red-500 hover:bg-red-600 text-white px-2 sm:px-3 py-1 rounded transition-colors text-xs whitespace-nowrap"
-                                    >
-                                      🗑️ 삭제
-                                    </button>
+                                    {profile.user_type === 'parent' && (
+                                      <>
+                                        <button
+                                          onClick={() => handleEditMission(mission)}
+                                          className="bg-blue-500 hover:bg-blue-600 text-white px-2 sm:px-3 py-1 rounded transition-colors text-xs whitespace-nowrap"
+                                        >
+                                          수정
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteMission(mission.id)}
+                                          className="bg-red-500 hover:bg-red-600 text-white px-2 sm:px-3 py-1 rounded transition-colors text-xs whitespace-nowrap"
+                                        >
+                                          삭제
+                                        </button>
+                                      </>
+                                    )}
                                   </>
                                 ) : mission.isTransferred ? (
                                   <div className="text-center">
@@ -547,18 +555,22 @@ export default function HomePage() {
                                     >
                                       취소
                                     </button>
-                                    <button
-                                      onClick={() => handleEditMission(mission)}
-                                      className="bg-blue-500 hover:bg-blue-600 text-white px-2 sm:px-3 py-1 rounded transition-colors text-xs whitespace-nowrap"
-                                    >
-                                      ✏️ 수정
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteMission(mission.id)}
-                                      className="bg-red-500 hover:bg-red-600 text-white px-2 sm:px-3 py-1 rounded transition-colors text-xs whitespace-nowrap"
-                                    >
-                                      🗑️ 삭제
-                                    </button>
+                                    {profile.user_type === 'parent' && (
+                                      <>
+                                        <button
+                                          onClick={() => handleEditMission(mission)}
+                                          className="bg-blue-500 hover:bg-blue-600 text-white px-2 sm:px-3 py-1 rounded transition-colors text-xs whitespace-nowrap"
+                                        >
+                                          수정
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteMission(mission.id)}
+                                          className="bg-red-500 hover:bg-red-600 text-white px-2 sm:px-3 py-1 rounded transition-colors text-xs whitespace-nowrap"
+                                        >
+                                          삭제
+                                        </button>
+                                      </>
+                                    )}
                                   </>
                                 )}
                               </div>
@@ -589,47 +601,61 @@ export default function HomePage() {
             </div>
           </div>
           {missions.filter(m => m.isCompleted && !m.isTransferred).length > 0 && (
-            <button
-              onClick={async () => {
-                try {
-                  const pendingMissions = missions.filter(m => m.isCompleted && !m.isTransferred)
-                  const pendingReward = pendingMissions.reduce((sum, m) => sum + m.reward, 0)
-                  const today = new Date().toISOString().split('T')[0]
-                  
-                  if (MigrationService.isMigrationCompleted()) {
-                    // 새로운 데이터베이스 사용
-                    const missionIds = pendingMissions.map(m => m.id)
-                    await missionService.transferMissions(missionIds)
-                    
-                    // 각 미션에 대해 용돈 내역에 수입 추가
-                    for (const mission of pendingMissions) {
-                      await allowanceService.addMissionIncome(
-                        mission.id, 
-                        mission.reward, 
-                        mission.title, 
-                        today
-                      )
-                    }
+            profile.user_type === 'parent' ? (
+              <button
+                onClick={async () => {
+                  // 부모 확인 다이얼로그
+                  const pendingReward = missions.filter(m => m.isCompleted && !m.isTransferred).reduce((sum, m) => sum + m.reward, 0)
+                  if (!confirm(`${pendingReward.toLocaleString()}원을 자녀에게 지급하시겠습니까?`)) {
+                    return
                   }
 
-                  // UI 상태 업데이트 - 용돈 서비스에서 현재 잔액 다시 가져오기
-                  const updatedBalance = await allowanceService.getCurrentBalance()
-                  setCurrentAllowance(updatedBalance)
-                  localStorage.setItem('currentAllowance', updatedBalance.toString())
-                  
-                  setMissions(prev => prev.map(m => 
-                    m.isCompleted && !m.isTransferred 
-                      ? { ...m, isTransferred: true }
-                      : m
-                  ))
-                } catch (error) {
-                  console.error('Failed to transfer missions:', error)
-                }
-              }}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-4 sm:px-6 py-3 rounded-lg transition-colors font-medium text-sm sm:text-base"
-            >
-              받기
-            </button>
+                  try {
+                    const pendingMissions = missions.filter(m => m.isCompleted && !m.isTransferred)
+                    const today = new Date().toISOString().split('T')[0]
+                    
+                    if (MigrationService.isMigrationCompleted()) {
+                      // 새로운 데이터베이스 사용
+                      const missionIds = pendingMissions.map(m => m.id)
+                      await missionService.transferMissions(missionIds)
+                      
+                      // 각 미션에 대해 용돈 내역에 수입 추가
+                      for (const mission of pendingMissions) {
+                        await allowanceService.addMissionIncome(
+                          mission.id, 
+                          mission.reward, 
+                          mission.title, 
+                          today
+                        )
+                      }
+                    }
+
+                    // UI 상태 업데이트 - 용돈 서비스에서 현재 잔액 다시 가져오기
+                    const updatedBalance = await allowanceService.getCurrentBalance()
+                    setCurrentAllowance(updatedBalance)
+                    localStorage.setItem('currentAllowance', updatedBalance.toString())
+                    
+                    setMissions(prev => prev.map(m => 
+                      m.isCompleted && !m.isTransferred 
+                        ? { ...m, isTransferred: true }
+                        : m
+                    ))
+                  } catch (error) {
+                    console.error('Failed to transfer missions:', error)
+                  }
+                }}
+                className="bg-green-500 hover:bg-green-600 text-white px-4 sm:px-6 py-3 rounded-lg transition-colors font-medium text-sm sm:text-base"
+              >
+                용돈 전달 완료
+              </button>
+            ) : (
+              <div className="bg-orange-100 border border-orange-300 text-orange-800 px-4 sm:px-6 py-3 rounded-lg text-center text-sm sm:text-base">
+                <p className="font-medium">부모님 승인 대기중</p>
+                <p className="text-xs sm:text-sm text-orange-600 mt-1">
+                  완료한 미션의 용돈을 받으려면 부모님의 승인이 필요해요
+                </p>
+              </div>
+            )
           )}
         </div>
 
