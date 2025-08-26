@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { AddMissionModal } from '../components/mission/AddMissionModal'
 import { TemplateManager } from '../components/mission/TemplateManager'
-import MonthlyCalendar from '../components/MonthlyCalendar'
 import DateMissionPanel from '../components/DateMissionPanel'
 import { MissionInstance } from '../lib/types/mission'
 import MigrationService from '../lib/services/migration'
@@ -15,6 +14,7 @@ import { StreakSettingsModal } from '@/components/streak/StreakSettings'
 import { StreakTester } from '@/components/streak/StreakTester'
 import streakService from '@/lib/services/streak'
 import syncService from '@/lib/services/sync'
+import { createClient } from '@/lib/supabase/client'
 
 // 기존 Mission 인터페이스 유지 (하위 호환성)
 interface Mission {
@@ -37,10 +37,11 @@ export default function HomePage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingMission, setEditingMission] = useState<Mission | null>(null)
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0])
-  const [showCalendar, setShowCalendar] = useState(false)
   const [activeTab, setActiveTab] = useState<'missions' | 'templates'>('missions')
   const [showStreakSettings, setShowStreakSettings] = useState(false)
   const [celebrationTrigger, setCelebrationTrigger] = useState<{ streakCount: number; bonusAmount: number; timestamp: number } | null>(null)
+  const [connectedChildren, setConnectedChildren] = useState<any[]>([])
+  const [isParentWithChild, setIsParentWithChild] = useState(false)
 
   useEffect(() => {
     const initializeData = async () => {
@@ -59,10 +60,46 @@ export default function HomePage() {
 
         // 2. 기본 템플릿 확인 및 생성
         if (MigrationService.isMigrationCompleted()) {
+          console.log('🏗️ 기본 템플릿 확인 및 생성 시작...')
           await missionService.ensureTemplatesExist()
+          
+          // 템플릿 생성 확인
+          const allTemplates = await missionService.getAllTemplates()
+          const activeDaily = allTemplates.filter(t => t.missionType === 'daily' && t.isActive)
+          console.log(`📋 총 템플릿: ${allTemplates.length}개, 활성 데일리: ${activeDaily.length}개`)
+          
+          // 활성 데일리 템플릿이 없으면 강제로 기본 템플릿 생성
+          if (activeDaily.length === 0) {
+            console.log('⚠️ 활성 데일리 템플릿이 없어 기본 템플릿 강제 생성')
+            await missionService.createDefaultTemplates()
+          }
         }
 
-        // 3. 선택된 날짜의 미션 로드
+        // 3. 부모-자녀 연결 상태 확인
+        if (profile?.user_type === 'parent') {
+          try {
+            const supabase = createClient()
+            const { data: children, error } = await supabase
+              .from('profiles')
+              .select('id, full_name, family_code')
+              .eq('parent_id', profile.id)
+              .eq('user_type', 'child')
+            
+            if (!error && children && children.length > 0) {
+              setConnectedChildren(children)
+              setIsParentWithChild(true)
+              console.log('👨‍👩‍👧‍👦 연결된 자녀:', children.length, '명')
+            } else {
+              setConnectedChildren([])
+              setIsParentWithChild(false)
+            }
+          } catch (error) {
+            console.error('가족 연결 상태 확인 실패:', error)
+            setIsParentWithChild(false)
+          }
+        }
+
+        // 4. 선택된 날짜의 미션 로드
         let dateMissions: MissionInstance[] = []
         const today = new Date().toISOString().split('T')[0]
 
@@ -70,10 +107,17 @@ export default function HomePage() {
           // 새로운 데이터베이스에서 로드
           dateMissions = await missionService.getMissionsByDate(selectedDate)
           
-          // 미전 날짜이고 미션이 없으면 데일리 미션 자동 생성
+          // 부모가 자녀와 연결된 경우, 자녀의 미션도 함께 조회 (향후 확장용)
+          // 현재는 로컬 IndexedDB를 사용하므로 부모와 자녀가 같은 미션을 공유
+          
+          // 미래 날짜이고 미션이 없으면 데일리 미션 자동 생성
           if (selectedDate >= today && dateMissions.length === 0) {
-            console.log(`📅 No missions found for ${selectedDate}, generating daily missions...`)
-            dateMissions = await missionService.generateDailyMissionsForDate(selectedDate)
+            console.log(`📅 ${selectedDate}에 미션 없음, 데일리 미션 생성 시도...`)
+            const generatedMissions = await missionService.generateDailyMissionsForDate(selectedDate)
+            console.log(`✨ ${generatedMissions.length}개의 데일리 미션 생성됨`)
+            dateMissions = generatedMissions
+          } else if (selectedDate >= today) {
+            console.log(`📋 ${selectedDate}에 이미 ${dateMissions.length}개 미션 존재`)
           }
         } else {
           // 기존 localStorage 방식 사용 (폴백)
@@ -480,12 +524,6 @@ export default function HomePage() {
                     <span className="text-xs sm:text-sm text-gray-500">{selectedDate}</span>
                   </div>
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => setShowCalendar(!showCalendar)}
-                      className="bg-indigo-500 hover:bg-indigo-600 text-white px-2 sm:px-4 py-2 rounded-lg transition-colors text-xs sm:text-sm font-medium flex-1 sm:flex-none"
-                    >
-                      {showCalendar ? '목록' : '달력'}
-                    </button>
                     {profile?.user_type === 'parent' && (
                       <button
                         onClick={() => setShowAddModal(true)}
@@ -497,50 +535,6 @@ export default function HomePage() {
                   </div>
                 </div>
             
-                {showCalendar ? (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <MonthlyCalendar 
-                      selectedDate={selectedDate}
-                      onDateSelect={setSelectedDate}
-                    />
-                    <DateMissionPanel 
-                      selectedDate={selectedDate}
-                      onDateChange={() => {
-                        // 날짜 변경 시 미션 목록 새로고침
-                        const initializeData = async () => {
-                          setLoading(true)
-                          try {
-                            let dateMissions: MissionInstance[] = []
-                            if (MigrationService.isMigrationCompleted()) {
-                              dateMissions = await missionService.getMissionsByDate(selectedDate)
-                              const today = new Date().toISOString().split('T')[0]
-                              if (selectedDate >= today && dateMissions.length === 0) {
-                                dateMissions = await missionService.generateDailyMissionsForDate(selectedDate)
-                              }
-                            }
-                            const compatibleMissions: Mission[] = dateMissions.map(instance => ({
-                              id: instance.id,
-                              title: instance.title,
-                              description: instance.description,
-                              reward: instance.reward,
-                              isCompleted: instance.isCompleted,
-                              completedAt: instance.completedAt,
-                              isTransferred: instance.isTransferred,
-                              category: instance.category,
-                              missionType: instance.missionType === 'daily' ? '데일리' : '이벤트'
-                            }))
-                            setMissions(compatibleMissions)
-                          } catch (error) {
-                            console.error('Failed to refresh missions:', error)
-                          } finally {
-                            setLoading(false)
-                          }
-                        }
-                        initializeData()
-                      }}
-                    />
-                  </div>
-                ) : (
                   <div className="space-y-4">
                     {loading ? (
                       <div className="text-center py-8">
@@ -660,7 +654,6 @@ export default function HomePage() {
                       </>
                     )}
                   </div>
-                )}
               </div>
             ) : (
               <TemplateManager />
@@ -669,7 +662,13 @@ export default function HomePage() {
         </div>
         
         <div className="bg-white rounded-xl shadow-lg p-4 sm:p-8 text-center mb-6 sm:mb-8">
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 sm:mb-6">내<span className="hidden sm:inline"> 지갑</span></h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 sm:mb-6">
+            {isParentWithChild ? (
+              <>자녀<span className="hidden sm:inline"> 지갑</span></>
+            ) : (
+              <>내<span className="hidden sm:inline"> 지갑</span></>
+            )}
+          </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
             <div className="bg-green-50 rounded-lg p-4">
               <p className="text-2xl sm:text-3xl font-bold text-green-600">{currentAllowance.toLocaleString()}원</p>
