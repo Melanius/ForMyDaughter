@@ -1,5 +1,6 @@
 import { MissionInstance, MissionTemplate, DateSummary } from '../types/mission'
 import databaseService from './database'
+import syncService from './sync'
 
 export class MissionService {
   // 날짜별 미션 조회
@@ -77,14 +78,23 @@ export class MissionService {
         return false
       }
 
-      await databaseService.updateInstance(missionId, {
+      const updatedData = {
         isCompleted: true,
         completedAt: new Date().toISOString()
-      })
+      }
+
+      await databaseService.updateInstance(missionId, updatedData)
+
+      // 실시간 동기화 이벤트 발생
+      syncService.notifyMissionUpdate(missionId, {
+        ...mission,
+        ...updatedData
+      }, undefined, mission.date)
 
       // 날짜 요약 업데이트
       await this.updateDateSummary(mission.date)
       
+      console.log(`✅ 미션 완료 처리 및 동기화 이벤트 발생: ${missionId}`)
       return true
     } catch (error) {
       console.error('Failed to complete mission:', error)
@@ -100,14 +110,23 @@ export class MissionService {
         return false
       }
 
-      await databaseService.updateInstance(missionId, {
+      const updatedData = {
         isCompleted: false,
         completedAt: undefined
-      })
+      }
+
+      await databaseService.updateInstance(missionId, updatedData)
+
+      // 실시간 동기화 이벤트 발생
+      syncService.notifyMissionUpdate(missionId, {
+        ...mission,
+        ...updatedData
+      }, undefined, mission.date)
 
       // 날짜 요약 업데이트
       await this.updateDateSummary(mission.date)
       
+      console.log(`↩️ 미션 완료 취소 및 동기화 이벤트 발생: ${missionId}`)
       return true
     } catch (error) {
       console.error('Failed to uncomplete mission:', error)

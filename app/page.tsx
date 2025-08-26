@@ -14,6 +14,7 @@ import { StreakDisplay } from '@/components/streak/StreakDisplay'
 import { StreakSettingsModal } from '@/components/streak/StreakSettings'
 import { StreakTester } from '@/components/streak/StreakTester'
 import streakService from '@/lib/services/streak'
+import syncService from '@/lib/services/sync'
 
 // 기존 Mission 인터페이스 유지 (하위 호환성)
 interface Mission {
@@ -166,6 +167,60 @@ export default function HomePage() {
     }
 
     initializeData()
+  }, [selectedDate])
+
+  // 실시간 미션 업데이트 구독 (탭 간 동기화)
+  useEffect(() => {
+    console.log('🔄 탭 간 동기화 구독 시작')
+
+    const unsubscribe = syncService.subscribe({
+      onMissionUpdate: (payload) => {
+        console.log('🔥 탭 간 미션 동기화 수신:', payload)
+        
+        if (payload.type === 'mission_update' && payload.data) {
+          setMissions(prev => 
+            prev.map(mission => 
+              mission.id === payload.missionId 
+                ? { 
+                    ...mission, 
+                    isCompleted: payload.data.isCompleted,
+                    completedAt: payload.data.completedAt,
+                    isTransferred: payload.data.isTransferred || false
+                  }
+                : mission
+            )
+          )
+        } else if (payload.type === 'mission_create' && payload.data) {
+          // 현재 날짜와 같은 미션만 추가
+          if (payload.date === selectedDate) {
+            const newMission: Mission = {
+              id: payload.missionId,
+              title: payload.data.title,
+              description: payload.data.description,
+              reward: payload.data.reward,
+              isCompleted: payload.data.isCompleted,
+              completedAt: payload.data.completedAt,
+              isTransferred: payload.data.isTransferred || false,
+              category: payload.data.category,
+              missionType: payload.data.missionType
+            }
+            setMissions(prev => {
+              // 중복 방지
+              if (prev.find(m => m.id === payload.missionId)) return prev
+              return [...prev, newMission]
+            })
+          }
+        } else if (payload.type === 'mission_delete') {
+          setMissions(prev => prev.filter(mission => mission.id !== payload.missionId))
+        }
+      }
+    })
+
+    // 컴포넌트 언마운트 시 구독 해제
+    return () => {
+      console.log('🔇 탭 간 동기화 구독 해제')
+      unsubscribe()
+    }
   }, [selectedDate])
 
   useEffect(() => {
