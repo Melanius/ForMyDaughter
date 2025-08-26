@@ -86,19 +86,21 @@ export function StreakTester() {
       addTestResult(`💬 메시지: ${systemStatus.message}`)
       
       // 보너스 지급 검증
-      if (systemStatus.bonusPayments.success) {
-        const bp = systemStatus.bonusPayments.details
-        addTestResult(`💰 보상 내역: ${bp.rewardHistory.count}건, 총 ${bp.rewardHistory.totalAmount}원`)
-        addTestResult(`💳 거래 내역: ${bp.transactions.count}건, 총 ${bp.transactions.totalAmount}원`)
+      const bonusPayments = systemStatus.bonusPayments as { success: boolean; details?: { rewardHistory?: { count?: number; totalAmount?: number }; transactions?: { count?: number; totalAmount?: number }; isConsistent?: boolean } }
+      if (bonusPayments?.success && bonusPayments.details) {
+        const bp = bonusPayments.details
+        addTestResult(`💰 보상 내역: ${bp.rewardHistory?.count || 0}건, 총 ${bp.rewardHistory?.totalAmount || 0}원`)
+        addTestResult(`💳 거래 내역: ${bp.transactions?.count || 0}건, 총 ${bp.transactions?.totalAmount || 0}원`)
         addTestResult(`🔍 데이터 일관성: ${bp.isConsistent ? '✅ 일치' : '❌ 불일치'}`)
       }
       
       // 연속 완료 로직 검증
-      if (systemStatus.streakLogic.success) {
-        const sl = systemStatus.streakLogic.details
-        addTestResult(`🔥 현재 연속: ${sl.currentStreak}일 (목표: ${sl.target}일)`)
-        addTestResult(`🎯 다음 보너스까지: ${sl.validation.daysUntilBonus}일`)
-        addTestResult(`✅ 로직 정합성: ${sl.validation.streakLogicCorrect ? '정상' : '오류'}`)
+      const streakLogic = systemStatus.streakLogic as { success: boolean; details?: { currentStreak?: number; target?: number; validation?: { daysUntilBonus?: number; streakLogicCorrect?: boolean } } }
+      if (streakLogic?.success && streakLogic.details) {
+        const sl = streakLogic.details
+        addTestResult(`🔥 현재 연속: ${sl.currentStreak || 0}일 (목표: ${sl.target || 7}일)`)
+        addTestResult(`🎯 다음 보너스까지: ${sl.validation?.daysUntilBonus || 0}일`)
+        addTestResult(`✅ 로직 정합성: ${sl.validation?.streakLogicCorrect ? '정상' : '오류'}`)
       }
       
       // 권장사항

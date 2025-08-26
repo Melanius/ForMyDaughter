@@ -7,7 +7,7 @@ export class StreakVerificationService {
   static async verifyBonusPayments(userId: string): Promise<{
     success: boolean
     message: string
-    details: any
+    details: unknown
   }> {
     try {
       // 1. 보상 내역 조회
@@ -51,7 +51,7 @@ export class StreakVerificationService {
       const isConsistent = totalRewardAmount === totalTransactionAmount
 
       // 4. 사용자 진행상황 조회
-      const { data: userProgress, error: progressError } = await supabase
+      const { data: userProgress } = await supabase
         .from('user_progress')
         .select('*')
         .eq('user_id', userId)
@@ -94,7 +94,7 @@ export class StreakVerificationService {
   static async verifyStreakLogic(userId: string): Promise<{
     success: boolean
     message: string
-    details: any
+    details: unknown
   }> {
     try {
       // 현재 진행상황과 설정 조회
@@ -165,8 +165,8 @@ export class StreakVerificationService {
   static async getSystemStatus(userId: string): Promise<{
     success: boolean
     message: string
-    bonusPayments: any
-    streakLogic: any
+    bonusPayments: unknown
+    streakLogic: unknown
     recommendations: string[]
   }> {
     const bonusVerification = await this.verifyBonusPayments(userId)
@@ -174,11 +174,14 @@ export class StreakVerificationService {
 
     const recommendations: string[] = []
 
-    if (!bonusVerification.details?.isConsistent) {
+    const bonusDetails = bonusVerification.details as { isConsistent?: boolean } || {}
+    const logicDetails = logicVerification.details as { validation?: { streakLogicCorrect?: boolean } } || {}
+
+    if (!bonusDetails.isConsistent) {
       recommendations.push('보상 내역과 거래 내역 불일치 - 데이터베이스 정합성 확인 필요')
     }
 
-    if (!logicVerification.details?.validation?.streakLogicCorrect) {
+    if (!logicDetails.validation?.streakLogicCorrect) {
       recommendations.push('연속 완료 로직과 보너스 지급 로직 불일치 - 로직 검토 필요')
     }
 

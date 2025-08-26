@@ -112,7 +112,7 @@ class StreakService {
           }
 
           // 2. 용돈에 보너스 추가 (검증 강화)
-          const bonusResult = await this.addStreakBonus(userId, bonusEarned, completionDate)
+          await this.addStreakBonus(userId, bonusEarned, completionDate)
           
           console.log(`✅ 보너스 지급 완료: 보상내역 ID ${rewardData?.[0]?.id}, 용돈 추가 완료`)
 
