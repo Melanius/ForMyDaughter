@@ -67,11 +67,26 @@ export default function SignupPage() {
         user_type: userType
       }
 
-      // 자녀인 경우만 family_code 추가
+      // 자녀인 경우 가족 코드로 부모 찾기 및 연결 요청 생성
+      let parentId: string | null = null
       if (userType === 'child' && familyCode) {
+        // 1. 가족 코드로 부모 찾기
+        const { data: parentData, error: parentError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('family_code', familyCode)
+          .eq('user_type', 'parent')
+          .single()
+
+        if (parentError || !parentData) {
+          throw new Error('유효하지 않은 가족 코드입니다. 부모님께 확인해주세요.')
+        }
+
+        parentId = parentData.id
         profileData.family_code = familyCode
       }
 
+      // 프로필 생성
       const { error: profileError } = await supabase
         .from('profiles')
         .insert(profileData)
@@ -79,6 +94,23 @@ export default function SignupPage() {
       if (profileError) {
         console.error('Profile creation error:', profileError)
         throw profileError
+      }
+
+      // 자녀인 경우 가족 연결 요청 생성
+      if (userType === 'child' && parentId) {
+        const { error: requestError } = await supabase
+          .from('family_connection_requests')
+          .insert({
+            parent_id: parentId,
+            child_id: authData.user.id,
+            status: 'pending'
+          })
+
+        if (requestError) {
+          console.error('Connection request creation error:', requestError)
+          // 연결 요청 생성 실패 시에도 회원가입은 성공으로 처리하되 안내 메시지 변경
+          console.warn('프로필은 생성되었지만 연결 요청 생성에 실패했습니다.')
+        }
       }
 
       setSuccess(
