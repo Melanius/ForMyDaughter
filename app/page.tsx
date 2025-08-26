@@ -237,16 +237,17 @@ export default function HomePage() {
         } else if (payload.type === 'mission_create' && payload.data) {
           // 현재 날짜와 같은 미션만 추가
           if (payload.date === selectedDate) {
+            const data = payload.data as Record<string, unknown>
             const newMission: Mission = {
               id: payload.missionId,
-              title: payload.data.title,
-              description: payload.data.description,
-              reward: payload.data.reward,
-              isCompleted: payload.data.isCompleted,
-              completedAt: payload.data.completedAt,
-              isTransferred: payload.data.isTransferred || false,
-              category: payload.data.category,
-              missionType: payload.data.missionType
+              title: (data.title as string) || '',
+              description: (data.description as string) || undefined,
+              reward: (data.reward as number) || 0,
+              isCompleted: (data.isCompleted as boolean) || false,
+              completedAt: (data.completedAt as string) || undefined,
+              isTransferred: (data.isTransferred as boolean) || false,
+              category: (data.category as string) || undefined,
+              missionType: (data.missionType as string) || undefined
             }
             setMissions(prev => {
               // 중복 방지
