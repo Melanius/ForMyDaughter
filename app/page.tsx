@@ -9,6 +9,7 @@ import { MissionInstance } from '../lib/types/mission'
 import MigrationService from '../lib/services/migration'
 import missionService from '../lib/services/mission'
 import allowanceService from '../lib/services/allowance'
+import { useAuth } from '@/components/auth/AuthProvider'
 
 // 기존 Mission 인터페이스 유지 (하위 호환성)
 interface Mission {
@@ -24,6 +25,7 @@ interface Mission {
 }
 
 export default function HomePage() {
+  const { profile } = useAuth()
   const [missions, setMissions] = useState<Mission[]>([])
   const [loading, setLoading] = useState(true)
   const [currentAllowance, setCurrentAllowance] = useState(7500)
