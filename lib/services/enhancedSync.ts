@@ -104,9 +104,9 @@ class EnhancedSyncService {
   }
 
   // 📡 Realtime 이벤트 처리
-  private handleRealtimeEvent(type: string, payload: any) {
+  private handleRealtimeEvent(type: string, payload: Record<string, unknown>) {
     const syncPayload: SyncPayload = {
-      type: `${type}_${payload.eventType?.toLowerCase()}` as any,
+      type: `${type}_${(payload.eventType as string)?.toLowerCase()}` as string,
       entityId: payload.new?.id || payload.old?.id,
       data: payload.new || payload.old,
       timestamp: Date.now(),

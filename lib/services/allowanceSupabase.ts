@@ -42,7 +42,7 @@ export class AllowanceSupabaseService {
   /**
    * 🔍 현재 사용자 정보 및 가족 관계 조회
    */
-  async getCurrentUser(): Promise<{ user: any, profile: SupabaseProfile | null, childrenIds: string[] }> {
+  async getCurrentUser(): Promise<{ user: unknown, profile: SupabaseProfile | null, childrenIds: string[] }> {
     const { data: { user }, error: userError } = await this.supabase.auth.getUser()
     if (userError || !user) {
       throw new Error('사용자 정보를 가져올 수 없습니다.')
@@ -338,7 +338,7 @@ export class AllowanceSupabaseService {
   /**
    * 🎧 실시간 동기화 구독
    */
-  subscribeToTransactions(callback: (payload: any) => void) {
+  subscribeToTransactions(callback: (payload: unknown) => void) {
     return this.supabase
       .channel('allowance_transactions')
       .on(
