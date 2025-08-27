@@ -1,6 +1,7 @@
 // 기존 Mission 인터페이스 확장
 export interface Mission {
   id: string
+  userId?: string           // 미션을 소유한 사용자 ID (Supabase 사용 시)
   title: string
   description?: string
   reward: number
@@ -10,8 +11,8 @@ export interface Mission {
   category?: string
   missionType?: string
   // 새로 추가되는 필드들
-  date: string              // YYYY-MM-DD 형식, 기본값: 오늘 날짜
-  templateId?: string       // 템플릿 ID, null이면 일회성 미션
+  date?: string             // YYYY-MM-DD 형식, 기본값: 오늘 날짜
+  templateId?: string | null // 템플릿 ID, null이면 일회성 미션
 }
 
 // 미션 템플릿 인터페이스
@@ -30,6 +31,7 @@ export interface MissionTemplate {
 // 미션 인스턴스 (날짜별 실제 미션)
 export interface MissionInstance {
   id: string
+  userId?: string           // 미션을 소유한 사용자 ID (Supabase 사용 시)
   templateId: string | null  // null이면 일회성 미션
   date: string              // YYYY-MM-DD 형식
   title: string

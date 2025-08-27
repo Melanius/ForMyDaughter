@@ -156,7 +156,7 @@ export class MissionSupabaseService {
     const { data, error } = await this.supabase
       .from('mission_instances')
       .insert({
-        user_id: (user as { id: string }).id,
+        user_id: mission.userId || (user as { id: string }).id, // mission에서 지정된 userId 우선 사용
         template_id: mission.templateId,
         date: mission.date,
         title: mission.title,
@@ -412,6 +412,7 @@ export class MissionSupabaseService {
   private convertSupabaseToInstance(supabaseData: SupabaseMissionInstance): MissionInstance {
     return {
       id: supabaseData.id,
+      userId: supabaseData.user_id,
       templateId: supabaseData.template_id || null,
       date: supabaseData.date,
       title: supabaseData.title,
@@ -448,6 +449,31 @@ export class MissionSupabaseService {
         callback
       )
       .subscribe()
+  }
+
+  /**
+   * 💸 미션 전달 완료 처리 (부모가 자녀에게 용돈 지급)
+   */
+  async transferMissions(missionIds: string[]): Promise<boolean> {
+    try {
+      const { error } = await this.supabase
+        .from('mission_instances')
+        .update({
+          is_transferred: true
+        })
+        .in('id', missionIds)
+
+      if (error) {
+        console.error('미션 전달 실패:', error)
+        return false
+      }
+
+      console.log(`✅ ${missionIds.length}개 미션 전달 완료`)
+      return true
+    } catch (error) {
+      console.error('미션 전달 처리 중 오류:', error)
+      return false
+    }
   }
 
   /**

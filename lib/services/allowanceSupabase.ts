@@ -160,24 +160,77 @@ export class AllowanceSupabaseService {
   }
 
   /**
-   * 🗑️ 거래 삭제 (본인 거래만)
+   * 🗑️ 거래 삭제 (본인 거래만) - 미션 관련 거래 삭제 시 미션 상태 되돌리기
    */
   async deleteTransaction(id: string): Promise<boolean> {
     const { user } = await this.getCurrentUser()
 
-    const { error } = await this.supabase
-      .from('allowance_transactions')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', (user as { id: string }).id) // 본인 거래만 삭제 가능
+    try {
+      // 1. 삭제할 거래의 정보를 먼저 조회 (mission_id 확인용)
+      const { data: transaction, error: fetchError } = await this.supabase
+        .from('allowance_transactions')
+        .select('mission_id, user_id')
+        .eq('id', id)
+        .eq('user_id', (user as { id: string }).id) // 본인 거래만 
+        .single()
 
-    if (error) {
-      console.error('거래 삭제 실패:', error)
+      if (fetchError) {
+        console.error('거래 조회 실패:', fetchError)
+        return false
+      }
+
+      // 2. 거래 삭제
+      const { error: deleteError } = await this.supabase
+        .from('allowance_transactions')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', (user as { id: string }).id)
+
+      if (deleteError) {
+        console.error('거래 삭제 실패:', deleteError)
+        return false
+      }
+
+      // 3. 미션 관련 거래였다면 해당 미션을 미완료 상태로 되돌리기
+      if (transaction?.mission_id) {
+        await this.revertMissionFromTransaction(transaction.mission_id, transaction.user_id)
+      }
+
+      console.log('✅ 거래 삭제 성공:', id)
+      return true
+    } catch (error) {
+      console.error('거래 삭제 중 오류:', error)
       return false
     }
+  }
 
-    console.log('✅ 거래 삭제 성공:', id)
-    return true
+  /**
+   * 🔄 미션 관련 거래 삭제 시 미션 상태 되돌리기
+   */
+  private async revertMissionFromTransaction(missionId: string, userId: string): Promise<void> {
+    try {
+      // missionSupabaseService를 직접 import해서 사용해야 함
+      // 하지만 순환 참조를 피하기 위해 Supabase 클라이언트를 직접 사용
+      const { error } = await this.supabase
+        .from('mission_instances')
+        .update({
+          is_completed: false,
+          completed_at: null,
+          is_transferred: false // 전달 상태도 되돌리기
+        })
+        .eq('id', missionId)
+        .eq('user_id', userId) // 보안을 위해 사용자 확인
+
+      if (error) {
+        console.error('미션 상태 되돌리기 실패:', error)
+        throw new Error(`미션 상태 되돌리기 실패: ${missionId}`)
+      }
+
+      console.log('✅ 미션 상태 되돌리기 성공:', missionId)
+    } catch (error) {
+      console.error('미션 되돌리기 중 오류:', error)
+      // 오류가 발생해도 거래 삭제는 이미 완료되었으므로 throw하지 않고 로그만 남김
+    }
   }
 
   /**
@@ -282,7 +335,7 @@ export class AllowanceSupabaseService {
   }
 
   /**
-   * 🎯 미션 완료 시 자동 수입 추가
+   * 🎯 미션 완료 시 자동 수입 추가 (현재 사용자)
    */
   async addMissionIncome(missionId: string, amount: number, missionTitle: string, date: string): Promise<string> {
     return await this.addTransaction({
@@ -293,6 +346,33 @@ export class AllowanceSupabaseService {
       date,
       missionId
     })
+  }
+
+  /**
+   * 💸 미션 승인 시 자녀 계정에 수입 추가 (특정 사용자 ID 지정)
+   */
+  async addMissionIncomeForUser(userId: string, missionId: string, amount: number, missionTitle: string, date: string): Promise<string> {
+    const { data, error } = await this.supabase
+      .from('allowance_transactions')
+      .insert({
+        user_id: userId,
+        date: date,
+        amount: amount,
+        type: 'income',
+        category: INCOME_CATEGORIES.MISSION,
+        description: `미션 완료: ${missionTitle}`,
+        mission_id: missionId
+      })
+      .select('id')
+      .single()
+
+    if (error) {
+      console.error('거래 추가 실패:', error)
+      throw new Error('거래를 추가할 수 없습니다.')
+    }
+
+    console.log('✅ 자녀 계정에 미션 수입 추가 성공:', data.id)
+    return data.id
   }
 
   /**

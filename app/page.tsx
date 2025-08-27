@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { AddMissionModal } from '../components/mission/AddMissionModal'
 import { TemplateManager } from '../components/mission/TemplateManager'
-import { MissionInstance } from '../lib/types/mission'
+import { MissionInstance, Mission } from '../lib/types/mission'
 import missionSupabaseService from '../lib/services/missionSupabase'
 import allowanceSupabaseService from '../lib/services/allowanceSupabase'
 import { useAuth } from '@/components/auth/AuthProvider'
@@ -15,18 +15,7 @@ import syncService from '@/lib/services/sync'
 import enhancedSyncService from '@/lib/services/enhancedSync'
 import { createClient } from '@/lib/supabase/client'
 
-// 기존 Mission 인터페이스 유지 (하위 호환성)
-interface Mission {
-  id: string
-  title: string
-  description?: string
-  reward: number
-  isCompleted: boolean
-  completedAt?: string
-  isTransferred?: boolean
-  category?: string
-  missionType?: string
-}
+// Mission 인터페이스는 lib/types/mission.ts에서 임포트
 
 export default function HomePage() {
   const { profile } = useAuth()
@@ -50,6 +39,7 @@ export default function HomePage() {
       // Mission 형태로 변환 (기존 UI 호환성을 위해)
       const compatibleMissions: Mission[] = dateMissions.map(instance => ({
         id: instance.id,
+        userId: instance.userId, // 미션 소유자 ID 포함
         title: instance.title,
         description: instance.description,
         reward: instance.reward,
@@ -57,7 +47,9 @@ export default function HomePage() {
         completedAt: instance.completedAt,
         isTransferred: instance.isTransferred,
         category: instance.category,
-        missionType: instance.missionType === 'daily' ? '데일리' : '이벤트'
+        missionType: instance.missionType === 'daily' ? '데일리' : '이벤트',
+        date: instance.date,
+        templateId: instance.templateId
       }))
 
       setMissions(compatibleMissions)
@@ -121,6 +113,7 @@ export default function HomePage() {
         // Mission 형태로 변환 (기존 UI 호환성을 위해)
         const compatibleMissions: Mission[] = dateMissions.map(instance => ({
           id: instance.id,
+          userId: instance.userId, // 미션 소유자 ID 포함
           title: instance.title,
           description: instance.description,
           reward: instance.reward,
@@ -128,7 +121,9 @@ export default function HomePage() {
           completedAt: instance.completedAt,
           isTransferred: instance.isTransferred,
           category: instance.category,
-          missionType: instance.missionType === 'daily' ? '데일리' : '이벤트'
+          missionType: instance.missionType === 'daily' ? '데일리' : '이벤트',
+          date: instance.date,
+          templateId: instance.templateId
         }))
 
         setMissions(compatibleMissions)
@@ -196,14 +191,17 @@ export default function HomePage() {
             const data = payload.data as Record<string, unknown>
             const newMission: Mission = {
               id: payload.missionId,
+              userId: (data.user_id as string) || undefined,
               title: (data.title as string) || '',
               description: (data.description as string) || undefined,
               reward: (data.reward as number) || 0,
-              isCompleted: (data.isCompleted as boolean) || false,
-              completedAt: (data.completedAt as string) || undefined,
-              isTransferred: (data.isTransferred as boolean) || false,
+              isCompleted: (data.is_completed as boolean) || false,
+              completedAt: (data.completed_at as string) || undefined,
+              isTransferred: (data.is_transferred as boolean) || false,
               category: (data.category as string) || undefined,
-              missionType: (data.missionType as string) || undefined
+              missionType: (data.mission_type as string) === 'daily' ? '데일리' : '이벤트',
+              date: (data.date as string) || selectedDate,
+              templateId: (data.template_id as string) || undefined
             }
             setMissions(prev => {
               // 중복 방지
@@ -310,16 +308,8 @@ export default function HomePage() {
     const mission = missions.find(m => m.id === missionId)
     if (mission && !mission.isCompleted && profile?.id) {
       try {
-        // Supabase 기반 미션 완료
+        // Supabase 기반 미션 완료 (거래 내역은 부모 승인 시에만 기록)
         await missionSupabaseService.completeMission(missionId)
-        
-        // 미션 완료 시 자동 수입 추가
-        await allowanceSupabaseService.addMissionIncome(
-          missionId,
-          mission.reward,
-          mission.title,
-          selectedDate
-        )
         
         // 연속 완료 카운터 업데이트
         try {
@@ -720,9 +710,20 @@ export default function HomePage() {
                     const pendingMissions = missions.filter(m => m.isCompleted && !m.isTransferred)
                     const today = new Date().toISOString().split('T')[0]
                     
-                    // 각 미션에 대해 용돈 내역에 수입 추가 (Supabase 기반)
+                    // 1. 미션 상태를 전달 완료로 업데이트
+                    const missionIds = pendingMissions.map(m => m.id)
+                    await missionSupabaseService.transferMissions(missionIds)
+                    
+                    // 2. 각 미션의 원래 사용자(자녀)에게 거래 내역 추가
                     for (const mission of pendingMissions) {
-                      await allowanceSupabaseService.addMissionIncome(
+                      // 미션의 userId를 확인하여 해당 자녀에게 거래 내역 추가
+                      if (!mission.userId) {
+                        console.error('미션에 userId가 없습니다:', mission)
+                        continue
+                      }
+                      
+                      await allowanceSupabaseService.addMissionIncomeForUser(
+                        mission.userId,
                         mission.id, 
                         mission.reward, 
                         mission.title, 
