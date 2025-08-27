@@ -476,10 +476,11 @@ export default function HomePage() {
     const mission = missions.find(m => m.id === missionId)
     if (mission && mission.isTransferred) {
       try {
-        if (MigrationService.isMigrationCompleted()) {
-          // 새로운 데이터베이스 사용
-          await missionService.undoTransfer(missionId)
-        }
+        // Supabase 기반 미션 되돌리기
+        await missionSupabaseService.uncompleteMission(missionId)
+        
+        // 미션 수입도 제거
+        await allowanceSupabaseService.removeMissionIncome(missionId)
 
         // 현재 용돈에서 미션 보상 차감
         setCurrentAllowance(prev => prev - mission.reward)
