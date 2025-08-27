@@ -61,7 +61,7 @@ export class MissionSupabaseService {
     const { data: profile, error: profileError } = await this.supabase
       .from('profiles')
       .select('id, user_type, parent_id')
-      .eq('id', user.id)
+      .eq('id', (user as { id: string }).id)
       .single()
 
     if (profileError || !profile) {
@@ -74,7 +74,7 @@ export class MissionSupabaseService {
       const { data: children } = await this.supabase
         .from('profiles')
         .select('id')
-        .eq('parent_id', user.id)
+        .eq('parent_id', (user as { id: string }).id)
 
       childrenIds = children?.map(child => child.id) || []
     }
@@ -156,7 +156,7 @@ export class MissionSupabaseService {
     const { data, error } = await this.supabase
       .from('mission_instances')
       .insert({
-        user_id: user.id,
+        user_id: (user as { id: string }).id,
         template_id: mission.templateId,
         date: mission.date,
         title: mission.title,
@@ -194,7 +194,7 @@ export class MissionSupabaseService {
         completed_at: now
       })
       .eq('id', missionId)
-      .eq('user_id', user.id) // 본인 미션만 완료 가능
+      .eq('user_id', (user as { id: string }).id) // 본인 미션만 완료 가능
 
     if (error) {
       console.error('미션 완료 실패:', error)
@@ -218,7 +218,7 @@ export class MissionSupabaseService {
         completed_at: null
       })
       .eq('id', missionId)
-      .eq('user_id', user.id) // 본인 미션만 취소 가능
+      .eq('user_id', (user as { id: string }).id) // 본인 미션만 취소 가능
 
     if (error) {
       console.error('미션 완료 취소 실패:', error)
@@ -239,7 +239,7 @@ export class MissionSupabaseService {
       .from('mission_instances')
       .delete()
       .eq('id', missionId)
-      .eq('user_id', user.id) // 본인 미션만 삭제 가능
+      .eq('user_id', (user as { id: string }).id) // 본인 미션만 삭제 가능
 
     if (error) {
       console.error('미션 삭제 실패:', error)
@@ -265,7 +265,7 @@ export class MissionSupabaseService {
     const { data, error } = await this.supabase
       .from('mission_templates')
       .insert({
-        user_id: user.id,
+        user_id: (user as { id: string }).id,
         title: template.title,
         description: template.description,
         reward: template.reward,

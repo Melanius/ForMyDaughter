@@ -52,7 +52,7 @@ export class AllowanceSupabaseService {
     const { data: profile, error: profileError } = await this.supabase
       .from('profiles')
       .select('*')
-      .eq('id', user.id)
+      .eq('id', (user as { id: string }).id)
       .single()
 
     if (profileError || !profile) {
@@ -65,7 +65,7 @@ export class AllowanceSupabaseService {
       const { data: children } = await this.supabase
         .from('profiles')
         .select('id')
-        .eq('parent_id', user.id)
+        .eq('parent_id', (user as { id: string }).id)
 
       childrenIds = children?.map(child => child.id) || []
     }
@@ -113,7 +113,7 @@ export class AllowanceSupabaseService {
     const { data, error } = await this.supabase
       .from('allowance_transactions')
       .insert({
-        user_id: user.id,
+        user_id: (user as { id: string }).id,
         date: transaction.date,
         amount: transaction.amount,
         type: transaction.type,
@@ -148,7 +148,7 @@ export class AllowanceSupabaseService {
         ...(updates.description && { description: updates.description })
       })
       .eq('id', id)
-      .eq('user_id', user.id) // 본인 거래만 수정 가능
+      .eq('user_id', (user as { id: string }).id) // 본인 거래만 수정 가능
 
     if (error) {
       console.error('거래 수정 실패:', error)
@@ -169,7 +169,7 @@ export class AllowanceSupabaseService {
       .from('allowance_transactions')
       .delete()
       .eq('id', id)
-      .eq('user_id', user.id) // 본인 거래만 삭제 가능
+      .eq('user_id', (user as { id: string }).id) // 본인 거래만 삭제 가능
 
     if (error) {
       console.error('거래 삭제 실패:', error)
@@ -305,7 +305,7 @@ export class AllowanceSupabaseService {
       const { data: missionTransaction, error } = await this.supabase
         .from('allowance_transactions')
         .select('id')
-        .eq('user_id', user.id)
+        .eq('user_id', (user as { id: string }).id)
         .eq('mission_id', missionId)
         .single()
 
