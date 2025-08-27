@@ -412,7 +412,7 @@ export class MissionSupabaseService {
   private convertSupabaseToInstance(supabaseData: SupabaseMissionInstance): MissionInstance {
     return {
       id: supabaseData.id,
-      templateId: supabaseData.template_id,
+      templateId: supabaseData.template_id || null,
       date: supabaseData.date,
       title: supabaseData.title,
       description: supabaseData.description || '',
@@ -420,7 +420,7 @@ export class MissionSupabaseService {
       category: supabaseData.category,
       missionType: supabaseData.mission_type,
       isCompleted: supabaseData.is_completed,
-      completedAt: supabaseData.completed_at,
+      completedAt: supabaseData.completed_at || undefined,
       isTransferred: supabaseData.is_transferred,
       createdAt: supabaseData.created_at
     }
