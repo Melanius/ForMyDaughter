@@ -399,7 +399,7 @@ export class MissionSupabaseService {
     return {
       id: supabaseData.id,
       title: supabaseData.title,
-      description: supabaseData.description,
+      description: supabaseData.description || '',
       reward: supabaseData.reward,
       category: supabaseData.category,
       missionType: supabaseData.mission_type,
@@ -415,7 +415,7 @@ export class MissionSupabaseService {
       templateId: supabaseData.template_id,
       date: supabaseData.date,
       title: supabaseData.title,
-      description: supabaseData.description,
+      description: supabaseData.description || '',
       reward: supabaseData.reward,
       category: supabaseData.category,
       missionType: supabaseData.mission_type,
