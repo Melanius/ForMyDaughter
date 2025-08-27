@@ -108,7 +108,7 @@ class EnhancedSyncService {
     const syncPayload: SyncPayload = {
       type: `${type}_${(payload.eventType as string)?.toLowerCase()}` as 'mission_update' | 'mission_create' | 'mission_delete' | 'allowance_update' | 'streak_update',
       entityId: (payload.new as Record<string, unknown>)?.id as string || (payload.old as Record<string, unknown>)?.id as string,
-      data: payload.new || payload.old,
+      data: (payload.new as Record<string, unknown>) || (payload.old as Record<string, unknown>),
       timestamp: Date.now(),
       userId: (payload.new as Record<string, unknown>)?.user_id as string || (payload.old as Record<string, unknown>)?.user_id as string,
       source: 'remote'
