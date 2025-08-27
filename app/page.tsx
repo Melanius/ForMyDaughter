@@ -230,9 +230,9 @@ export default function HomePage() {
               mission.id === payload.entityId 
                 ? { 
                     ...mission, 
-                    isCompleted: data.is_completed ?? data.isCompleted ?? mission.isCompleted,
-                    completedAt: data.completed_at ?? data.completedAt ?? mission.completedAt,
-                    isTransferred: data.is_transferred ?? data.isTransferred ?? mission.isTransferred ?? false
+                    isCompleted: (data.is_completed as boolean) ?? (data.isCompleted as boolean) ?? mission.isCompleted,
+                    completedAt: (data.completed_at as string) ?? (data.completedAt as string) ?? mission.completedAt,
+                    isTransferred: (data.is_transferred as boolean) ?? (data.isTransferred as boolean) ?? mission.isTransferred ?? false
                   }
                 : mission
             )
@@ -261,7 +261,7 @@ export default function HomePage() {
         
         // 용돈 관련 동기화 처리
         else if (payload.type === 'allowance_update' && payload.data) {
-          const newBalance = payload.data.balance || payload.data.current_balance
+          const newBalance = (payload.data.balance as number) || (payload.data.current_balance as number)
           if (typeof newBalance === 'number') {
             setCurrentAllowance(newBalance)
             console.log('💰 용돈 동기화 업데이트:', newBalance)
