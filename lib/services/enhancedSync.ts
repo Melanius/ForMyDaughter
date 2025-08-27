@@ -106,11 +106,11 @@ class EnhancedSyncService {
   // 📡 Realtime 이벤트 처리
   private handleRealtimeEvent(type: string, payload: Record<string, unknown>) {
     const syncPayload: SyncPayload = {
-      type: `${type}_${(payload.eventType as string)?.toLowerCase()}` as string,
-      entityId: payload.new?.id || payload.old?.id,
+      type: `${type}_${(payload.eventType as string)?.toLowerCase()}` as 'mission_update' | 'mission_create' | 'mission_delete' | 'allowance_update' | 'streak_update',
+      entityId: (payload.new as Record<string, unknown>)?.id as string || (payload.old as Record<string, unknown>)?.id as string,
       data: payload.new || payload.old,
       timestamp: Date.now(),
-      userId: payload.new?.user_id || payload.old?.user_id,
+      userId: (payload.new as Record<string, unknown>)?.user_id as string || (payload.old as Record<string, unknown>)?.user_id as string,
       source: 'remote'
     }
 
