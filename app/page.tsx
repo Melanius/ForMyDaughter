@@ -140,7 +140,6 @@ export default function HomePage() {
         } catch (error) {
           console.error('Failed to load current balance:', error)
           setCurrentAllowance(0)
-          }
         }
 
       } catch (error) {
