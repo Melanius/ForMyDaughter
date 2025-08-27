@@ -421,8 +421,7 @@ export class MissionSupabaseService {
       missionType: supabaseData.mission_type,
       isCompleted: supabaseData.is_completed,
       completedAt: supabaseData.completed_at || undefined,
-      isTransferred: supabaseData.is_transferred,
-      createdAt: supabaseData.created_at
+      isTransferred: supabaseData.is_transferred
     }
   }
 
