@@ -720,24 +720,18 @@ export default function HomePage() {
                     const pendingMissions = missions.filter(m => m.isCompleted && !m.isTransferred)
                     const today = new Date().toISOString().split('T')[0]
                     
-                    if (MigrationService.isMigrationCompleted()) {
-                      // 새로운 데이터베이스 사용
-                      const missionIds = pendingMissions.map(m => m.id)
-                      await missionService.transferMissions(missionIds)
-                      
-                      // 각 미션에 대해 용돈 내역에 수입 추가
-                      for (const mission of pendingMissions) {
-                        await allowanceService.addMissionIncome(
-                          mission.id, 
-                          mission.reward, 
-                          mission.title, 
-                          today
-                        )
-                      }
+                    // 각 미션에 대해 용돈 내역에 수입 추가 (Supabase 기반)
+                    for (const mission of pendingMissions) {
+                      await allowanceSupabaseService.addMissionIncome(
+                        mission.id, 
+                        mission.reward, 
+                        mission.title, 
+                        today
+                      )
                     }
 
-                    // UI 상태 업데이트 - 용돈 서비스에서 현재 잔액 다시 가져오기
-                    const updatedBalance = await allowanceService.getCurrentBalance()
+                    // UI 상태 업데이트 - Supabase 서비스에서 현재 잔액 다시 가져오기
+                    const updatedBalance = await allowanceSupabaseService.getCurrentBalance()
                     setCurrentAllowance(updatedBalance)
                     localStorage.setItem('currentAllowance', updatedBalance.toString())
                     
