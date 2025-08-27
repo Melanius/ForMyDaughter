@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, TrendingUp, TrendingDown, Wallet, Calendar, Edit2, Trash2, Filter } from 'lucide-react'
 import { AllowanceTransaction, AllowanceStatistics, INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '../../lib/types/allowance'
-import allowanceService from '../../lib/services/allowance'
+import allowanceSupabaseService from '../../lib/services/allowanceSupabase'
 import AddTransactionModal from '../../components/allowance/AddTransactionModal'
 
 export default function AllowancePage() {
@@ -17,22 +17,33 @@ export default function AllowancePage() {
 
   useEffect(() => {
     loadData()
+
+    // 🔄 실시간 동기화 구독
+    const channel = allowanceSupabaseService.subscribeToTransactions((payload) => {
+      console.log('🔄 실시간 거래 변경 감지:', payload)
+      loadData() // 데이터 다시 로드
+    })
+
+    return () => {
+      console.log('🔇 실시간 동기화 구독 해제')
+      channel.unsubscribe()
+    }
   }, [selectedDate, filterType])
 
   const loadData = async () => {
     setLoading(true)
     try {
-      // 통계 정보 로드
-      const stats = await allowanceService.getStatistics('month')
+      // 통계 정보 로드 (가족 단위)
+      const stats = await allowanceSupabaseService.getStatistics('month')
       setStatistics(stats)
 
-      // 거래 내역 로드 (최근 30일)
+      // 거래 내역 로드 (최근 30일, 가족 단위)
       const endDate = new Date().toISOString().split('T')[0]
       const startDate = new Date()
       startDate.setDate(startDate.getDate() - 30)
       const startDateStr = startDate.toISOString().split('T')[0]
       
-      let transactionList = await allowanceService.getTransactionsInRange(startDateStr, endDate)
+      let transactionList = await allowanceSupabaseService.getTransactionsInRange(startDateStr, endDate)
       
       // 필터 적용
       if (filterType !== 'all') {
@@ -40,6 +51,7 @@ export default function AllowancePage() {
       }
       
       setTransactions(transactionList)
+      console.log('✅ 가족 거래 내역 로드 완료:', transactionList.length, '개')
     } catch (error) {
       console.error('Failed to load allowance data:', error)
     } finally {
@@ -51,17 +63,20 @@ export default function AllowancePage() {
     try {
       if (editingTransaction) {
         // 수정
-        await allowanceService.updateTransaction(editingTransaction.id, transactionData)
+        await allowanceSupabaseService.updateTransaction(editingTransaction.id, transactionData)
         setEditingTransaction(null)
+        console.log('✅ 거래 수정 완료')
       } else {
         // 새로 추가
-        await allowanceService.addTransaction(transactionData)
+        const transactionId = await allowanceSupabaseService.addTransaction(transactionData)
+        console.log('✅ 새 거래 추가 완료:', transactionId)
       }
       
       await loadData()
       setShowAddModal(false)
     } catch (error) {
       console.error('Failed to add/edit transaction:', error)
+      alert('거래 처리에 실패했습니다. 다시 시도해주세요.')
     }
   }
 
@@ -81,10 +96,16 @@ export default function AllowancePage() {
     
     if (confirm('이 내역을 삭제하시겠습니까?')) {
       try {
-        await allowanceService.deleteTransaction(transactionId)
-        await loadData()
+        const success = await allowanceSupabaseService.deleteTransaction(transactionId)
+        if (success) {
+          console.log('✅ 거래 삭제 완료:', transactionId)
+          await loadData()
+        } else {
+          alert('거래 삭제에 실패했습니다.')
+        }
       } catch (error) {
         console.error('Failed to delete transaction:', error)
+        alert('거래 삭제 중 오류가 발생했습니다.')
       }
     }
   }

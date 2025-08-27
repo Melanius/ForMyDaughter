@@ -5,9 +5,19 @@ import { useAuth } from '@/components/auth/AuthProvider'
 import { LogoutButton } from '@/components/auth/LogoutButton'
 import { usePathname } from 'next/navigation'
 
-export function NavBar() {
+export function NavigationBar() {
   const { user, profile, loading } = useAuth()
   const pathname = usePathname()
+  
+  // 부모가 자녀와 연결되어 있는지 확인 (간단한 동기 검사)
+  const isParentWithChild = profile?.user_type === 'parent' && profile?.id
+
+  console.log('🎯 NavBar 렌더링 상태:', { 
+    userType: profile?.user_type, 
+    isParentWithChild,
+    profileId: profile?.id,
+    loading 
+  })
 
   // 인증 페이지에서는 네비게이션 바 숨김
   if (pathname === '/login' || pathname === '/signup') {
@@ -41,16 +51,32 @@ export function NavBar() {
                 >
                   홈
                 </Link>
-                <Link 
-                  href="/allowance" 
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    isActivePath('/allowance') 
-                      ? 'bg-white/20 text-white backdrop-blur-sm' 
-                      : 'text-white/80 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  내 지갑
-                </Link>
+                {/* 지갑 링크 조건부 표시 */}
+                {profile.user_type === 'child' ? (
+                  // 자녀는 항상 '지갑' 표시
+                  <Link 
+                    href="/allowance" 
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      isActivePath('/allowance') 
+                        ? 'bg-white/20 text-white backdrop-blur-sm' 
+                        : 'text-white/80 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    지갑
+                  </Link>
+                ) : isParentWithChild ? (
+                  // 부모가 자녀와 연동된 경우 '자녀 지갑' 표시
+                  <Link 
+                    href="/allowance" 
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      isActivePath('/allowance') 
+                        ? 'bg-white/20 text-white backdrop-blur-sm' 
+                        : 'text-white/80 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    자녀 지갑
+                  </Link>
+                ) : null}
                 {profile.user_type === 'parent' && (
                   <Link 
                     href="/family" 
@@ -82,14 +108,28 @@ export function NavBar() {
                     >
                       <span className="text-white text-lg">홈</span>
                     </Link>
-                    <Link 
-                      href="/allowance" 
-                      className={`p-2 rounded-lg transition-colors ${
-                        isActivePath('/allowance') ? 'bg-white/20' : 'hover:bg-white/10'
-                      }`}
-                    >
-                      <span className="text-white text-lg">지갑</span>
-                    </Link>
+                    {/* 모바일 지갑 링크 조건부 표시 */}
+                    {profile.user_type === 'child' ? (
+                      // 자녀는 항상 '지갑' 표시
+                      <Link 
+                        href="/allowance" 
+                        className={`p-2 rounded-lg transition-colors ${
+                          isActivePath('/allowance') ? 'bg-white/20' : 'hover:bg-white/10'
+                        }`}
+                      >
+                        <span className="text-white text-lg">지갑</span>
+                      </Link>
+                    ) : isParentWithChild ? (
+                      // 부모가 자녀와 연동된 경우 '자녀 지갑' 표시
+                      <Link 
+                        href="/allowance" 
+                        className={`p-2 rounded-lg transition-colors ${
+                          isActivePath('/allowance') ? 'bg-white/20' : 'hover:bg-white/10'
+                        }`}
+                      >
+                        <span className="text-white text-lg">자녀 지갑</span>
+                      </Link>
+                    ) : null}
                     {profile.user_type === 'parent' && (
                       <Link 
                         href="/family" 

@@ -1,6 +1,6 @@
 import './globals.css'
 import { AuthProvider } from '@/components/auth/AuthProvider'
-import { NavBar } from '@/components/layout/NavBar'
+import { NavigationBar } from '@/components/layout/NavBar'
 
 export const metadata = {
   title: 'MoneySeed - 스마트 용돈 관리',
@@ -25,7 +25,7 @@ export default function RootLayout({
       <body>
         <AuthProvider>
           <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
-            <NavBar />
+            <NavigationBar />
             <main>
               {children}
             </main>

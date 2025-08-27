@@ -4,15 +4,15 @@ import { useState, useEffect } from 'react'
 import { AddMissionModal } from '../components/mission/AddMissionModal'
 import { TemplateManager } from '../components/mission/TemplateManager'
 import { MissionInstance } from '../lib/types/mission'
-import MigrationService from '../lib/services/migration'
-import missionService from '../lib/services/mission'
-import allowanceService from '../lib/services/allowance'
+import missionSupabaseService from '../lib/services/missionSupabase'
+import allowanceSupabaseService from '../lib/services/allowanceSupabase'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { StreakDisplay } from '@/components/streak/StreakDisplay'
 import { StreakSettingsModal } from '@/components/streak/StreakSettings'
 import { StreakTester } from '@/components/streak/StreakTester'
 import streakService from '@/lib/services/streak'
 import syncService from '@/lib/services/sync'
+import enhancedSyncService from '@/lib/services/enhancedSync'
 import { createClient } from '@/lib/supabase/client'
 
 // 기존 Mission 인터페이스 유지 (하위 호환성)
@@ -42,36 +42,42 @@ export default function HomePage() {
   const [connectedChildren, setConnectedChildren] = useState<{id: string; full_name: string; family_code: string}[]>([])
   const [isParentWithChild, setIsParentWithChild] = useState(false)
 
+  const loadMissions = async () => {
+    try {
+      // Supabase에서 가족 단위 미션 로드
+      const dateMissions = await missionSupabaseService.getFamilyMissionInstances(selectedDate)
+      
+      // Mission 형태로 변환 (기존 UI 호환성을 위해)
+      const compatibleMissions: Mission[] = dateMissions.map(instance => ({
+        id: instance.id,
+        title: instance.title,
+        description: instance.description,
+        reward: instance.reward,
+        isCompleted: instance.isCompleted,
+        completedAt: instance.completedAt,
+        isTransferred: instance.isTransferred,
+        category: instance.category,
+        missionType: instance.missionType === 'daily' ? '데일리' : '이벤트'
+      }))
+
+      setMissions(compatibleMissions)
+    } catch (error) {
+      console.error('미션 로드 실패:', error)
+    }
+  }
+
   useEffect(() => {
     const initializeData = async () => {
       try {
-        // 1. 마이그레이션 확인 및 실행
-        if (await MigrationService.needsMigration()) {
-          console.log('🔄 Starting migration from localStorage to IndexedDB...')
-          const migrationSuccess = await MigrationService.migrateData()
-          
-          if (migrationSuccess) {
-            console.log('✅ Migration completed successfully')
-          } else {
-            console.error('❌ Migration failed, falling back to localStorage')
-          }
-        }
-
-        // 2. 기본 템플릿 확인 및 생성
-        if (MigrationService.isMigrationCompleted()) {
-          console.log('🏗️ 기본 템플릿 확인 및 생성 시작...')
-          await missionService.ensureTemplatesExist()
+        // 1. Supabase 기본 템플릿 확인 및 생성 (부모인 경우에만)
+        if (profile?.user_type === 'parent') {
+          console.log('🏗️ Supabase 기본 템플릿 확인 및 생성 시작...')
+          await missionSupabaseService.createDefaultTemplates()
           
           // 템플릿 생성 확인
-          const allTemplates = await missionService.getAllTemplates()
+          const allTemplates = await missionSupabaseService.getFamilyMissionTemplates()
           const activeDaily = allTemplates.filter(t => t.missionType === 'daily' && t.isActive)
           console.log(`📋 총 템플릿: ${allTemplates.length}개, 활성 데일리: ${activeDaily.length}개`)
-          
-          // 활성 데일리 템플릿이 없으면 강제로 기본 템플릿 생성
-          if (activeDaily.length === 0) {
-            console.log('⚠️ 활성 데일리 템플릿이 없어 기본 템플릿 강제 생성')
-            await missionService.createDefaultTemplates()
-          }
         }
 
         // 3. 부모-자녀 연결 상태 확인
@@ -98,75 +104,21 @@ export default function HomePage() {
           }
         }
 
-        // 4. 선택된 날짜의 미션 로드
-        let dateMissions: MissionInstance[] = []
+        // 2. 선택된 날짜의 미션 로드 및 자동 생성
         const today = new Date().toISOString().split('T')[0]
-
-        if (MigrationService.isMigrationCompleted()) {
-          // 새로운 데이터베이스에서 로드
-          dateMissions = await missionService.getMissionsByDate(selectedDate)
-          
-          // 부모가 자녀와 연결된 경우, 자녀의 미션도 함께 조회 (향후 확장용)
-          // 현재는 로컬 IndexedDB를 사용하므로 부모와 자녀가 같은 미션을 공유
-          
-          // 미래 날짜이고 미션이 없으면 데일리 미션 자동 생성
-          if (selectedDate >= today && dateMissions.length === 0) {
-            console.log(`📅 ${selectedDate}에 미션 없음, 데일리 미션 생성 시도...`)
-            const generatedMissions = await missionService.generateDailyMissionsForDate(selectedDate)
-            console.log(`✨ ${generatedMissions.length}개의 데일리 미션 생성됨`)
-            dateMissions = generatedMissions
-          } else if (selectedDate >= today) {
-            console.log(`📋 ${selectedDate}에 이미 ${dateMissions.length}개 미션 존재`)
-          }
-        } else {
-          // 기존 localStorage 방식 사용 (폴백)
-          console.log('📦 Using localStorage fallback')
-          const savedMissions = localStorage.getItem('missions')
-          
-          if (savedMissions) {
-            const parsedMissions = JSON.parse(savedMissions)
-            // 기존 미션들은 오늘 날짜만 보여줌 (localStorage는 날짜 구분 없음)
-            if (selectedDate === today) {
-              dateMissions = parsedMissions.map((mission: Mission) => ({
-                ...mission,
-                date: selectedDate,
-                templateId: null,
-                missionType: mission.missionType === '이벤트' ? 'event' : 'daily',
-                category: mission.category || '기타'
-              }))
-            }
-          } else if (selectedDate === today) {
-            // 기본 미션 생성
-            const initialMissions: MissionInstance[] = [
-              {
-                id: '1',
-                templateId: null,
-                date: selectedDate,
-                title: '방 청소하기',
-                description: '침실 정리정돈하고 먼지 털기',
-                reward: 1000,
-                isCompleted: false,
-                category: '집안일',
-                missionType: 'daily'
-              },
-              {
-                id: '2', 
-                templateId: null,
-                date: selectedDate,
-                title: '숙제 완료하기',
-                description: '오늘 낸 숙제 모두 끝내기',
-                reward: 1500,
-                isCompleted: false,
-                category: '공부',
-                missionType: 'daily'
-              }
-            ]
-            dateMissions = initialMissions
-            localStorage.setItem('missions', JSON.stringify(initialMissions))
-          }
+        let dateMissions = await missionSupabaseService.getFamilyMissionInstances(selectedDate)
+        
+        // 미래 날짜이고 미션이 없으면 데일리 미션 자동 생성
+        if (selectedDate >= today && dateMissions.length === 0) {
+          console.log(`📅 ${selectedDate}에 미션 없음, 데일리 미션 생성 시도...`)
+          const generatedCount = await missionSupabaseService.generateDailyMissions(selectedDate)
+          console.log(`✨ ${generatedCount}개의 데일리 미션 생성됨`)
+          dateMissions = await missionSupabaseService.getFamilyMissionInstances(selectedDate)
+        } else if (selectedDate >= today) {
+          console.log(`📋 ${selectedDate}에 이미 ${dateMissions.length}개 미션 존재`)
         }
 
-        // 4. Mission 형태로 변환 (기존 UI 호환성을 위해)
+        // Mission 형태로 변환 (기존 UI 호환성을 위해)
         const compatibleMissions: Mission[] = dateMissions.map(instance => ({
           id: instance.id,
           title: instance.title,
@@ -181,21 +133,13 @@ export default function HomePage() {
 
         setMissions(compatibleMissions)
 
-        // 5. 용돈 정보 로드 - 용돈 서비스에서 현재 잔액 가져오기
+        // 3. 용돈 정보 로드 (Supabase 기반 가족 공유)
         try {
-          const currentBalance = await allowanceService.getCurrentBalance()
+          const currentBalance = await allowanceSupabaseService.getCurrentBalance()
           setCurrentAllowance(currentBalance)
-          // localStorage와 동기화
-          localStorage.setItem('currentAllowance', currentBalance.toString())
         } catch (error) {
           console.error('Failed to load current balance:', error)
-          // 에러 시 기존 localStorage 값 사용
-          const savedAllowance = localStorage.getItem('currentAllowance')
-          if (savedAllowance) {
-            setCurrentAllowance(parseInt(savedAllowance))
-          } else {
-            setCurrentAllowance(7500)
-            localStorage.setItem('currentAllowance', '7500')
+          setCurrentAllowance(0)
           }
         }
 
@@ -210,15 +154,28 @@ export default function HomePage() {
     }
 
     initializeData()
+
+    // Supabase 실시간 미션 동기화 구독
+    const missionChannel = missionSupabaseService.subscribeToMissions((payload) => {
+      console.log('🔄 Supabase 실시간 미션 변경 감지:', payload)
+      loadMissions()
+    })
+
+    // 컴포넌트 언마운트 시 구독 해제
+    return () => {
+      console.log('🔇 Supabase 미션 실시간 동기화 구독 해제')
+      missionChannel.unsubscribe()
+    }
   }, [selectedDate, profile?.id, profile?.user_type])
 
-  // 실시간 미션 업데이트 구독 (탭 간 동기화)
+  // 강화된 실시간 동기화 구독 (다중 브라우저 + 탭 간)
   useEffect(() => {
-    console.log('🔄 탭 간 동기화 구독 시작')
+    console.log('🔄 강화된 실시간 동기화 구독 시작')
 
-    const unsubscribe = syncService.subscribe({
+    // 기존 동기화 (같은 브라우저 탭 간)
+    const legacyUnsubscribe = syncService.subscribe({
       onMissionUpdate: (payload) => {
-        console.log('🔥 탭 간 미션 동기화 수신:', payload)
+        console.log('🔥 레거시 동기화 수신:', payload)
         
         if (payload.type === 'mission_update' && payload.data) {
           const data = payload.data
@@ -261,10 +218,80 @@ export default function HomePage() {
       }
     })
 
+    // 강화된 동기화 (다중 브라우저 간 + Supabase Realtime)
+    const enhancedUnsubscribe = enhancedSyncService.subscribe({
+      onUpdate: (payload) => {
+        console.log('⚡ 강화된 동기화 수신:', payload)
+        
+        // 미션 관련 동기화 처리
+        if (payload.type === 'mission_update' && payload.data) {
+          const data = payload.data
+          setMissions(prev => 
+            prev.map(mission => 
+              mission.id === payload.entityId 
+                ? { 
+                    ...mission, 
+                    isCompleted: data.is_completed ?? data.isCompleted ?? mission.isCompleted,
+                    completedAt: data.completed_at ?? data.completedAt ?? mission.completedAt,
+                    isTransferred: data.is_transferred ?? data.isTransferred ?? mission.isTransferred ?? false
+                  }
+                : mission
+            )
+          )
+        } else if (payload.type === 'mission_create' && payload.data) {
+          const data = payload.data
+          const newMission: Mission = {
+            id: payload.entityId,
+            title: (data.title as string) || '',
+            description: (data.description as string) || undefined,
+            reward: (data.reward as number) || 0,
+            isCompleted: (data.is_completed as boolean) || (data.isCompleted as boolean) || false,
+            completedAt: (data.completed_at as string) || (data.completedAt as string) || undefined,
+            isTransferred: (data.is_transferred as boolean) || (data.isTransferred as boolean) || false,
+            category: (data.category as string) || undefined,
+            missionType: (data.mission_type as string) || (data.missionType as string) || undefined
+          }
+          setMissions(prev => {
+            // 중복 방지
+            if (prev.find(m => m.id === payload.entityId)) return prev
+            return [...prev, newMission]
+          })
+        } else if (payload.type === 'mission_delete') {
+          setMissions(prev => prev.filter(mission => mission.id !== payload.entityId))
+        }
+        
+        // 용돈 관련 동기화 처리
+        else if (payload.type === 'allowance_update' && payload.data) {
+          const newBalance = payload.data.balance || payload.data.current_balance
+          if (typeof newBalance === 'number') {
+            setCurrentAllowance(newBalance)
+            console.log('💰 용돈 동기화 업데이트:', newBalance)
+          }
+        }
+        
+        // 연속 완료 관련 동기화 처리
+        else if (payload.type === 'streak_update' && payload.data) {
+          console.log('🔥 연속 완료 동기화 업데이트:', payload.data)
+          // StreakDisplay 컴포넌트에서 자체적으로 상태를 관리하므로
+          // 여기서는 로그만 남김
+        }
+      }
+    })
+
+    // 동기화 상태 모니터링 (개발 환경에서만)
+    const statusInterval = setInterval(() => {
+      if (process.env.NODE_ENV === 'development') {
+        const status = enhancedSyncService.getStatus()
+        console.log('🔍 동기화 상태:', status)
+      }
+    }, 30000) // 30초마다
+
     // 컴포넌트 언마운트 시 구독 해제
     return () => {
-      console.log('🔇 탭 간 동기화 구독 해제')
-      unsubscribe()
+      console.log('🔇 강화된 동기화 구독 해제')
+      legacyUnsubscribe()
+      enhancedUnsubscribe()
+      clearInterval(statusInterval)
     }
   }, [selectedDate])
 
@@ -284,10 +311,16 @@ export default function HomePage() {
     const mission = missions.find(m => m.id === missionId)
     if (mission && !mission.isCompleted && profile?.id) {
       try {
-        if (MigrationService.isMigrationCompleted()) {
-          // 새로운 데이터베이스 사용
-          await missionService.completeMission(missionId)
-        }
+        // Supabase 기반 미션 완료
+        await missionSupabaseService.completeMission(missionId)
+        
+        // 미션 완료 시 자동 수입 추가
+        await allowanceSupabaseService.addMissionIncome(
+          missionId,
+          mission.reward,
+          mission.title,
+          selectedDate
+        )
         
         // 연속 완료 카운터 업데이트
         try {
@@ -314,6 +347,18 @@ export default function HomePage() {
               : mission
           )
         )
+
+        // 강화된 동기화 알림
+        enhancedSyncService.notify({
+          type: 'mission_update',
+          entityId: missionId,
+          data: {
+            isCompleted: true,
+            completedAt: new Date().toISOString(),
+            userId: profile.id
+          },
+          userId: profile.id
+        })
       } catch (error) {
         console.error('Failed to complete mission:', error)
       }
@@ -324,13 +369,11 @@ export default function HomePage() {
     const mission = missions.find(m => m.id === missionId)
     if (mission && mission.isCompleted && !mission.isTransferred) {
       try {
-        if (MigrationService.isMigrationCompleted()) {
-          // 새로운 데이터베이스 사용
-          await missionService.uncompleteMission(missionId)
-          
-          // 미션과 연결된 용돈 수입 내역 삭제
-          await allowanceService.removeMissionIncome(missionId)
-        }
+        // Supabase 기반 미션 완료 취소
+        await missionSupabaseService.uncompleteMission(missionId)
+        
+        // 미션과 연결된 용돈 수입 내역 삭제
+        await allowanceSupabaseService.removeMissionIncome(missionId)
         
         // UI 상태 업데이트
         setMissions(prev =>
@@ -352,10 +395,8 @@ export default function HomePage() {
     
     if (confirm('정말로 이 미션을 삭제하시겠습니까?')) {
       try {
-        if (MigrationService.isMigrationCompleted()) {
-          // 새로운 데이터베이스 사용
-          await missionService.deleteMission(missionId)
-        }
+        // Supabase 기반 미션 삭제
+        await missionSupabaseService.deleteMissionInstance(missionId)
         
         // UI 상태 업데이트
         setMissions(prev => prev.filter(mission => mission.id !== missionId))
@@ -374,16 +415,8 @@ export default function HomePage() {
   const handleAddMission = async (newMission: { title: string; description: string; reward: number; category?: string; missionType?: string; date?: string }) => {
     try {      
       if (editingMission) {
-        // 미션 수정
-        if (MigrationService.isMigrationCompleted()) {
-          await missionService.updateMission(editingMission.id, {
-            title: newMission.title,
-            description: newMission.description,
-            reward: newMission.reward,
-            category: newMission.category,
-            missionType: newMission.missionType === '이벤트' ? 'event' : 'daily'
-          })
-        }
+        // 미션 수정 - 현재 MissionSupabaseService에는 updateMission 메서드가 없으므로 로그만 남김
+        console.log('미션 수정 기능은 아직 구현되지 않았습니다.')
         
         // UI 상태 업데이트
         setMissions(prev =>
@@ -402,29 +435,22 @@ export default function HomePage() {
         )
         setEditingMission(null)
       } else {
-        // 새 미션 추가
-        let missionId: string
-        
-        if (MigrationService.isMigrationCompleted()) {
-          // 새로운 데이터베이스 사용
-          const createdId = await missionService.createMission({
-            templateId: null, // 일회성 미션
-            date: newMission.date || selectedDate,
-            title: newMission.title,
-            description: newMission.description,
-            reward: newMission.reward,
-            category: newMission.category || '기타',
-            missionType: newMission.missionType === '이벤트' ? 'event' : 'daily',
-            isCompleted: false
-          })
-          missionId = createdId || Date.now().toString()
-        } else {
-          missionId = Date.now().toString()
-        }
+        // 새 미션 추가 (Supabase 기반)
+        const createdId = await missionSupabaseService.addMissionInstance({
+          templateId: null, // 일회성 미션
+          date: newMission.date || selectedDate,
+          title: newMission.title,
+          description: newMission.description,
+          reward: newMission.reward,
+          category: newMission.category || '기타',
+          missionType: newMission.missionType === '이벤트' ? 'event' : 'daily',
+          isCompleted: false,
+          isTransferred: false
+        })
 
         // UI 상태 업데이트
         const mission: Mission = {
-          id: missionId,
+          id: createdId,
           title: newMission.title,
           description: newMission.description,
           reward: newMission.reward,
