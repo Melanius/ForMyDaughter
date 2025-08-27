@@ -166,10 +166,10 @@ export class AllowanceSupabaseService {
     const { user } = await this.getCurrentUser()
 
     try {
-      // 1. 삭제할 거래의 정보를 먼저 조회 (mission_id 확인용)
+      // 1. 삭제할 거래의 정보를 먼저 조회 (미션 관련 거래인지 확인)
       const { data: transaction, error: fetchError } = await this.supabase
         .from('allowance_transactions')
-        .select('mission_id, user_id')
+        .select('description, user_id, date, category')
         .eq('id', id)
         .eq('user_id', (user as { id: string }).id) // 본인 거래만 
         .single()
@@ -192,8 +192,15 @@ export class AllowanceSupabaseService {
       }
 
       // 3. 미션 관련 거래였다면 해당 미션을 미완료 상태로 되돌리기
-      if (transaction?.mission_id) {
-        await this.revertMissionFromTransaction(transaction.mission_id, transaction.user_id)
+      if (transaction?.category === INCOME_CATEGORIES.MISSION && transaction.description?.includes('미션 완료:')) {
+        // 설명에서 미션 ID 추출 시도
+        const missionIdMatch = transaction.description.match(/\(ID: ([^)]+)\)/)
+        if (missionIdMatch && missionIdMatch[1]) {
+          await this.revertMissionFromTransaction(missionIdMatch[1], transaction.user_id)
+        } else {
+          // ID를 찾을 수 없으면 해당 날짜의 전달된 미션들을 되돌리기
+          await this.revertMissionsForDate(transaction.date, transaction.user_id)
+        }
       }
 
       console.log('✅ 거래 삭제 성공:', id)
@@ -229,6 +236,34 @@ export class AllowanceSupabaseService {
       console.log('✅ 미션 상태 되돌리기 성공:', missionId)
     } catch (error) {
       console.error('미션 되돌리기 중 오류:', error)
+      // 오류가 발생해도 거래 삭제는 이미 완료되었으므로 throw하지 않고 로그만 남김
+    }
+  }
+
+  /**
+   * 🔄 특정 날짜의 전달된 미션들을 되돌리기 (미션 ID를 찾을 수 없을 때)
+   */
+  private async revertMissionsForDate(date: string, userId: string): Promise<void> {
+    try {
+      const { error } = await this.supabase
+        .from('mission_instances')
+        .update({
+          is_completed: false,
+          completed_at: null,
+          is_transferred: false
+        })
+        .eq('date', date)
+        .eq('user_id', userId)
+        .eq('is_transferred', true) // 전달된 미션들만
+
+      if (error) {
+        console.error('날짜별 미션 되돌리기 실패:', error)
+        throw new Error(`날짜별 미션 되돌리기 실패: ${date}`)
+      }
+
+      console.log('✅ 날짜별 미션 되돌리기 성공:', date)
+    } catch (error) {
+      console.error('날짜별 미션 되돌리기 중 오류:', error)
       // 오류가 발생해도 거래 삭제는 이미 완료되었으므로 throw하지 않고 로그만 남김
     }
   }
@@ -360,8 +395,7 @@ export class AllowanceSupabaseService {
         amount: amount,
         type: 'income',
         category: INCOME_CATEGORIES.MISSION,
-        description: `미션 완료: ${missionTitle}`,
-        mission_id: missionId
+        description: `미션 완료: ${missionTitle} (ID: ${missionId})` // 미션 ID를 설명에 포함
       })
       .select('id')
       .single()
@@ -382,18 +416,21 @@ export class AllowanceSupabaseService {
     try {
       const { user } = await this.getCurrentUser()
       
-      const { data: missionTransaction, error } = await this.supabase
+      // mission_id 컬럼이 없으므로 description에서 미션 ID로 검색
+      const { data: missionTransactions, error } = await this.supabase
         .from('allowance_transactions')
         .select('id')
         .eq('user_id', (user as { id: string }).id)
-        .eq('mission_id', missionId)
-        .single()
+        .eq('category', INCOME_CATEGORIES.MISSION)
+        .like('description', `%ID: ${missionId}%`)
 
-      if (error || !missionTransaction) {
+      if (error || !missionTransactions || missionTransactions.length === 0) {
+        console.log('해당 미션의 거래 내역을 찾을 수 없음:', missionId)
         return false
       }
 
-      return await this.deleteTransaction(missionTransaction.id)
+      // 첫 번째 매칭되는 거래 삭제
+      return await this.deleteTransaction(missionTransactions[0].id)
     } catch (error) {
       console.error('미션 수입 제거 실패:', error)
       return false
