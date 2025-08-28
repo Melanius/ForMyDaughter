@@ -13,6 +13,24 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
+    
+    // 강화된 타입 체크 옵션들
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    
+    // 추가 엄격한 체크
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "alwaysStrict": true,
+    
     "plugins": [
       {
         "name": "next"

@@ -230,6 +230,44 @@ export class MissionSupabaseService {
   }
 
   /**
+   * ✏️ 미션 수정
+   */
+  async updateMissionInstance(missionId: string, updates: {
+    title?: string
+    description?: string
+    reward?: number
+    category?: string
+    missionType?: 'daily' | 'event'
+  }): Promise<boolean> {
+    const { user } = await this.getCurrentUser()
+
+    // 업데이트할 필드만 추출
+    const updateData: Record<string, unknown> = {}
+    if (updates.title !== undefined) updateData.title = updates.title
+    if (updates.description !== undefined) updateData.description = updates.description
+    if (updates.reward !== undefined) updateData.reward = updates.reward
+    if (updates.category !== undefined) updateData.category = updates.category
+    if (updates.missionType !== undefined) updateData.mission_type = updates.missionType
+
+    // 수정 시간 업데이트
+    updateData.updated_at = new Date().toISOString()
+
+    const { error } = await this.supabase
+      .from('mission_instances')
+      .update(updateData)
+      .eq('id', missionId)
+      .eq('user_id', (user as { id: string }).id) // 본인 미션만 수정 가능
+
+    if (error) {
+      console.error('미션 수정 실패:', error)
+      return false
+    }
+
+    console.log('✅ 미션 수정 성공:', missionId, updates)
+    return true
+  }
+
+  /**
    * 🗑️ 미션 삭제
    */
   async deleteMissionInstance(missionId: string): Promise<boolean> {

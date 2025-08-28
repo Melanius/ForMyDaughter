@@ -1,6 +1,7 @@
 import './globals.css'
 import { AuthProvider } from '@/components/auth/AuthProvider'
 import { NavigationBar } from '@/components/layout/NavBar'
+import { ErrorBoundaryWrapper } from '@/components/ErrorBoundary'
 
 export const metadata = {
   title: 'MoneySeed - 스마트 용돈 관리',
@@ -23,14 +24,16 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <AuthProvider>
-          <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
-            <NavigationBar />
-            <main>
-              {children}
-            </main>
-          </div>
-        </AuthProvider>
+        <ErrorBoundaryWrapper>
+          <AuthProvider>
+            <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+              <NavigationBar />
+              <main>
+                {children}
+              </main>
+            </div>
+          </AuthProvider>
+        </ErrorBoundaryWrapper>
       </body>
     </html>
   )
