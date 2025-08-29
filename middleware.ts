@@ -16,4 +16,6 @@ export const config = {
      */
     '/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
+  // Node.js runtime 명시적 지정
+  runtime: 'nodejs'
 }
