@@ -20,7 +20,7 @@ import { useDailyMissionWelcome } from '../hooks/useDailyMissionWelcome'
 
 export default function HomePage() {
   const { profile } = useAuth()
-  const [selectedDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [selectedDate] = useState(() => new Date().toISOString().split('T')[0]!)
   const [activeTab, setActiveTab] = useState<'missions' | 'templates'>('missions')
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingMission, setEditingMission] = useState<Mission | null>(null)
