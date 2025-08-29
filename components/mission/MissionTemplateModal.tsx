@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { MissionTemplate } from '../../lib/types/mission'
 
 interface MissionTemplateModalProps {
@@ -19,18 +19,66 @@ export function MissionTemplateModal({ onClose, onSave, editingTemplate }: Missi
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const categories = ['집안일', '공부', '운동', '독서', '건강', '예의', '기타']
+
+  // editingTemplate가 변경될 때 상태를 업데이트
+  useEffect(() => {
+    console.log('🔄 MissionTemplateModal - editingTemplate 변경감지:', {
+      editingTemplate: !!editingTemplate,
+      templateId: editingTemplate?.id,
+      templateTitle: editingTemplate?.title,
+      templateReward: editingTemplate?.reward
+    })
+    
+    if (editingTemplate) {
+      setTitle(editingTemplate.title)
+      setDescription(editingTemplate.description)
+      setReward(editingTemplate.reward)
+      setCategory(editingTemplate.category)
+      setMissionType(editingTemplate.missionType)
+      setIsActive(editingTemplate.isActive)
+    } else {
+      // 새 템플릿 생성시 초기값
+      setTitle('')
+      setDescription('')
+      setReward(500)
+      setCategory('집안일')
+      setMissionType('daily')
+      setIsActive(true)
+    }
+  }, [editingTemplate])
   
   const handleSubmit = async (e: React.FormEvent) => {
+    console.log('🔥 MissionTemplateModal - handleSubmit 시작:', {
+      editingTemplate: !!editingTemplate,
+      editingTemplateId: editingTemplate?.id,
+      reward: reward,
+      title: title.trim(),
+      isSubmitting
+    })
+    
     e.preventDefault()
     
     if (!title.trim() || !description.trim()) {
+      console.log('❌ MissionTemplateModal - 유효성 검사 실패: 제목 또는 설명 누락')
       alert('제목과 설명을 입력해주세요.')
       return
     }
     
+    console.log('🚀 MissionTemplateModal - onSave 호출 준비:', {
+      templateData: {
+        title: title.trim(),
+        description: description.trim(),
+        reward,
+        category,
+        missionType,
+        isActive
+      }
+    })
+    
     setIsSubmitting(true)
     
     try {
+      console.log('📞 MissionTemplateModal - onSave 함수 호출 중...')
       await onSave({
         title: title.trim(),
         description: description.trim(),
@@ -39,11 +87,13 @@ export function MissionTemplateModal({ onClose, onSave, editingTemplate }: Missi
         missionType,
         isActive
       })
+      console.log('✅ MissionTemplateModal - onSave 완료')
     } catch (error) {
-      console.error('Failed to save template:', error)
+      console.error('❌ MissionTemplateModal - onSave 실패:', error)
       alert('템플릿 저장 중 오류가 발생했습니다.')
     } finally {
       setIsSubmitting(false)
+      console.log('🏁 MissionTemplateModal - handleSubmit 종료')
     }
   }
 

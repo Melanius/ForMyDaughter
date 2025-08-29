@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { MissionTemplate } from '../../lib/types/mission'
 import { MissionTemplateModal } from './MissionTemplateModal'
-import missionService from '../../lib/services/mission'
+import missionSupabaseService from '../../lib/services/missionSupabase'
 
 export function TemplateManager() {
   const [templates, setTemplates] = useState<MissionTemplate[]>([])
@@ -18,7 +18,7 @@ export function TemplateManager() {
   const loadTemplates = async () => {
     try {
       setLoading(true)
-      const allTemplates = await missionService.getAllTemplates()
+      const allTemplates = await missionSupabaseService.getFamilyMissionTemplates()
       // 데일리 템플릿을 먼저, 이벤트 템플릿을 나중에 정렬
       const sortedTemplates = allTemplates.sort((a, b) => {
         if (a.missionType !== b.missionType) {
@@ -35,25 +35,51 @@ export function TemplateManager() {
   }
 
   const handleSaveTemplate = async (templateData: Omit<MissionTemplate, 'id' | 'createdAt' | 'updatedAt'>) => {
+    console.log('📋 TemplateManager - handleSaveTemplate 시작:', {
+      isEditing: !!editingTemplate,
+      editingTemplateId: editingTemplate?.id,
+      templateData
+    })
+    
     try {
       if (editingTemplate) {
+        console.log('✏️ 템플릿 수정 모드 - updateMissionTemplate 호출 예정')
         // 템플릿 수정
-        await missionService.updateTemplate(editingTemplate.id, templateData)
+        await missionSupabaseService.updateMissionTemplate(editingTemplate.id, {
+          title: templateData.title,
+          description: templateData.description,
+          reward: templateData.reward,
+          category: templateData.category,
+          missionType: templateData.missionType,
+          isActive: templateData.isActive
+        })
+        console.log('✅ 템플릿 수정 완료')
       } else {
+        console.log('➕ 새 템플릿 생성 모드 - addMissionTemplate 호출 예정')
         // 새 템플릿 생성
-        await missionService.createTemplate(templateData)
+        await missionSupabaseService.addMissionTemplate(templateData)
+        console.log('✅ 새 템플릿 생성 완료')
       }
       
+      console.log('🔄 템플릿 목록 다시 로드 시작')
       await loadTemplates()
+      console.log('✅ 템플릿 목록 로드 완료')
+      
       setShowModal(false)
       setEditingTemplate(null)
+      console.log('🎉 handleSaveTemplate 성공 완료')
     } catch (error) {
-      console.error('Failed to save template:', error)
+      console.error('❌ TemplateManager - Failed to save template:', error)
       throw error
     }
   }
 
   const handleEditTemplate = (template: MissionTemplate) => {
+    console.log('🔧 TemplateManager - handleEditTemplate 호출:', {
+      templateId: template.id,
+      templateTitle: template.title,
+      templateReward: template.reward
+    })
     setEditingTemplate(template)
     setShowModal(true)
   }
@@ -66,7 +92,7 @@ export function TemplateManager() {
     
     if (confirmed) {
       try {
-        await missionService.deleteTemplate(template.id)
+        await missionSupabaseService.deleteMissionTemplate(template.id)
         await loadTemplates()
       } catch (error) {
         console.error('Failed to delete template:', error)
@@ -77,7 +103,7 @@ export function TemplateManager() {
 
   const handleToggleActive = async (template: MissionTemplate) => {
     try {
-      await missionService.updateTemplate(template.id, {
+      await missionSupabaseService.updateMissionTemplate(template.id, {
         isActive: !template.isActive
       })
       await loadTemplates()

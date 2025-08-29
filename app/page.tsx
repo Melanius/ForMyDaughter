@@ -15,6 +15,8 @@ import streakService from '../lib/services/streak'
 import syncService from '../lib/services/sync'
 import enhancedSyncService from '../lib/services/enhancedSync'
 import { createClient } from '@/lib/supabase/client'
+import { DailyMissionWelcomeModal } from '../components/modals/DailyMissionWelcomeModal'
+import { useDailyMissionWelcome } from '../hooks/useDailyMissionWelcome'
 
 export default function HomePage() {
   const { profile } = useAuth()
@@ -58,6 +60,14 @@ export default function HomePage() {
     updateBalance
   } = useAllowance()
 
+  // 자녀 계정 데일리 미션 웰컴 모달
+  const {
+    showWelcomeModal,
+    isChecking: isCheckingDailyMissions,
+    handleConfirmWelcome,
+    handleCloseWelcome
+  } = useDailyMissionWelcome()
+
   // 가족 연결 상태 확인
   useEffect(() => {
     const checkFamilyConnection = async () => {
@@ -88,37 +98,38 @@ export default function HomePage() {
     checkFamilyConnection()
   }, [profile])
 
-  // 초기 데이터 로드
+  // 🔒 부모 기본 템플릿 생성 (세션당 한 번만, localStorage로 중복 실행 방지)
   useEffect(() => {
-    const initializeData = async () => {
-      if (!profile) return
+    const initializeParentTemplates = async () => {
+      if (!profile || profile.user_type !== 'parent') return
+
+      // 🔒 이미 이 세션에서 템플릿 체크를 했는지 확인
+      const sessionKey = `template_check_${profile.id}_session`
+      if (localStorage.getItem(sessionKey)) {
+        console.log('🚫 이 세션에서 이미 템플릿 체크 완료됨 - 건너뜀')
+        return
+      }
 
       try {
-        // 부모인 경우 기본 템플릿 생성
-        if (profile.user_type === 'parent') {
-          console.log('🏗️ Supabase 기본 템플릿 확인 및 생성 시작...')
-          await missionSupabaseService.createDefaultTemplates()
-          
-          const allTemplates = await missionSupabaseService.getFamilyMissionTemplates()
-          const activeDaily = allTemplates.filter(t => t.missionType === 'daily' && t.isActive)
-          console.log(`📋 총 템플릿: ${allTemplates.length}개, 활성 데일리: ${activeDaily.length}개`)
-        }
-
-        // 미래 날짜이고 미션이 없으면 데일리 미션 자동 생성
-        const today = new Date().toISOString().split('T')[0]
-        if (selectedDate >= today && missions.length === 0) {
-          console.log(`📅 ${selectedDate}에 미션 없음, 데일리 미션 생성 시도...`)
-          const generatedCount = await missionSupabaseService.generateDailyMissions(selectedDate)
-          console.log(`✨ ${generatedCount}개의 데일리 미션 생성됨`)
-          await loadMissions()
-        }
+        console.log('🏗️ 부모 계정 감지 - 기본 템플릿 확인 및 생성 로직 시작...')
+        await missionSupabaseService.createDefaultTemplates()
+        
+        const allTemplates = await missionSupabaseService.getFamilyMissionTemplates()
+        const activeDaily = allTemplates.filter(t => t.missionType === 'daily' && t.isActive)
+        console.log(`📋 최종 확인 - 총 템플릿: ${allTemplates.length}개, 활성 데일리: ${activeDaily.length}개`)
+        
+        // 🔒 세션 체크 완료 플래그 설정
+        localStorage.setItem(sessionKey, 'checked')
       } catch (error) {
-        console.error('초기 데이터 로드 실패:', error)
+        console.error('부모 템플릿 초기화 실패:', error)
       }
     }
 
-    initializeData()
-  }, [profile, selectedDate, missions.length, loadMissions])
+    initializeParentTemplates()
+  }, [profile?.id]) // profile.id가 변경될 때만 실행 (로그인/로그아웃시에만)
+
+  // 📅 데일리 미션 생성은 오직 useDailyMissionWelcome 훅을 통해서만 수행됨
+  // 자녀 계정의 첫 로그인 시에만 웰컴 모달을 통해 생성
 
   // 실시간 동기화 설정
   useEffect(() => {
@@ -413,6 +424,17 @@ export default function HomePage() {
           </p>
         </div>
       </div>
+
+      {/* 자녀 계정 데일리 미션 웰컴 모달 */}
+      <DailyMissionWelcomeModal
+        isOpen={showWelcomeModal}
+        onClose={handleCloseWelcome}
+        onConfirm={async () => {
+          await handleConfirmWelcome()
+          loadMissions() // 모달 확인 후 미션 목록 새로고침
+        }}
+        childName={profile?.full_name}
+      />
     </div>
   )
 }

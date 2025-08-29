@@ -299,6 +299,22 @@ export class MissionSupabaseService {
       throw new Error('미션 템플릿은 부모만 생성할 수 있습니다.')
     }
 
+    // 🔒 동일한 제목의 템플릿이 이미 있는지 확인 (중복 방지)
+    const { data: existingTemplate, error: checkError } = await this.supabase
+      .from('mission_templates')
+      .select('id, title')
+      .eq('title', template.title)
+      .eq('user_id', (user as { id: string }).id)
+      .maybeSingle()
+
+    if (checkError) {
+      console.error('템플릿 중복 체크 실패:', checkError)
+    } else if (existingTemplate) {
+      console.log(`🚫 동일한 제목의 템플릿 '${template.title}'이 이미 존재함 (ID: ${existingTemplate.id})`)
+      return existingTemplate.id // 기존 템플릿 ID 반환
+    }
+
+    console.log(`✨ 새 템플릿 '${template.title}' 생성 시작...`)
     const now = new Date().toISOString()
     const { data, error } = await this.supabase
       .from('mission_templates')
@@ -324,6 +340,94 @@ export class MissionSupabaseService {
   }
 
   /**
+   * ✏️ 미션 템플릿 수정 (부모만 가능)
+   */
+  async updateMissionTemplate(templateId: string, updates: {
+    title?: string
+    description?: string
+    reward?: number
+    category?: string
+    missionType?: 'daily' | 'event'
+    isActive?: boolean
+  }): Promise<boolean> {
+    console.log('🔧 템플릿 수정 요청:', templateId, updates)
+    
+    const { user, profile } = await this.getCurrentUser()
+    console.log('👤 현재 사용자 정보:', { userId: (user as any)?.id, userType: profile.user_type })
+
+    // 부모만 템플릿 수정 가능
+    if (profile.user_type !== 'parent') {
+      throw new Error('미션 템플릿은 부모만 수정할 수 있습니다.')
+    }
+
+    // 업데이트할 필드만 추출
+    const updateData: Record<string, unknown> = {}
+    if (updates.title !== undefined) updateData.title = updates.title
+    if (updates.description !== undefined) updateData.description = updates.description
+    if (updates.reward !== undefined) updateData.reward = updates.reward
+    if (updates.category !== undefined) updateData.category = updates.category
+    if (updates.missionType !== undefined) updateData.mission_type = updates.missionType
+    if (updates.isActive !== undefined) updateData.is_active = updates.isActive
+
+    // 수정 시간 업데이트
+    updateData.updated_at = new Date().toISOString()
+    
+    console.log('📝 업데이트 데이터:', updateData)
+
+    const { data, error, count } = await this.supabase
+      .from('mission_templates')
+      .update(updateData)
+      .eq('id', templateId)
+      .eq('user_id', (user as { id: string }).id) // 본인이 생성한 템플릿만 수정 가능
+      .select()
+
+    console.log('🔍 Supabase 업데이트 결과:', { data, error, count })
+
+    if (error) {
+      console.error('❌ 미션 템플릿 수정 실패:', error)
+      throw new Error(`미션 템플릿을 수정할 수 없습니다: ${error.message}`)
+    }
+
+    if (!data || data.length === 0) {
+      console.error('⚠️ 업데이트된 행이 없습니다. 템플릿을 찾을 수 없거나 권한이 없습니다.')
+      throw new Error('템플릿을 찾을 수 없거나 수정 권한이 없습니다.')
+    }
+
+    console.log('✅ 미션 템플릿 수정 성공:', templateId, updates, '업데이트된 데이터:', data)
+    return true
+  }
+
+  /**
+   * 🗑️ 미션 템플릿 삭제 (부모만 가능)
+   */
+  async deleteMissionTemplate(templateId: string): Promise<boolean> {
+    const { user, profile } = await this.getCurrentUser()
+
+    // 부모만 템플릿 삭제 가능
+    if (profile.user_type !== 'parent') {
+      throw new Error('미션 템플릿은 부모만 삭제할 수 있습니다.')
+    }
+
+    // 소프트 삭제 (is_active = false)를 사용하여 기존 인스턴스와의 연결 유지
+    const { error } = await this.supabase
+      .from('mission_templates')
+      .update({
+        is_active: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', templateId)
+      .eq('user_id', (user as { id: string }).id) // 본인이 생성한 템플릿만 삭제 가능
+
+    if (error) {
+      console.error('미션 템플릿 삭제 실패:', error)
+      throw new Error('미션 템플릿을 삭제할 수 없습니다.')
+    }
+
+    console.log('✅ 미션 템플릿 삭제 성공 (비활성화):', templateId)
+    return true
+  }
+
+  /**
    * 🏗️ 기본 템플릿 생성
    */
   async createDefaultTemplates(): Promise<void> {
@@ -334,42 +438,53 @@ export class MissionSupabaseService {
       return
     }
 
-    const defaultTemplates = [
-      {
-        title: '방 청소하기',
-        description: '침실과 책상 정리정돈',
-        reward: 1000,
-        category: '집안일',
-        missionType: 'daily' as const,
-        isActive: true
-      },
-      {
-        title: '숙제 완료하기',
-        description: '오늘의 숙제를 모두 끝내기',
-        reward: 1500,
-        category: '공부',
-        missionType: 'daily' as const,
-        isActive: true
-      },
-      {
-        title: '설거지 도와주기',
-        description: '식사 후 설거지 돕기',
-        reward: 800,
-        category: '집안일',
-        missionType: 'daily' as const,
-        isActive: true
-      }
-    ]
-
-    for (const template of defaultTemplates) {
-      try {
-        await this.addMissionTemplate(template)
-      } catch (error) {
-        console.warn('기본 템플릿 생성 실패:', template.title, error)
-      }
+    // 🔒 이미 템플릿이 있으면 생성하지 않음 (중복 방지)
+    const existingTemplates = await this.getFamilyMissionTemplates()
+    if (existingTemplates.length > 0) {
+      console.log(`🚫 기존 템플릿 ${existingTemplates.length}개가 있어서 기본 템플릿 생성을 건너뜀`)
+      return
     }
 
-    console.log('✅ 기본 템플릿 생성 완료')
+    // 🔒 부모의 첫 로그인 여부 확인 (profiles 테이블의 created_at과 현재 시간 비교)
+    const { data: profileData, error: profileError } = await this.supabase
+      .from('profiles')
+      .select('created_at')
+      .eq('id', profile.id)
+      .single()
+
+    if (profileError) {
+      console.error('프로필 정보 조회 실패:', profileError)
+      return
+    }
+
+    // 회원가입 후 24시간 이내에만 기본 템플릿 생성 허용
+    const createdTime = new Date(profileData.created_at).getTime()
+    const currentTime = new Date().getTime()
+    const hoursSinceSignup = (currentTime - createdTime) / (1000 * 60 * 60)
+    
+    if (hoursSinceSignup > 24) {
+      console.log(`🚫 회원가입 후 ${hoursSinceSignup.toFixed(1)}시간 경과로 기본 템플릿 생성을 건너뜀`)
+      return
+    }
+
+    console.log(`🏗️ 부모 회원가입 후 첫 로그인 감지 (${hoursSinceSignup.toFixed(1)}시간 경과) - 기본 템플릿 1개 생성 시작...`)
+    
+    // 🎯 기본 템플릿 1개만 생성
+    const defaultTemplate = {
+      title: '방 청소하기',
+      description: '침실과 책상을 깔끔하게 정리정돈해주세요',
+      reward: 1000,
+      category: '집안일',
+      missionType: 'daily' as const,
+      isActive: true
+    }
+
+    try {
+      await this.addMissionTemplate(defaultTemplate)
+      console.log('✅ 기본 템플릿 1개 생성 완료')
+    } catch (error) {
+      console.warn('기본 템플릿 생성 실패:', defaultTemplate.title, error)
+    }
   }
 
   /**
@@ -402,6 +517,20 @@ export class MissionSupabaseService {
     for (const userId of targetUserIds) {
       for (const template of dailyTemplates) {
         try {
+          // 중복 미션 체크
+          const { data: existingMission } = await this.supabase
+            .from('mission_instances')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('template_id', template.id)
+            .eq('date', date)
+            .single()
+
+          if (existingMission) {
+            console.log(`이미 존재하는 미션 스킵: ${template.title} (${userId})`)
+            continue
+          }
+
           const { error } = await this.supabase
             .from('mission_instances')
             .insert({

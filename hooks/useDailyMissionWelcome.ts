@@ -1,0 +1,113 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { useAuth } from '@/components/auth/AuthProvider'
+import missionSupabaseService from '@/lib/services/missionSupabase'
+
+export function useDailyMissionWelcome() {
+  const { profile } = useAuth()
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false)
+  const [isChecking, setIsChecking] = useState(false)
+
+  // 오늘 날짜 문자열 반환
+  const getTodayString = () => new Date().toISOString().split('T')[0]
+
+  // 로컬 스토리지 키 생성 (사용자별, 날짜별)
+  const getStorageKey = () => {
+    if (!profile?.id) return null
+    return `daily_mission_check_${profile.id}_${getTodayString()}`
+  }
+
+  // 오늘 이미 체크했는지 확인
+  const hasCheckedToday = () => {
+    const key = getStorageKey()
+    if (!key) return false
+    return localStorage.getItem(key) === 'checked'
+  }
+
+  // 오늘 체크 완료 표시
+  const markCheckedToday = () => {
+    const key = getStorageKey()
+    if (key) {
+      localStorage.setItem(key, 'checked')
+    }
+  }
+
+  // 오늘의 데일리 미션이 이미 있는지 확인
+  const checkTodayMissionsExist = async (): Promise<boolean> => {
+    try {
+      const today = getTodayString()
+      const todayMissions = await missionSupabaseService.getFamilyMissionInstances(today)
+      const dailyMissions = todayMissions.filter(m => 
+        m.missionType === 'daily' || m.missionType === '데일리'
+      )
+      return dailyMissions.length > 0
+    } catch (error) {
+      console.error('오늘 미션 확인 실패:', error)
+      return false
+    }
+  }
+
+  // 데일리 미션 생성
+  const generateTodayMissions = useCallback(async () => {
+    try {
+      const today = getTodayString()
+      const generatedCount = await missionSupabaseService.generateDailyMissions(today)
+      console.log(`✨ ${generatedCount}개의 오늘 데일리 미션 생성됨`)
+      return generatedCount > 0
+    } catch (error) {
+      console.error('데일리 미션 생성 실패:', error)
+      throw error
+    }
+  }, [])
+
+  // 자녀 계정의 오늘 미션 체크 및 모달 표시 결정
+  const checkDailyMissionWelcome = useCallback(async () => {
+    // 자녀 계정이 아니면 체크하지 않음
+    if (!profile || profile.user_type !== 'child') {
+      return
+    }
+
+    try {
+      setIsChecking(true)
+      
+      // 오늘의 데일리 미션이 이미 있는지 확인
+      const missionsExist = await checkTodayMissionsExist()
+      
+      // 데일리 미션이 없으면 모달 표시
+      if (!missionsExist) {
+        setShowWelcomeModal(true)
+      }
+    } catch (error) {
+      console.error('데일리 미션 체크 실패:', error)
+    } finally {
+      setIsChecking(false)
+    }
+  }, [profile])
+
+  // 모달에서 확인 버튼 클릭시 실행
+  const handleConfirmWelcome = useCallback(async () => {
+    await generateTodayMissions()
+    setShowWelcomeModal(false)
+  }, [generateTodayMissions])
+
+  // 모달 닫기
+  const handleCloseWelcome = useCallback(() => {
+    setShowWelcomeModal(false)
+  }, [])
+
+  // 프로필이 로드되면 체크 실행
+  useEffect(() => {
+    if (profile && !isChecking) {
+      checkDailyMissionWelcome()
+    }
+  }, [profile, isChecking])
+
+  return {
+    showWelcomeModal,
+    isChecking,
+    handleConfirmWelcome,
+    handleCloseWelcome,
+    generateTodayMissions
+  }
+}

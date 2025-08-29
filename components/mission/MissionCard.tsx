@@ -152,4 +152,3 @@ export const MissionCard = memo(function MissionCard({
     </div>
   )
 })
-}
