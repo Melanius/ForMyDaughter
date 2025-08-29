@@ -155,7 +155,7 @@ export default function HomePage() {
         console.log('⚡ 강화된 동기화 수신:', payload)
         
         if (payload.type === 'allowance_update' && payload.data) {
-          const newBalance = (payload.data.balance as number) || (payload.data.current_balance as number)
+          const newBalance = (payload.data['balance'] as number) || (payload.data['current_balance'] as number)
           if (typeof newBalance === 'number') {
             updateBalance(newBalance)
             console.log('💰 용돈 동기화 업데이트:', newBalance)
