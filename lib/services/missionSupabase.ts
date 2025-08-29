@@ -353,7 +353,7 @@ export class MissionSupabaseService {
     console.log('🔧 템플릿 수정 요청:', templateId, updates)
     
     const { user, profile } = await this.getCurrentUser()
-    console.log('👤 현재 사용자 정보:', { userId: (user as any)?.id, userType: profile.user_type })
+    console.log('👤 현재 사용자 정보:', { userId: (user as { id: string })?.id, userType: profile.user_type })
 
     // 부모만 템플릿 수정 가능
     if (profile.user_type !== 'parent') {

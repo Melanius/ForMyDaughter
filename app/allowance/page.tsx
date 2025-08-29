@@ -38,10 +38,10 @@ export default function AllowancePage() {
       setStatistics(stats)
 
       // 거래 내역 로드 (최근 30일, 가족 단위)
-      const endDate = new Date().toISOString().split('T')[0]
+      const endDate = new Date().toISOString().split('T')[0]!
       const startDate = new Date()
       startDate.setDate(startDate.getDate() - 30)
-      const startDateStr = startDate.toISOString().split('T')[0]
+      const startDateStr = startDate.toISOString().split('T')[0]!
       
       let transactionList = await allowanceSupabaseService.getTransactionsInRange(startDateStr, endDate)
       
