@@ -384,7 +384,7 @@ export default function HomePage() {
                 missions={missions}
                 loading={false}
                 selectedDate={selectedDate}
-                userType={profile?.user_type}
+                userType={profile?.user_type || 'child'}
                 showAddModal={showAddModal}
                 editingMission={editingMission}
                 onShowAddModal={setShowAddModal}
