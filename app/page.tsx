@@ -253,8 +253,8 @@ export default function HomePage() {
           title: newMission.title,
           description: newMission.description,
           reward: newMission.reward,
-          category: newMission.category,
-          missionType: newMission.missionType
+          ...(newMission.category && { category: newMission.category }),
+          ...(newMission.missionType && { missionType: newMission.missionType })
         })
         setEditingMission(null)
       } else {
