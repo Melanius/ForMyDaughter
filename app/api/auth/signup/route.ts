@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     // 자녀인 경우만 family_code 추가 (부모는 트리거에서 자동 생성)
     if (userType === 'child' && familyCode) {
-      profileData.family_code = familyCode
+      profileData['family_code'] = familyCode
     }
 
     const { error: profileError } = await supabase
