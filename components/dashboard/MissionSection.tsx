@@ -82,7 +82,7 @@ export function MissionSection({
               <MissionCard
                 key={mission.id}
                 mission={mission}
-                userType={userType}
+                userType={userType || 'child'}
                 onComplete={() => onMissionComplete(mission.id)}
                 onUndoComplete={() => onUndoComplete(mission.id)}
                 onEdit={() => onEditMission(mission)}
