@@ -9,7 +9,7 @@ interface CalendarCellProps {
   isCurrentMonth: boolean
   isToday: boolean
   isSelected: boolean
-  summary?: DateSummary
+  summary?: DateSummary | undefined
   onClick: () => void
 }
 
