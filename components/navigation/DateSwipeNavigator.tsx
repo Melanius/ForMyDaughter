@@ -32,7 +32,7 @@ export function DateSwipeNavigator({
     for (let i = past; i > 0; i--) {
       const date = new Date(center)
       date.setDate(center.getDate() - i)
-      dates.push(date.toISOString().split('T')[0])
+      dates.push(date.toISOString().split('T')[0]!)
     }
     
     // 중앙 날짜 (선택된 날짜)
@@ -42,7 +42,7 @@ export function DateSwipeNavigator({
     for (let i = 1; i <= future; i++) {
       const date = new Date(center)
       date.setDate(center.getDate() + i)
-      dates.push(date.toISOString().split('T')[0])
+      dates.push(date.toISOString().split('T')[0]!)
     }
     
     return dates
