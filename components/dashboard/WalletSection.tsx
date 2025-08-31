@@ -54,7 +54,7 @@ export function WalletSection({
 
   // 누적 정산 정보 계산
   const pendingSummary: PendingMissionSummary = allPendingMissions.reduce((acc, mission) => {
-    const date = mission.date
+    const date = mission.date || 'unknown'
     if (!acc.byDate[date]) {
       acc.byDate[date] = { missions: [], amount: 0 }
     }
