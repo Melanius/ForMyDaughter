@@ -3,14 +3,15 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/components/auth/AuthProvider'
 import missionSupabaseService from '@/lib/services/missionSupabase'
+import { getTodayKST } from '@/lib/utils/dateUtils'
 
 export function useDailyMissionWelcome() {
   const { profile } = useAuth()
   const [showWelcomeModal, setShowWelcomeModal] = useState(false)
   const [isChecking, setIsChecking] = useState(false)
 
-  // 오늘 날짜 문자열 반환
-  const getTodayString = () => new Date().toISOString().split('T')[0]
+  // 오늘 날짜 문자열 반환 (한국 시간 기준)
+  const getTodayString = () => getTodayKST()
 
   // 로컬 스토리지 키 생성 (사용자별, 날짜별)
   const getStorageKey = () => {

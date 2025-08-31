@@ -208,6 +208,18 @@ class StreakService {
         .single()
 
       if (error && error.code !== 'PGRST116') { // not found가 아닌 에러
+        // 테이블이 없거나 접근 권한이 없는 경우 기본값 반환
+        if (error.code === 'PGRST205' || error.message?.includes('Could not find the table')) {
+          console.warn('⚠️ user_progress 테이블을 찾을 수 없음 - 기본값 사용')
+          return {
+            user_id: userId,
+            streak_count: 0,
+            last_completion_date: null,
+            best_streak: 0,
+            total_missions_completed: 0,
+            total_streak_bonus_earned: 0
+          }
+        }
         throw error
       }
 
@@ -220,8 +232,17 @@ class StreakService {
         total_streak_bonus_earned: 0
       }
     } catch (error) {
-      console.error('사용자 진행상황 조회 실패:', error)
-      throw error
+      console.warn('⚠️ 사용자 진행상황 조회 실패 - 기본값 사용:', error)
+      
+      // 최종 fallback: 기본값 반환 (에러 전파 방지)
+      return {
+        user_id: userId,
+        streak_count: 0,
+        last_completion_date: null,
+        best_streak: 0,
+        total_missions_completed: 0,
+        total_streak_bonus_earned: 0
+      }
     }
   }
 
@@ -235,6 +256,17 @@ class StreakService {
         .single()
 
       if (error && error.code !== 'PGRST116') {
+        // 테이블이 없거나 접근 권한이 없는 경우 기본값 반환
+        if (error.code === 'PGRST205' || error.message?.includes('Could not find the table')) {
+          console.warn('⚠️ reward_settings 테이블을 찾을 수 없음 - 기본값 사용')
+          return {
+            user_id: userId,
+            streak_target: 7,
+            streak_bonus: 1000,
+            streak_repeat: true,
+            streak_enabled: true
+          }
+        }
         throw error
       }
 
@@ -246,8 +278,16 @@ class StreakService {
         streak_enabled: true
       }
     } catch (error) {
-      console.error('연속 완료 설정 조회 실패:', error)
-      throw error
+      console.warn('⚠️ 연속 완료 설정 조회 실패 - 기본값 사용:', error)
+      
+      // 최종 fallback: 기본값 반환 (에러 전파 방지)
+      return {
+        user_id: userId,
+        streak_target: 7,
+        streak_bonus: 1000,
+        streak_repeat: true,
+        streak_enabled: false // 오류 시 비활성화로 안전하게
+      }
     }
   }
 

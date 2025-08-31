@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { Calendar, Clock, Gift, Plus, Edit2, Trash2 } from 'lucide-react'
 import { MissionInstance } from '../lib/types/mission'
 import missionService from '../lib/services/mission'
+import { getTodayKST, getYesterdayKST, getTomorrowKST } from '@/lib/utils/dateUtils'
 
 interface DateMissionPanelProps {
   selectedDate: string
@@ -26,7 +27,7 @@ export default function DateMissionPanel({ selectedDate, onDateChange }: DateMis
       let dateMissions = await missionService.getMissionsByDate(selectedDate)
       
       // 미래 날짜이고 미션이 없으면 데일리 미션 생성
-      const today = new Date().toISOString().split('T')[0]
+      const today = getTodayKST()
       if (selectedDate >= today && dateMissions.length === 0) {
         dateMissions = await missionService.generateDailyMissionsForDate(selectedDate)
       }
@@ -96,16 +97,11 @@ export default function DateMissionPanel({ selectedDate, onDateChange }: DateMis
   // 날짜 포맷팅
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
     
     const dateOnly = dateStr
-    const todayStr = today.toISOString().split('T')[0]
-    const yesterdayStr = yesterday.toISOString().split('T')[0]
-    const tomorrowStr = tomorrow.toISOString().split('T')[0]
+    const todayStr = getTodayKST()
+    const yesterdayStr = getYesterdayKST()
+    const tomorrowStr = getTomorrowKST()
     
     if (dateOnly === todayStr) return '오늘'
     if (dateOnly === yesterdayStr) return '어제'

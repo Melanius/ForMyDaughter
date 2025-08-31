@@ -4,6 +4,8 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '@/lib/types/supabase'
+import missionSupabaseService from '@/lib/services/missionSupabase'
+import { getTodayKST } from '@/lib/utils/dateUtils'
 
 interface AuthContextType {
   user: User | null
@@ -31,9 +33,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) throw error
       setProfile(data)
+      
+      // 자녀 계정 로그인 시 데일리 미션 체크
+      await checkDailyMissionsForChild(data)
+      
     } catch (error) {
       console.error('Error fetching profile:', error)
       setProfile(null)
+    }
+  }
+
+  const checkDailyMissionsForChild = async (profileData: Profile) => {
+    // 자녀 계정이 아니면 체크하지 않음
+    if (!profileData || profileData.user_type !== 'child') {
+      return
+    }
+
+    try {
+      console.log('🎯 자녀 계정 로그인 감지 - 데일리 미션 체크 시작')
+      const today = getTodayKST()
+      const todayMissions = await missionSupabaseService.getFamilyMissionInstances(today)
+      const dailyMissions = todayMissions.filter(m => 
+        m.missionType === 'daily' || m.missionType === '데일리'
+      )
+      
+      if (dailyMissions.length === 0) {
+        console.log('🚨 오늘의 데일리 미션이 없음 - 자동 생성 필요')
+        const generatedCount = await missionSupabaseService.generateDailyMissions(today)
+        console.log(`✨ ${generatedCount}개의 데일리 미션 자동 생성 완료`)
+      } else {
+        console.log(`✅ 오늘의 데일리 미션 ${dailyMissions.length}개 확인됨`)
+      }
+    } catch (error) {
+      console.error('❌ 자녀 계정 데일리 미션 체크 실패:', error)
     }
   }
 

@@ -4,11 +4,13 @@ import { useState } from 'react'
 import { Mission } from '@/lib/types/mission'
 import { AddMissionModal } from '../mission/AddMissionModal'
 import { MissionCard } from '../mission/MissionCard'
+import { DateSwipeNavigator } from '../navigation/DateSwipeNavigator'
 
 interface MissionSectionProps {
   missions: Mission[]
   loading: boolean
   selectedDate: string
+  onDateChange: (date: string) => void
   userType?: string
   showAddModal: boolean
   editingMission: Mission | null
@@ -33,6 +35,7 @@ export function MissionSection({
   missions,
   loading,
   selectedDate,
+  onDateChange,
   userType,
   showAddModal,
   editingMission,
@@ -47,28 +50,24 @@ export function MissionSection({
 }: MissionSectionProps) {
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-3">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
-            {selectedDate === new Date().toISOString().split('T')[0] ? (
-              <>오늘<span className="hidden sm:inline">의 미션</span></>
-            ) : (
-              `${new Date(selectedDate).getMonth() + 1}월 ${new Date(selectedDate).getDate()}일`
-            )}
-          </h2>
-          <span className="text-xs sm:text-sm text-gray-500">{selectedDate}</span>
+      {/* 날짜 스와이프 네비게이터 */}
+      <DateSwipeNavigator 
+        selectedDate={selectedDate}
+        onDateChange={onDateChange}
+        dateRange={{ past: 7, future: 7 }}
+      />
+      
+      {/* 미션 추가 버튼 */}
+      {userType === 'parent' && (
+        <div className="flex justify-center mb-6">
+          <button
+            onClick={() => onShowAddModal(true)}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg transition-colors text-sm font-medium shadow-lg hover:shadow-xl"
+          >
+            ✚ 미션 추가
+          </button>
         </div>
-        <div className="flex gap-2">
-          {userType === 'parent' && (
-            <button
-              onClick={() => onShowAddModal(true)}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-2 sm:px-4 py-2 rounded-lg transition-colors text-xs sm:text-sm font-medium flex-1 sm:flex-none"
-            >
-              추가
-            </button>
-          )}
-        </div>
-      </div>
+      )}
 
       <div className="space-y-4">
         {loading ? (

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/components/auth/AuthProvider'
 import streakService, { UserProgress, StreakSettings } from '@/lib/services/streak'
 import { CelebrationEffect } from './CelebrationEffect'
+import { getTodayKST } from '@/lib/utils/dateUtils'
 
 interface StreakDisplayProps {
   onStreakUpdate?: (newStreak: number, bonusEarned: number) => void
@@ -41,19 +42,41 @@ export function StreakDisplay({ onStreakUpdate, triggerCelebration }: StreakDisp
   }, [triggerCelebration, showCelebration])
 
   const loadStreakData = async () => {
-    if (!user?.id) return
+    if (!user?.id) {
+      console.log('StreakDisplay: 사용자 ID가 없음, 로드 건너뜀')
+      return
+    }
 
     try {
       setLoading(true)
-      const [progressData, settingsData] = await Promise.all([
-        streakService.getUserProgress(user.id),
-        streakService.getStreakSettings(user.id)
-      ])
+      
+      // 각각 개별적으로 호출하여 하나가 실패해도 다른 것은 성공할 수 있도록
+      const progressData = await streakService.getUserProgress(user.id)
+      const settingsData = await streakService.getStreakSettings(user.id)
       
       setProgress(progressData)
       setSettings(settingsData)
+      
+      console.log('✅ 연속 완료 데이터 로드 성공')
     } catch (error) {
-      console.error('연속 완료 데이터 로드 실패:', error)
+      console.warn('⚠️ 연속 완료 데이터 로드 실패 - 기본값 사용:', error)
+      
+      // 오류 발생 시 기본값 설정 (에러 전파하지 않음)
+      setProgress({
+        user_id: user.id,
+        streak_count: 0,
+        last_completion_date: null,
+        best_streak: 0,
+        total_missions_completed: 0,
+        total_streak_bonus_earned: 0
+      })
+      setSettings({
+        user_id: user.id,
+        streak_target: 7,
+        streak_bonus: 1000,
+        streak_repeat: true,
+        streak_enabled: false // 오류 시 비활성화로 안전하게
+      })
     } finally {
       setLoading(false)
     }
@@ -177,7 +200,7 @@ export function StreakDisplay({ onStreakUpdate, triggerCelebration }: StreakDisp
       </div>
 
       {/* 위험 알림 (연속이 끊어질 수 있는 경우) */}
-      {progress.streak_count > 0 && progress.last_completion_date !== new Date().toISOString().split('T')[0] && (
+      {progress.streak_count > 0 && progress.last_completion_date !== getTodayKST() && (
         <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded-lg p-2">
           <div className="flex items-center space-x-1">
             <span className="text-yellow-600">⚠️</span>

@@ -619,6 +619,35 @@ export class MissionSupabaseService {
   }
 
   /**
+   * 💰 모든 완료되었지만 승인되지 않은 미션들 조회 (누적 정산용)
+   */
+  async getAllPendingMissions(userId: string): Promise<MissionInstance[]> {
+    try {
+      const { data, error } = await this.supabase
+        .from('mission_instances')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_completed', true)
+        .eq('is_transferred', false)
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('대기 중인 미션 조회 실패:', error)
+        throw error
+      }
+
+      const missions = (data || []).map(item => this.convertSupabaseToInstance(item))
+      console.log(`📋 ${missions.length}개의 승인 대기 미션 조회됨 (사용자: ${userId})`)
+      
+      return missions
+    } catch (error) {
+      console.error('getAllPendingMissions 처리 중 오류:', error)
+      throw error
+    }
+  }
+
+  /**
    * 💸 미션 전달 완료 처리 (부모가 자녀에게 용돈 지급)
    */
   async transferMissions(missionIds: string[]): Promise<boolean> {

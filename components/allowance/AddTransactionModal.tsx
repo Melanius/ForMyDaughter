@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { AllowanceTransaction, INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '../../lib/types/allowance'
+import { getTodayKST } from '@/lib/utils/dateUtils'
 
 interface AddTransactionModalProps {
   onClose: () => void
@@ -14,7 +15,7 @@ export default function AddTransactionModal({ onClose, onAdd, editingTransaction
   const [amount, setAmount] = useState(editingTransaction?.amount || 0)
   const [description, setDescription] = useState(editingTransaction?.description || '')
   const [category, setCategory] = useState(editingTransaction?.category || '')
-  const [date, setDate] = useState(editingTransaction?.date || new Date().toISOString().split('T')[0])
+  const [date, setDate] = useState(editingTransaction?.date || getTodayKST())
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const incomeCategories = Object.values(INCOME_CATEGORIES)

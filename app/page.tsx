@@ -17,10 +17,11 @@ import enhancedSyncService from '../lib/services/enhancedSync'
 import { createClient } from '@/lib/supabase/client'
 import { DailyMissionWelcomeModal } from '../components/modals/DailyMissionWelcomeModal'
 import { useDailyMissionWelcome } from '../hooks/useDailyMissionWelcome'
+import { getTodayKST, nowKST } from '../lib/utils/dateUtils'
 
 export default function HomePage() {
   const { profile } = useAuth()
-  const [selectedDate] = useState(() => new Date().toISOString().split('T')[0]!)
+  const [selectedDate, setSelectedDate] = useState(() => getTodayKST())
   const [activeTab, setActiveTab] = useState<'missions' | 'templates'>('missions')
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingMission, setEditingMission] = useState<Mission | null>(null)
@@ -35,6 +36,11 @@ export default function HomePage() {
     family_code: string
   }[]>([])
   const [isParentWithChild, setIsParentWithChild] = useState(false)
+
+  // 날짜 변경 핸들러
+  const handleDateChange = useCallback((newDate: string) => {
+    setSelectedDate(newDate)
+  }, [])
 
   // 커스텀 훅 사용
   const {
@@ -201,7 +207,7 @@ export default function HomePage() {
         entityId: missionId,
         data: {
           isCompleted: true,
-          completedAt: new Date().toISOString(),
+          completedAt: nowKST(),
           userId: profile.id
         },
         userId: profile.id
@@ -384,6 +390,7 @@ export default function HomePage() {
                 missions={missions}
                 loading={false}
                 selectedDate={selectedDate}
+                onDateChange={handleDateChange}
                 userType={profile?.user_type || 'child'}
                 showAddModal={showAddModal}
                 editingMission={editingMission}
@@ -406,12 +413,12 @@ export default function HomePage() {
           currentAllowance={currentAllowance}
           missions={missions}
           isParentWithChild={isParentWithChild}
-          userType={profile?.user_type}
+          userType={profile?.user_type || 'child'}
           onTransferMissions={handleTransferMissions}
         />
 
         <StreakSection
-          userType={profile?.user_type}
+          userType={profile?.user_type || 'child'}
           celebrationTrigger={celebrationTrigger}
           onStreakUpdate={handleStreakUpdate}
         />
@@ -433,7 +440,7 @@ export default function HomePage() {
           await handleConfirmWelcome()
           loadMissions() // 모달 확인 후 미션 목록 새로고침
         }}
-        childName={profile?.full_name}
+        {...(profile?.full_name && { childName: profile.full_name })}
       />
     </div>
   )
