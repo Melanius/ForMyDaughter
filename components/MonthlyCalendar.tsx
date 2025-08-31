@@ -130,8 +130,12 @@ export default function MonthlyCalendar({ selectedDate, onDateSelect }: MonthlyC
           dayData.date ? (
             <CalendarCell
               key={`${dayData.date}-${index}`}
-              {...dayData}
               date={dayData.date}
+              day={dayData.day}
+              isCurrentMonth={dayData.isCurrentMonth}
+              isToday={dayData.isToday}
+              isSelected={dayData.isSelected}
+              summary={dayData.summary}
               onClick={() => onDateSelect(dayData.date!)}
             />
           ) : (
