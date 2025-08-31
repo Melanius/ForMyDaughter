@@ -76,7 +76,7 @@ export function DateSwipeNavigator({
   const formatDayOfWeek = useCallback((dateStr: string): string => {
     const date = new Date(dateStr)
     const days = ['일', '월', '화', '수', '목', '금', '토']
-    return days[date.getDay()]
+    return days[date.getDay()]!
   }, [])
 
   // 드래그/터치 이벤트 핸들러들
