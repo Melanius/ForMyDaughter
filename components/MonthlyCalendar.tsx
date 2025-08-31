@@ -126,13 +126,18 @@ export default function MonthlyCalendar({ selectedDate, onDateSelect }: MonthlyC
 
       {/* 달력 날짜 */}
       <div className="grid grid-cols-7 gap-1">
-        {calendarDays.map((dayData, index) => (
-          <CalendarCell
-            key={`${dayData.date}-${index}`}
-            {...dayData}
-            onClick={() => onDateSelect(dayData.date)}
-          />
-        ))}
+        {calendarDays.map((dayData, index) => 
+          dayData.date ? (
+            <CalendarCell
+              key={`${dayData.date}-${index}`}
+              {...dayData}
+              date={dayData.date}
+              onClick={() => onDateSelect(dayData.date!)}
+            />
+          ) : (
+            <div key={`empty-${index}`} className="p-2" />
+          )
+        )}
       </div>
     </div>
   )
