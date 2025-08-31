@@ -33,7 +33,7 @@ export function AddMissionModal({ onClose, onAdd, editingMission, defaultDate }:
       reward,
       category,
       missionType,
-      date
+      ...(date && { date })
     })
     setIsSubmitting(false)
   }
