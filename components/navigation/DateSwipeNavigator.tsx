@@ -155,12 +155,18 @@ export function DateSwipeNavigator({
 
   // 터치 이벤트 핸들러
   const handleTouchStart = (e: React.TouchEvent) => {
-    handleDragStart(e.touches[0].clientX)
+    const touch = e.touches[0]
+    if (touch) {
+      handleDragStart(touch.clientX)
+    }
   }
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
     e.preventDefault() // 스크롤 방지
-    handleDragMove(e.touches[0].clientX)
+    const touch = e.touches[0]
+    if (touch) {
+      handleDragMove(touch.clientX)
+    }
   }, [handleDragMove])
 
   const handleTouchEnd = useCallback(() => {
