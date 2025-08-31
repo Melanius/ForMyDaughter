@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const today = getTodayKST()
       const todayMissions = await missionSupabaseService.getFamilyMissionInstances(today)
       const dailyMissions = todayMissions.filter(m => 
-        m.missionType === 'daily' || m.missionType === '데일리'
+        m.missionType === 'daily'
       )
       
       if (dailyMissions.length === 0) {
