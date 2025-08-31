@@ -127,7 +127,7 @@ export function DateSwipeNavigator({
     const newDateIndex = centerIndex + boundedSnapIndex
     if (newDateIndex >= 0 && newDateIndex < visibleDates.length) {
       const newDate = visibleDates[newDateIndex]
-      if (newDate !== selectedDate) {
+      if (newDate && newDate !== selectedDate) {
         onDateChange(newDate)
       }
     }
