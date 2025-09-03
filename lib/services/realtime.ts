@@ -45,13 +45,25 @@ class RealtimeService {
         (payload) => {
           console.log('🔥 미션 업데이트 수신:', payload)
           if (payload.new && payload.eventType === 'UPDATE') {
-            listener.onMissionUpdate({
-              id: payload.new.id,
-              is_completed: payload.new.is_completed,
-              completed_at: payload.new.completed_at,
-              is_transferred: payload.new.is_transferred,
-              date: payload.new.date
-            })
+            const newData = payload.new as Record<string, unknown>
+            const updatePayload: MissionUpdatePayload = {
+              id: newData['id'] as string,
+              is_completed: newData['is_completed'] as boolean,
+              date: newData['date'] as string
+            }
+            
+            // Only add optional properties if they have values
+            const completedAt = newData['completed_at']
+            if (completedAt !== undefined && completedAt !== null) {
+              updatePayload.completed_at = completedAt as string
+            }
+            
+            const isTransferred = newData['is_transferred']
+            if (isTransferred !== undefined && isTransferred !== null) {
+              updatePayload.is_transferred = isTransferred as boolean
+            }
+            
+            listener.onMissionUpdate(updatePayload)
           }
         }
       )

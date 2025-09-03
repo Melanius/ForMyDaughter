@@ -1,12 +1,24 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { TemplateManager } from '../components/mission/TemplateManager'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { MissionSection } from '../components/dashboard/MissionSection'
 import { WalletSection } from '../components/dashboard/WalletSection'
-import { PerformanceSection } from '../components/dashboard/PerformanceSection'
-import { StreakSection } from '../components/dashboard/StreakSection'
-import { useMissions } from '../hooks/useMissions'
+
+const TemplateManager = lazy(() => import('../components/mission/TemplateManager').then(module => ({ default: module.TemplateManager })))
+const PerformanceSection = lazy(() => import('../components/dashboard/PerformanceSection').then(module => ({ default: module.PerformanceSection })))
+const StreakSection = lazy(() => import('../components/dashboard/StreakSection').then(module => ({ default: module.StreakSection })))
+const MissionCompletionNotification = lazy(() => import('../components/notifications/MissionCompletionNotification'))
+import { 
+  useMissionsQuery,
+  useAddMissionMutation,
+  useCompleteMissionMutation,
+  useUncompleteMissionMutation,
+  useUpdateMissionMutation,
+  useDeleteMissionMutation,
+  useUpdateMissionTransferStatus,
+  missionKeys
+} from '../hooks/useMissionsQuery'
 import { useAllowance } from '../hooks/useAllowance'
 import { Mission } from '../lib/types/mission'
 import { useAuth } from '@/components/auth/AuthProvider'
@@ -21,6 +33,7 @@ import { getTodayKST, nowKST } from '../lib/utils/dateUtils'
 
 export default function HomePage() {
   const { profile } = useAuth()
+  const queryClient = useQueryClient()
   const [selectedDate, setSelectedDate] = useState(() => getTodayKST())
   const [activeTab, setActiveTab] = useState<'missions' | 'templates'>('missions')
   const [showAddModal, setShowAddModal] = useState(false)
@@ -36,25 +49,29 @@ export default function HomePage() {
     family_code: string
   }[]>([])
   const [isParentWithChild, setIsParentWithChild] = useState(false)
+  const [walletRefreshTrigger, setWalletRefreshTrigger] = useState(0)
 
   // 날짜 변경 핸들러
   const handleDateChange = useCallback((newDate: string) => {
+    console.log('🗓️ 날짜 변경:', selectedDate, '->', newDate)
     setSelectedDate(newDate)
-  }, [])
+  }, [selectedDate])
 
-  // 커스텀 훅 사용
+  // React Query 훅 사용
   const {
     missions,
     loading: missionsLoading,
     error: missionsError,
-    loadMissions,
-    addMission,
-    updateMission,
-    completeMission,
-    uncompleteMission,
-    deleteMission,
-    updateMissionTransferStatus
-  } = useMissions(selectedDate)
+    refetch: loadMissions
+  } = useMissionsQuery(selectedDate)
+
+  // Mutation 훅들
+  const addMissionMutation = useAddMissionMutation(selectedDate)
+  const completeMissionMutation = useCompleteMissionMutation(selectedDate)
+  const uncompleteMissionMutation = useUncompleteMissionMutation(selectedDate)
+  const updateMissionMutation = useUpdateMissionMutation(selectedDate)
+  const deleteMissionMutation = useDeleteMissionMutation(selectedDate)
+  const updateMissionTransferStatus = useUpdateMissionTransferStatus(selectedDate)
 
   const {
     currentAllowance,
@@ -137,21 +154,16 @@ export default function HomePage() {
   // 📅 데일리 미션 생성은 오직 useDailyMissionWelcome 훅을 통해서만 수행됨
   // 자녀 계정의 첫 로그인 시에만 웰컴 모달을 통해 생성
 
-  // 실시간 동기화 설정
+  // 동기화 설정 (Supabase 실시간 구독 비활성화)
   useEffect(() => {
-    console.log('🔄 실시간 동기화 구독 시작')
-
-    // Supabase 실시간 미션 동기화 구독
-    const missionChannel = missionSupabaseService.subscribeToMissions((payload) => {
-      console.log('🔄 Supabase 실시간 미션 변경 감지:', payload)
-      loadMissions()
-    })
+    console.log('🔄 동기화 구독 시작 (Supabase 실시간 제외)')
 
     // 레거시 동기화 (같은 브라우저 탭 간)
     const legacyUnsubscribe = syncService.subscribe({
       onMissionUpdate: (payload) => {
         console.log('🔥 레거시 동기화 수신:', payload)
-        loadMissions()
+        // React Query 캐시 무효화로 자동 리패치
+        queryClient.invalidateQueries({ queryKey: missionKeys.lists() })
       }
     })
 
@@ -166,25 +178,38 @@ export default function HomePage() {
             updateBalance(newBalance)
             console.log('💰 용돈 동기화 업데이트:', newBalance)
           }
+        } else if (payload.type === 'mission_update') {
+          // React Query 캐시 무효화로 자동 리패치
+          queryClient.invalidateQueries({ queryKey: missionKeys.lists() })
         }
       }
     })
 
+    // 주기적 데이터 새로고침 (Supabase 실시간 구독 대체)
+    const refreshInterval = setInterval(() => {
+      console.log('🔄 주기적 데이터 새로고침')
+      queryClient.invalidateQueries({ queryKey: missionKeys.lists() })
+    }, 30000) // 30초마다 새로고침
+
     return () => {
-      console.log('🔇 실시간 동기화 구독 해제')
-      missionChannel.unsubscribe()
-      legacyUnsubscribe()
-      enhancedUnsubscribe()
+      console.log('🔇 동기화 구독 해제')
+      try {
+        legacyUnsubscribe()
+        enhancedUnsubscribe()
+        clearInterval(refreshInterval)
+      } catch (error) {
+        console.error('구독 해제 중 오류:', error)
+      }
     }
-  }, [loadMissions, updateBalance])
+  }, [queryClient, updateBalance])
 
   // 이벤트 핸들러들
   const handleMissionComplete = useCallback(async (missionId: string) => {
-    const mission = missions.find(m => m.id === missionId)
+    const mission = Array.isArray(missions) ? missions.find(m => m.id === missionId) : undefined
     if (!mission || mission.isCompleted || !profile?.id) return
 
     try {
-      await completeMission(missionId)
+      await completeMissionMutation.mutateAsync(missionId)
       
       // 연속 완료 카운터 업데이트
       try {
@@ -214,29 +239,29 @@ export default function HomePage() {
       })
     } catch (error) {
       console.error('미션 완료 실패:', error)
-      alert('미션 완료에 실패했습니다. 다시 시도해주세요.')
+      alert('미션 완룄에 실패했습니다. 다시 시도해주세요.')
     }
-  }, [missions, profile?.id, completeMission])
+  }, [missions, profile?.id, completeMissionMutation])
 
   const handleUndoComplete = useCallback(async (missionId: string) => {
     try {
-      await uncompleteMission(missionId)
+      await uncompleteMissionMutation.mutateAsync(missionId)
     } catch (error) {
       console.error('미션 완료 취소 실패:', error)
       alert(error instanceof Error ? error.message : '미션 완료 취소에 실패했습니다.')
     }
-  }, [uncompleteMission])
+  }, [uncompleteMissionMutation])
 
   const handleDeleteMission = useCallback(async (missionId: string) => {
     if (!confirm('정말로 이 미션을 삭제하시겠습니까?')) return
 
     try {
-      await deleteMission(missionId)
+      await deleteMissionMutation.mutateAsync(missionId)
     } catch (error) {
       console.error('미션 삭제 실패:', error)
       alert(error instanceof Error ? error.message : '미션 삭제에 실패했습니다.')
     }
-  }, [deleteMission])
+  }, [deleteMissionMutation])
 
   const handleEditMission = useCallback((mission: Mission) => {
     if (mission.isTransferred) return
@@ -255,17 +280,20 @@ export default function HomePage() {
     try {
       if (editingMission) {
         // 미션 수정
-        await updateMission(editingMission.id, {
-          title: newMission.title,
-          description: newMission.description,
-          reward: newMission.reward,
-          ...(newMission.category && { category: newMission.category }),
-          ...(newMission.missionType && { missionType: newMission.missionType })
+        await updateMissionMutation.mutateAsync({
+          missionId: editingMission.id,
+          updates: {
+            title: newMission.title,
+            description: newMission.description,
+            reward: newMission.reward,
+            ...(newMission.category && { category: newMission.category }),
+            ...(newMission.missionType && { missionType: newMission.missionType })
+          }
         })
         setEditingMission(null)
       } else {
         // 새 미션 추가
-        await addMission(newMission)
+        await addMissionMutation.mutateAsync(newMission)
       }
       setShowAddModal(false)
     } catch (error) {
@@ -273,25 +301,29 @@ export default function HomePage() {
       alert(error instanceof Error ? error.message : '미션 처리에 실패했습니다.')
       setShowAddModal(false)
     }
-  }, [editingMission, addMission, updateMission])
+  }, [editingMission, addMissionMutation, updateMissionMutation])
 
-  const handleTransferMissions = useCallback(async () => {
+  const handleTransferMissions = useCallback(async (allPendingMissions: Mission[]) => {
     try {
-      const result = await transferMissions(missions)
+      console.log('🎯 전달할 전체 대기 미션 수:', allPendingMissions.length)
+      const result = await transferMissions(allPendingMissions)
       if (result.success) {
         updateMissionTransferStatus(
-          missions.filter(m => m.isCompleted && !m.isTransferred).map(m => m.id),
+          allPendingMissions.map(m => m.id),
           true
         )
+        // WalletSection 새로고침 트리거
+        setWalletRefreshTrigger(prev => prev + 1)
+        console.log('✅ 전체 미션 전달 완료')
       }
     } catch (error) {
       console.error('미션 전달 실패:', error)
       alert(error instanceof Error ? error.message : '미션 전달에 실패했습니다.')
     }
-  }, [missions, transferMissions, updateMissionTransferStatus])
+  }, [transferMissions, updateMissionTransferStatus])
 
   const handleUndoTransfer = useCallback(async (missionId: string) => {
-    const mission = missions.find(m => m.id === missionId)
+    const mission = Array.isArray(missions) ? missions.find(m => m.id === missionId) : undefined
     if (!mission || !mission.isTransferred) return
 
     try {
@@ -335,7 +367,7 @@ export default function HomePage() {
           </p>
           <button
             onClick={() => {
-              loadMissions()
+              queryClient.invalidateQueries({ queryKey: missionKeys.lists() })
               loadBalance()
             }}
             className="mt-4 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg"
@@ -404,7 +436,14 @@ export default function HomePage() {
                 onCloseModal={handleCloseModal}
               />
             ) : (
-              <TemplateManager />
+              <Suspense fallback={
+                <div className="text-center py-8">
+                  <div className="animate-spin h-8 w-8 border-b-2 border-blue-600 rounded-full mx-auto mb-4"></div>
+                  <p className="text-gray-600">템플릿 관리 로딩 중...</p>
+                </div>
+              }>
+                <TemplateManager />
+              </Suspense>
             )}
           </div>
         </div>
@@ -414,16 +453,32 @@ export default function HomePage() {
           missions={missions}
           isParentWithChild={isParentWithChild}
           userType={profile?.user_type || 'child'}
+          connectedChildren={connectedChildren}
           onTransferMissions={handleTransferMissions}
+          refreshTrigger={walletRefreshTrigger}
         />
 
-        <StreakSection
-          userType={profile?.user_type || 'child'}
-          celebrationTrigger={celebrationTrigger}
-          onStreakUpdate={handleStreakUpdate}
-        />
+        <Suspense fallback={
+          <div className="bg-white rounded-xl shadow-lg p-6 text-center mb-6">
+            <div className="animate-spin h-8 w-8 border-b-2 border-purple-600 rounded-full mx-auto mb-4"></div>
+            <p className="text-gray-600">연속 완료 정보 로딩 중...</p>
+          </div>
+        }>
+          <StreakSection
+            userType={profile?.user_type || 'child'}
+            celebrationTrigger={celebrationTrigger}
+            onStreakUpdate={handleStreakUpdate}
+          />
+        </Suspense>
 
-        <PerformanceSection missions={missions} />
+        <Suspense fallback={
+          <div className="bg-white rounded-xl shadow-lg p-6 text-center mb-6">
+            <div className="animate-spin h-8 w-8 border-b-2 border-green-600 rounded-full mx-auto mb-4"></div>
+            <p className="text-gray-600">성과 정보 로딩 중...</p>
+          </div>
+        }>
+          <PerformanceSection missions={missions} />
+        </Suspense>
         
         <div className="text-center">
           <p className="text-xs sm:text-sm text-gray-500">
@@ -438,10 +493,19 @@ export default function HomePage() {
         onClose={handleCloseWelcome}
         onConfirm={async () => {
           await handleConfirmWelcome()
-          loadMissions() // 모달 확인 후 미션 목록 새로고침
+          queryClient.invalidateQueries({ queryKey: missionKeys.lists() }) // 모달 확인 후 미션 목록 새로고침
         }}
         {...(profile?.full_name && { childName: profile.full_name })}
       />
+
+      {/* 부모 계정 미션 완료 알림 */}
+      {profile?.user_type === 'parent' && (
+        <Suspense fallback={null}>
+          <MissionCompletionNotification 
+            connectedChildren={connectedChildren}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }

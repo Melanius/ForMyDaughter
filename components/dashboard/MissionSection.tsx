@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, memo, lazy, Suspense } from 'react'
 import { Mission } from '@/lib/types/mission'
-import { AddMissionModal } from '../mission/AddMissionModal'
 import { MissionCard } from '../mission/MissionCard'
 import { DateSwipeNavigator } from '../navigation/DateSwipeNavigator'
+
+const AddMissionModal = lazy(() => import('../mission/AddMissionModal').then(module => ({ default: module.AddMissionModal })))
 
 interface MissionSectionProps {
   missions: Mission[]
@@ -31,7 +32,7 @@ interface MissionSectionProps {
   onCloseModal: () => void
 }
 
-export function MissionSection({
+export const MissionSection = memo(function MissionSection({
   missions,
   loading,
   selectedDate,
@@ -95,13 +96,22 @@ export function MissionSection({
       </div>
 
       {showAddModal && (
-        <AddMissionModal
-          onClose={onCloseModal}
-          onAdd={onAddMission}
-          editingMission={editingMission}
-          defaultDate={selectedDate}
-        />
+        <Suspense fallback={
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 text-center">
+              <div className="animate-spin h-8 w-8 border-b-2 border-blue-600 rounded-full mx-auto mb-4"></div>
+              <p>로딩 중...</p>
+            </div>
+          </div>
+        }>
+          <AddMissionModal
+            onClose={onCloseModal}
+            onAdd={onAddMission}
+            editingMission={editingMission}
+            defaultDate={selectedDate}
+          />
+        </Suspense>
       )}
     </div>
   )
-}
+})

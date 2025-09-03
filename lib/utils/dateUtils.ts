@@ -9,11 +9,13 @@
  */
 export function getTodayKST(): string {
   const now = new Date()
-  // 한국 시간대로 변환 (UTC+9)
-  const kstOffset = 9 * 60 * 60 * 1000 // 9시간을 밀리초로
-  const kstTime = new Date(now.getTime() + kstOffset)
   
-  return kstTime.toISOString().split('T')[0]!
+  // Intl.DateTimeFormat을 사용하여 정확한 한국 시간 계산
+  const kstFormatter = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Seoul'
+  })
+  
+  return kstFormatter.format(now) // YYYY-MM-DD 형식으로 반환
 }
 
 /**
@@ -35,8 +37,9 @@ export function formatDateKST(date: Date): string {
  */
 export function parseKSTDate(dateString: string): Date {
   // 로컬 시간으로 파싱하여 시간대 문제 방지
-  const [year, month, day] = dateString.split('-').map(Number)
-  return new Date(year, month - 1, day)
+  const parts = dateString.split('-').map(Number)
+  const [year, month, day] = parts
+  return new Date(year!, (month! - 1), day!)
 }
 
 /**

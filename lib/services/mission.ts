@@ -110,12 +110,22 @@ export class MissionService {
         return false
       }
 
-      const updatedData = {
-        isCompleted: false,
-        completedAt: undefined
+      // Update the mission to mark it as not completed
+      // We need to get the existing mission and manually clear the completedAt field
+      const existingInstance = await databaseService.getInstance(missionId)
+      if (!existingInstance) {
+        return false
       }
+      
+      const updatedData: MissionInstance = {
+        ...existingInstance,
+        isCompleted: false
+      }
+      
+      // Remove the completedAt field entirely
+      delete (updatedData as unknown as Record<string, unknown>)['completedAt']
 
-      await databaseService.updateInstance(missionId, updatedData)
+      await databaseService.updateInstance(missionId, updatedData as Partial<MissionInstance>)
 
       // 실시간 동기화 이벤트 발생
       syncService.notifyMissionUpdate(missionId, {

@@ -40,7 +40,7 @@ export function useDailyMissionWelcome() {
       const today = getTodayString()
       const todayMissions = await missionSupabaseService.getFamilyMissionInstances(today)
       const dailyMissions = todayMissions.filter(m => 
-        m.missionType === 'daily' || m.missionType === '데일리'
+        m.missionType === 'daily'
       )
       return dailyMissions.length > 0
     } catch (error) {

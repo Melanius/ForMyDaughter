@@ -120,7 +120,7 @@ export class AllowanceService {
   // 현재 잔액 계산
   async getCurrentBalance(): Promise<number> {
     try {
-      const today = new Date().toISOString().split('T')[0]
+      const today = new Date().toISOString().split('T')[0] ?? ''!
       const allTransactions = await databaseService.getAllTransactions()
       
       const totalIncome = allTransactions
@@ -190,7 +190,7 @@ export class AllowanceService {
       
       if (period === 'month') {
         const startDate = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-01`
-        const endDate = now.toISOString().split('T')[0]
+        const endDate = now.toISOString().split('T')[0] ?? ''
         transactions = await this.getTransactionsInRange(startDate, endDate)
       } else {
         transactions = await databaseService.getAllTransactions()
@@ -248,7 +248,7 @@ export class AllowanceService {
   // 초기 잔액 설정 (마이그레이션 시 사용)
   async initializeBalance(initialAmount: number): Promise<void> {
     try {
-      const today = new Date().toISOString().split('T')[0]
+      const today = new Date().toISOString().split('T')[0] ?? ''
       
       // 초기 잔액을 수입으로 기록
       await this.addTransaction({

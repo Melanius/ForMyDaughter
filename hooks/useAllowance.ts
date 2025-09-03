@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import allowanceSupabaseService from '@/lib/services/allowanceSupabase'
 import missionSupabaseService from '@/lib/services/missionSupabase'
+import enhancedSyncService from '@/lib/services/enhancedSync'
 import { Mission } from '@/lib/types/mission'
 import { useAuth } from '@/components/auth/AuthProvider'
 
@@ -19,7 +20,9 @@ export function useAllowance() {
       setLoading(true)
       setError(null)
       
+      console.log('💰 잔액 로딩 시작:', profile?.user_type, profile?.id)
       const balance = await allowanceSupabaseService.getCurrentBalance()
+      console.log('💰 잔액 로딩 완료:', balance)
       setCurrentAllowance(balance)
     } catch (error) {
       console.error('용돈 잔액 로드 실패:', error)
@@ -45,7 +48,7 @@ export function useAllowance() {
     }
 
     try {
-      const today = new Date().toISOString().split('T')[0]
+      const today = new Date().toISOString().split('T')[0]!
       const missionIds = pendingMissions.map(m => m.id)
       
       // 1. 미션 상태를 전달 완료로 업데이트
@@ -73,6 +76,32 @@ export function useAllowance() {
       
       // localStorage 업데이트
       localStorage.setItem('currentAllowance', updatedBalance.toString())
+
+      // 4. 자녀 계정에 잔액 업데이트 동기화 알림
+      for (const mission of pendingMissions) {
+        if (mission.userId) {
+          // 각 자녀의 실제 업데이트된 잔액 조회
+          try {
+            const childBalance = await allowanceSupabaseService.getCurrentBalanceForUser(mission.userId)
+            
+            enhancedSyncService.notify({
+              type: 'allowance_update',
+              entityId: mission.userId,
+              data: {
+                current_balance: childBalance,
+                mission_reward: mission.reward,
+                mission_title: mission.title,
+                transfer_completed: true
+              },
+              userId: mission.userId
+            })
+            
+            console.log(`💰 자녀 ${mission.userId} 동기화 알림 전송 - 잔액: ${childBalance}`)
+          } catch (syncError) {
+            console.error('동기화 알림 실패:', syncError)
+          }
+        }
+      }
 
       return { success: true, transferredAmount: totalAmount }
     } catch (error) {
@@ -108,6 +137,31 @@ export function useAllowance() {
   useEffect(() => {
     loadBalance()
   }, [loadBalance])
+
+  // 실시간 동기화 구독 (자녀 계정용)
+  useEffect(() => {
+    if (!profile?.id) return
+
+    const unsubscribe = enhancedSyncService.subscribe({
+      onUpdate: async (payload) => {
+        // 자신의 용돈 업데이트만 처리
+        if (payload.type === 'allowance_update' && payload.userId === profile.id) {
+          console.log('💰 용돈 실시간 업데이트 수신:', payload)
+          
+          if (payload.data) {
+            const newBalance = (payload.data['current_balance'] as number) || (payload.data['balance'] as number)
+            if (typeof newBalance === 'number') {
+              setCurrentAllowance(newBalance)
+              localStorage.setItem('currentAllowance', newBalance.toString())
+              console.log('💰 용돈 잔액 실시간 업데이트:', newBalance)
+            }
+          }
+        }
+      }
+    })
+
+    return unsubscribe
+  }, [profile?.id])
 
   // localStorage에서 초기값 로드
   useEffect(() => {

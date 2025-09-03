@@ -4,8 +4,9 @@ import Link from 'next/link'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { LogoutButton } from '@/components/auth/LogoutButton'
 import { usePathname } from 'next/navigation'
+import { memo } from 'react'
 
-export function NavigationBar() {
+export const NavigationBar = memo(function NavigationBar() {
   const { user, profile, loading } = useAuth()
   const pathname = usePathname()
   
@@ -188,4 +189,4 @@ export function NavigationBar() {
       </div>
     </nav>
   )
-}
+})

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, memo } from 'react'
 import { Mission } from '@/lib/types/mission'
 import { useAuth } from '@/components/auth/AuthProvider'
 import missionSupabaseService from '@/lib/services/missionSupabase'
@@ -10,7 +10,9 @@ interface WalletSectionProps {
   missions: Mission[]
   isParentWithChild: boolean
   userType?: string
-  onTransferMissions: () => Promise<void>
+  connectedChildren?: { id: string; full_name: string; family_code: string }[]
+  onTransferMissions: (allPendingMissions: Mission[]) => Promise<void>
+  refreshTrigger?: number
 }
 
 interface PendingMissionSummary {
@@ -19,12 +21,14 @@ interface PendingMissionSummary {
   byDate: Record<string, { missions: Mission[], amount: number }>
 }
 
-export function WalletSection({
+export const WalletSection = memo(function WalletSection({
   currentAllowance,
   missions,
   isParentWithChild,
   userType,
-  onTransferMissions
+  connectedChildren,
+  onTransferMissions,
+  refreshTrigger = 0
 }: WalletSectionProps) {
   const { profile } = useAuth()
   const [allPendingMissions, setAllPendingMissions] = useState<Mission[]>([])
@@ -38,8 +42,38 @@ export function WalletSection({
       
       try {
         setLoading(true)
-        const pendingMissions = await missionSupabaseService.getAllPendingMissions(profile.id)
-        setAllPendingMissions(pendingMissions)
+        
+        let targetUserId: string
+        
+        // 부모 계정인 경우 연결된 자녀의 미션 조회, 자녀 계정인 경우 본인의 미션 조회
+        if (userType === 'parent' && connectedChildren && connectedChildren.length > 0) {
+          targetUserId = connectedChildren[0]!.id // 첫 번째 자녀 ID 사용
+          console.log('👨‍👩‍👧‍👦 부모 계정 - 자녀 미션 조회:', targetUserId)
+        } else {
+          targetUserId = profile.id // 본인 ID 사용
+          console.log('👶 자녀 계정 - 본인 미션 조회:', targetUserId)
+        }
+        
+        const pendingMissions = await missionSupabaseService.getAllPendingMissions(targetUserId)
+        
+        // MissionInstance를 Mission 타입으로 변환
+        const convertedMissions: Mission[] = pendingMissions.map(instance => ({
+          id: instance.id,
+          userId: instance.userId || targetUserId,
+          title: instance.title,
+          description: instance.description,
+          reward: instance.reward,
+          isCompleted: instance.isCompleted,
+          completedAt: instance.completedAt || '',
+          isTransferred: instance.isTransferred || false,
+          category: instance.category,
+          missionType: instance.missionType === 'daily' ? '데일리' : '이벤트',
+          date: instance.date,
+          templateId: instance.templateId
+        }))
+        
+        setAllPendingMissions(convertedMissions)
+        console.log('💰 로드된 대기 미션 수:', convertedMissions.length)
       } catch (error) {
         console.error('대기 중인 미션 로드 실패:', error)
         // 실패 시 현재 날짜 미션만 사용
@@ -50,7 +84,7 @@ export function WalletSection({
     }
 
     loadAllPendingMissions()
-  }, [profile?.id, missions])
+  }, [profile?.id, userType, connectedChildren, missions, refreshTrigger])
 
   // 누적 정산 정보 계산
   const pendingSummary: PendingMissionSummary = allPendingMissions.reduce((acc, mission) => {
@@ -72,6 +106,20 @@ export function WalletSection({
   })
 
   const hasPendingMissions = allPendingMissions.length > 0
+
+  // 디버깅 로그 (초기 로드 시에만)
+  useEffect(() => {
+    if (profile?.id) {
+      console.log('💰 WalletSection 상태:', {
+        userType,
+        hasPendingMissions,
+        allPendingMissionsCount: allPendingMissions.length,
+        missionsCount: missions.length,
+        pendingSummaryTotal: pendingSummary.totalAmount,
+        isParentWithChild
+      })
+    }
+  }, [profile?.id, userType, hasPendingMissions, allPendingMissions.length, missions.length, pendingSummary.totalAmount, isParentWithChild])
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-4 sm:p-8 text-center mb-6 sm:mb-8">
@@ -122,7 +170,7 @@ export function WalletSection({
       {hasPendingMissions && (
         userType === 'parent' ? (
           <button
-            onClick={onTransferMissions}
+            onClick={() => onTransferMissions(allPendingMissions)}
             className="bg-green-500 hover:bg-green-600 text-white px-4 sm:px-6 py-3 rounded-lg transition-colors font-medium text-sm sm:text-base"
           >
             용돈 전달 완료
@@ -214,4 +262,4 @@ export function WalletSection({
       )}
     </div>
   )
-}
+})

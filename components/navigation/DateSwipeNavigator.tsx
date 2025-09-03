@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
 import { getTodayKST } from '@/lib/utils/dateUtils'
 
 interface DateSwipeNavigatorProps {
@@ -9,7 +9,7 @@ interface DateSwipeNavigatorProps {
   dateRange?: { past: number; future: number }
 }
 
-export function DateSwipeNavigator({
+export const DateSwipeNavigator = memo(function DateSwipeNavigator({
   selectedDate,
   onDateChange,
   dateRange = { past: 7, future: 7 }
@@ -188,6 +188,8 @@ export function DateSwipeNavigator({
         document.removeEventListener('touchend', handleTouchEnd)
       }
     }
+    
+    return undefined
   }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd])
 
   // 키보드 네비게이션 핸들러
@@ -201,24 +203,29 @@ export function DateSwipeNavigator({
       case 'ArrowLeft':
         e.preventDefault()
         newIndex = Math.max(0, currentIndex - 1)
-        if (newIndex !== currentIndex) {
-          onDateChange(visibleDates[newIndex])
+        if (newIndex !== currentIndex && visibleDates[newIndex]) {
+          onDateChange(visibleDates[newIndex]!)
         }
         break
       case 'ArrowRight':
         e.preventDefault()
         newIndex = Math.min(visibleDates.length - 1, currentIndex + 1)
-        if (newIndex !== currentIndex) {
-          onDateChange(visibleDates[newIndex])
+        if (newIndex !== currentIndex && visibleDates[newIndex]) {
+          onDateChange(visibleDates[newIndex]!)
         }
         break
       case 'Home':
         e.preventDefault()
-        onDateChange(visibleDates[0])
+        if (visibleDates[0]) {
+          onDateChange(visibleDates[0])
+        }
         break
       case 'End':
         e.preventDefault()
-        onDateChange(visibleDates[visibleDates.length - 1])
+        const lastDate = visibleDates[visibleDates.length - 1]
+        if (lastDate) {
+          onDateChange(lastDate)
+        }
         break
     }
   }, [isDragging, visibleDates, selectedDate, onDateChange])
@@ -240,9 +247,9 @@ export function DateSwipeNavigator({
   }, [memoizedVisibleDates])
 
   return (
-    <div className="w-full mb-8">
+    <div className="w-full mb-4">
       {/* 날짜 네비게이션 컨테이너 */}
-      <div className="relative bg-white rounded-2xl shadow-lg mx-4 py-6 overflow-hidden">
+      <div className="relative bg-white rounded-2xl shadow-lg mx-4 py-3 overflow-hidden">
         {/* 배경 데코레이션 */}
         <div className="absolute inset-0 bg-gradient-to-r from-blue-50 via-white to-purple-50 opacity-50"></div>
         
@@ -284,7 +291,7 @@ export function DateSwipeNavigator({
                   onClick={() => !isDragging && onDateChange(date)}
                   disabled={isDragging}
                   className={`
-                    relative flex flex-col items-center p-4 rounded-2xl transition-all duration-400 min-w-[80px]
+                    relative flex flex-col items-center px-3 py-2 rounded-xl transition-all duration-400 min-w-[60px]
                     backdrop-blur-sm border border-white/30 focus:outline-none focus:ring-2 focus:ring-blue-400
                     ${isSelected 
                       ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-2xl shadow-blue-500/25 ring-2 ring-blue-300/50' 
@@ -302,34 +309,18 @@ export function DateSwipeNavigator({
                   aria-label={`${formatDateDisplay(date)}, ${formatDayOfWeek(date)}요일, ${date}`}
                   tabIndex={isSelected ? 0 : -1}
                 >
-                  {/* 요일 */}
-                  <div className={`
-                    text-xs font-semibold mb-1 tracking-wide
-                    ${isSelected ? 'text-blue-100' : 'text-gray-500'}
-                  `}>
-                    {formatDayOfWeek(date)}
-                  </div>
-                  
-                  {/* 메인 날짜 표시 */}
+                  {/* 메인 날짜 표시만 유지 */}
                   <div className={`
                     font-bold transition-all duration-300
-                    ${isSelected ? 'text-xl text-white' : 'text-lg text-gray-800'}
+                    ${isSelected ? 'text-lg text-white' : 'text-base text-gray-800'}
                   `}>
                     {formatDateDisplay(date)}
                   </div>
                   
-                  {/* 날짜 숫자 */}
-                  <div className={`
-                    text-xs mt-1 font-medium
-                    ${isSelected ? 'text-blue-100' : 'text-gray-400'}
-                  `}>
-                    {new Date(date).getDate()}일
-                  </div>
-                  
                   {/* 선택된 날짜 인디케이터 */}
                   {isSelected && (
-                    <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2">
-                      <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                    <div className="absolute -bottom-0.5 left-1/2 transform -translate-x-1/2">
+                      <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
                     </div>
                   )}
                 </button>
@@ -358,21 +349,9 @@ export function DateSwipeNavigator({
         )}
       </div>
       
-      {/* 선택된 날짜 상세 정보 - 더 예쁘게 */}
-      <div className="text-center mt-6">
-        <div className="inline-flex items-center justify-center px-4 py-2 bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-full shadow-sm">
-          <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-            <div className="text-sm font-medium text-gray-700">
-              {selectedDate}
-            </div>
-          </div>
-        </div>
-      </div>
-      
       {/* 사용법 힌트 - 처음 방문자용 */}
       {!isDragging && (
-        <div className="text-center mt-3 animate-fade-in">
+        <div className="text-center mt-2 animate-fade-in">
           <div className="text-xs text-gray-400">
             ← 드래그하여 날짜 이동 →
           </div>
@@ -380,4 +359,4 @@ export function DateSwipeNavigator({
       )}
     </div>
   )
-}
+})

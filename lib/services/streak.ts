@@ -28,7 +28,7 @@ export interface StreakResult {
 
 class StreakService {
   // 연속 완료 카운터 업데이트
-  async updateStreak(userId: string, completionDate: string = new Date().toISOString().split('T')[0]): Promise<StreakResult> {
+  async updateStreak(userId: string, completionDate: string = new Date().toISOString().split('T')[0]!): Promise<StreakResult> {
     try {
       // 현재 진행상황 조회
       const { data: progress } = await supabase

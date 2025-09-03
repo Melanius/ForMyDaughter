@@ -243,14 +243,14 @@ export class MissionSupabaseService {
 
     // 업데이트할 필드만 추출
     const updateData: Record<string, unknown> = {}
-    if (updates.title !== undefined) updateData.title = updates.title
-    if (updates.description !== undefined) updateData.description = updates.description
-    if (updates.reward !== undefined) updateData.reward = updates.reward
-    if (updates.category !== undefined) updateData.category = updates.category
-    if (updates.missionType !== undefined) updateData.mission_type = updates.missionType
+    if (updates.title !== undefined) updateData['title'] = updates.title
+    if (updates.description !== undefined) updateData['description'] = updates.description
+    if (updates.reward !== undefined) updateData['reward'] = updates.reward
+    if (updates.category !== undefined) updateData['category'] = updates.category
+    if (updates.missionType !== undefined) updateData['mission_type'] = updates.missionType
 
     // 수정 시간 업데이트
-    updateData.updated_at = new Date().toISOString()
+    updateData['updated_at'] = new Date().toISOString()
 
     const { error } = await this.supabase
       .from('mission_instances')
@@ -362,15 +362,15 @@ export class MissionSupabaseService {
 
     // 업데이트할 필드만 추출
     const updateData: Record<string, unknown> = {}
-    if (updates.title !== undefined) updateData.title = updates.title
-    if (updates.description !== undefined) updateData.description = updates.description
-    if (updates.reward !== undefined) updateData.reward = updates.reward
-    if (updates.category !== undefined) updateData.category = updates.category
-    if (updates.missionType !== undefined) updateData.mission_type = updates.missionType
-    if (updates.isActive !== undefined) updateData.is_active = updates.isActive
+    if (updates.title !== undefined) updateData['title'] = updates.title
+    if (updates.description !== undefined) updateData['description'] = updates.description
+    if (updates.reward !== undefined) updateData['reward'] = updates.reward
+    if (updates.category !== undefined) updateData['category'] = updates.category
+    if (updates.missionType !== undefined) updateData['mission_type'] = updates.missionType
+    if (updates.isActive !== undefined) updateData['is_active'] = updates.isActive
 
     // 수정 시간 업데이트
-    updateData.updated_at = new Date().toISOString()
+    updateData['updated_at'] = new Date().toISOString()
     
     console.log('📝 업데이트 데이터:', updateData)
 
@@ -438,10 +438,16 @@ export class MissionSupabaseService {
       return
     }
 
-    // 🔒 이미 템플릿이 있으면 생성하지 않음 (중복 방지)
+    // 🔒 강화된 중복 체크: 기본 템플릿 중복 생성 방지
     const existingTemplates = await this.getFamilyMissionTemplates()
-    if (existingTemplates.length > 0) {
-      console.log(`🚫 기존 템플릿 ${existingTemplates.length}개가 있어서 기본 템플릿 생성을 건너뜀`)
+    const existingTitles = existingTemplates.map(t => t.title)
+    
+    // 기본 템플릿 제목 목록
+    const defaultTemplateTitle = '방 청소하기'
+    
+    // 이미 기본 템플릿이 존재하거나, 전체 템플릿이 5개 이상이면 건너뛰기
+    if (existingTitles.includes(defaultTemplateTitle) || existingTemplates.length >= 5) {
+      console.log(`🚫 기본 템플릿 생성 건너뜀 - 기존 템플릿: ${existingTemplates.length}개, 기본 템플릿 존재: ${existingTitles.includes(defaultTemplateTitle)}`)
       return
     }
 
@@ -493,13 +499,19 @@ export class MissionSupabaseService {
   async generateDailyMissions(date: string): Promise<number> {
     const { profile, childrenIds } = await this.getCurrentUser()
     
-    // 템플릿 조회
+    // 템플릿 조회 및 개수 제한
     const templates = await this.getFamilyMissionTemplates()
     const dailyTemplates = templates.filter(t => t.missionType === 'daily' && t.isActive)
     
     if (dailyTemplates.length === 0) {
       console.log('생성할 데일리 템플릿이 없습니다.')
       return 0
+    }
+    
+    // 🚨 안전장치: 데일리 템플릿이 너무 많으면 최대 5개로 제한
+    const limitedTemplates = dailyTemplates.slice(0, 5)
+    if (dailyTemplates.length > 5) {
+      console.log(`⚠️ 데일리 템플릿 개수 제한: ${dailyTemplates.length}개 → 5개로 제한`)
     }
 
     let createdCount = 0
@@ -513,9 +525,9 @@ export class MissionSupabaseService {
       targetUserIds = [profile.id]
     }
 
-    // 각 대상 사용자에 대해 미션 생성
+    // 각 대상 사용자에 대해 미션 생성 (제한된 템플릿 사용)
     for (const userId of targetUserIds) {
-      for (const template of dailyTemplates) {
+      for (const template of limitedTemplates) {
         try {
           // 중복 미션 체크
           const { data: existingMission } = await this.supabase
@@ -577,7 +589,7 @@ export class MissionSupabaseService {
   }
 
   private convertSupabaseToInstance(supabaseData: SupabaseMissionInstance): MissionInstance {
-    return {
+    const instance: MissionInstance = {
       id: supabaseData.id,
       userId: supabaseData.user_id,
       templateId: supabaseData.template_id || null,
@@ -588,34 +600,70 @@ export class MissionSupabaseService {
       category: supabaseData.category,
       missionType: supabaseData.mission_type,
       isCompleted: supabaseData.is_completed,
-      completedAt: supabaseData.completed_at || undefined,
       isTransferred: supabaseData.is_transferred
     }
+    
+    // Only add completedAt if it has a value
+    if (supabaseData.completed_at) {
+      instance.completedAt = supabaseData.completed_at
+    }
+    
+    return instance
   }
 
   /**
    * 🎧 실시간 동기화 구독
    */
   subscribeToMissions(callback: (payload: unknown) => void) {
-    return this.supabase
-      .channel('mission_instances')
+    const channel = this.supabase
+      .channel(`mission_instances_${Date.now()}`) // 고유한 채널명 생성
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'mission_instances' },
-        callback
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'mission_instances'
+        },
+        (payload) => {
+          console.log('🎧 실시간 미션 변경:', payload)
+          try {
+            callback(payload)
+          } catch (error) {
+            console.error('실시간 구독 콜백 오류:', error)
+          }
+        }
       )
-      .subscribe()
+      .subscribe((status) => {
+        console.log('🎧 구독 상태:', status)
+      })
+
+    return channel
   }
 
   subscribeToTemplates(callback: (payload: unknown) => void) {
-    return this.supabase
-      .channel('mission_templates')
+    const channel = this.supabase
+      .channel(`mission_templates_${Date.now()}`) // 고유한 채널명 생성
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'mission_templates' },
-        callback
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'mission_templates'
+        },
+        (payload) => {
+          console.log('🎧 실시간 템플릿 변경:', payload)
+          try {
+            callback(payload)
+          } catch (error) {
+            console.error('실시간 템플릿 구독 콜백 오류:', error)
+          }
+        }
       )
-      .subscribe()
+      .subscribe((status) => {
+        console.log('🎧 템플릿 구독 상태:', status)
+      })
+
+    return channel
   }
 
   /**

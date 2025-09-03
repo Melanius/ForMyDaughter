@@ -106,11 +106,11 @@ class EnhancedSyncService {
   // 📡 Realtime 이벤트 처리
   private handleRealtimeEvent(type: string, payload: Record<string, unknown>) {
     const syncPayload: SyncPayload = {
-      type: `${type}_${(payload.eventType as string)?.toLowerCase()}` as 'mission_update' | 'mission_create' | 'mission_delete' | 'allowance_update' | 'streak_update',
-      entityId: (payload.new as Record<string, unknown>)?.id as string || (payload.old as Record<string, unknown>)?.id as string,
-      data: (payload.new as Record<string, unknown>) || (payload.old as Record<string, unknown>),
+      type: `${type}_${(payload['eventType'] as string)?.toLowerCase()}` as 'mission_update' | 'mission_create' | 'mission_delete' | 'allowance_update' | 'streak_update',
+      entityId: (payload['new'] as Record<string, unknown>)?.['id'] as string || (payload['old'] as Record<string, unknown>)?.['id'] as string,
+      data: (payload['new'] as Record<string, unknown>) || (payload['old'] as Record<string, unknown>),
       timestamp: Date.now(),
-      userId: (payload.new as Record<string, unknown>)?.user_id as string || (payload.old as Record<string, unknown>)?.user_id as string,
+      userId: (payload['new'] as Record<string, unknown>)?.['user_id'] as string || (payload['old'] as Record<string, unknown>)?.['user_id'] as string,
       source: 'remote'
     }
 
@@ -148,11 +148,11 @@ class EnhancedSyncService {
   // 주기적 동기화 실행
   private async performPeriodicSync() {
     try {
-      // 최근 변경사항 확인
+      // 최근 변경사항 확인 (created_at 기준 - mission_instances에는 updated_at이 없음)
       const { data: recentMissions } = await this.supabase
         .from('mission_instances')
         .select('*')
-        .gte('updated_at', new Date(this.lastSyncTimestamp).toISOString())
+        .gte('created_at', new Date(this.lastSyncTimestamp).toISOString())
 
       if (recentMissions && recentMissions.length > 0) {
         recentMissions.forEach(mission => {

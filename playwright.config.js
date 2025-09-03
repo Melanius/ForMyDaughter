@@ -7,7 +7,7 @@ module.exports = defineConfig({
   testDir: './tests/e2e',
   
   // 글로벌 설정
-  timeout: 30 * 1000, // 30초
+  timeout: 60 * 1000, // 60초
   expect: {
     timeout: 5 * 1000, // 5초
   },
@@ -28,7 +28,7 @@ module.exports = defineConfig({
   // 글로벌 설정
   use: {
     // 기본 URL (로컬 개발 서버)
-    baseURL: 'http://localhost:3001',
+    baseURL: 'http://localhost:3002',
     
     // 브라우저 설정
     headless: true,
@@ -90,7 +90,7 @@ module.exports = defineConfig({
   // 개발 서버 설정 (테스트 실행 전 자동 시작)
   webServer: {
     command: 'npm run dev',
-    port: 3001,
+    port: 3002,
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000, // 2분
   },

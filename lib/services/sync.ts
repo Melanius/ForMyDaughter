@@ -95,9 +95,15 @@ class SyncService {
       type: 'mission_update',
       missionId,
       data,
-      timestamp: Date.now(),
-      userId,
-      date
+      timestamp: Date.now()
+    }
+    
+    // Only add optional properties if they have values
+    if (userId) {
+      payload.userId = userId
+    }
+    if (date) {
+      (payload as unknown as Record<string, unknown>)['date'] = date // Type assertion to add the date property
     }
 
     console.log('🔥 미션 업데이트 이벤트 발생:', payload)
@@ -110,9 +116,15 @@ class SyncService {
       type: 'mission_create',
       missionId,
       data,
-      timestamp: Date.now(),
-      userId,
-      date
+      timestamp: Date.now()
+    }
+    
+    // Only add optional properties if they have values
+    if (userId) {
+      payload.userId = userId
+    }
+    if (date) {
+      (payload as unknown as Record<string, unknown>)['date'] = date // Type assertion to add the date property
     }
 
     console.log('➕ 미션 생성 이벤트 발생:', payload)
@@ -124,9 +136,15 @@ class SyncService {
     const payload: MissionSyncPayload = {
       type: 'mission_delete',
       missionId,
-      timestamp: Date.now(),
-      userId,
-      date
+      timestamp: Date.now()
+    }
+    
+    // Only add optional properties if they have values
+    if (userId) {
+      payload.userId = userId
+    }
+    if (date) {
+      (payload as unknown as Record<string, unknown>)['date'] = date // Type assertion to add the date property
     }
 
     console.log('❌ 미션 삭제 이벤트 발생:', payload)

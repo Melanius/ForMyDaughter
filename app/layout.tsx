@@ -2,6 +2,14 @@ import './globals.css'
 import { AuthProvider } from '@/components/auth/AuthProvider'
 import { NavigationBar } from '@/components/layout/NavBar'
 import { ErrorBoundaryWrapper } from '@/components/ErrorBoundary'
+import { QueryProvider } from '@/components/providers/QueryProvider'
+import { Noto_Sans_KR } from 'next/font/google'
+
+const notoSansKr = Noto_Sans_KR({
+  weight: ['300', '400', '500', '600', '700'],
+  subsets: ['latin'],
+  display: 'swap',
+})
 
 export const metadata = {
   title: 'MoneySeed - 스마트 용돈 관리',
@@ -15,24 +23,18 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link 
-          href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" 
-          rel="stylesheet" 
-        />
-      </head>
-      <body>
+      <body className={notoSansKr.className}>
         <ErrorBoundaryWrapper>
-          <AuthProvider>
-            <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
-              <NavigationBar />
-              <main>
-                {children}
-              </main>
-            </div>
-          </AuthProvider>
+          <QueryProvider>
+            <AuthProvider>
+              <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+                <NavigationBar />
+                <main>
+                  {children}
+                </main>
+              </div>
+            </AuthProvider>
+          </QueryProvider>
         </ErrorBoundaryWrapper>
       </body>
     </html>

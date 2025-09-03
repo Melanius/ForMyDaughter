@@ -191,7 +191,7 @@ export class StreakVerificationService {
 
     return {
       success: bonusVerification.success && logicVerification.success,
-      message: recommendations.length > 0 ? recommendations[0] : '검증 완료',
+      message: recommendations.length > 0 ? recommendations[0]! : '검증 완료',
       bonusPayments: bonusVerification,
       streakLogic: logicVerification,
       recommendations

@@ -193,7 +193,7 @@ export default function AddTransactionModal({ onClose, onAdd, editingTransaction
               value={date}
               onChange={(e) => setDate(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              max={new Date().toISOString().split('T')[0]}
+              max={getTodayKST()}
             />
           </div>
 

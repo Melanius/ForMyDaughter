@@ -125,6 +125,7 @@ export interface Database {
         Row: {
           id: string
           user_id: string
+          family_connection_id: string | null
           date: string
           amount: number
           type: 'income' | 'expense'
@@ -135,6 +136,7 @@ export interface Database {
         Insert: {
           id?: string
           user_id: string
+          family_connection_id?: string | null
           date: string
           amount: number
           type: 'income' | 'expense'
@@ -145,6 +147,7 @@ export interface Database {
         Update: {
           id?: string
           user_id?: string
+          family_connection_id?: string | null
           date?: string
           amount?: number
           type?: 'income' | 'expense'

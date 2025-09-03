@@ -30,13 +30,13 @@ export class MigrationService {
       templateId: null, // 기존 미션은 모두 일회성으로 처리
       date: date,
       title: mission.title,
-      description: mission.description || '',
+      description: mission.description ?? '',
       reward: mission.reward,
-      category: mission.category || '기타',
+      category: mission.category ?? '기타',
       missionType: mission.missionType === '이벤트' ? 'event' : 'daily',
       isCompleted: mission.isCompleted,
-      completedAt: mission.completedAt,
-      isTransferred: mission.isTransferred
+      completedAt: mission.completedAt ?? '',
+      isTransferred: mission.isTransferred ?? false
     }
   }
 
@@ -93,7 +93,7 @@ export class MigrationService {
       console.log(`📊 Found ${missions.length} missions to migrate`)
 
       // 오늘 날짜 계산
-      const today = new Date().toISOString().split('T')[0]
+      const today = new Date().toISOString().split('T')[0]!
 
       // 1. 템플릿 생성 (데일리 미션들로부터)
       const templates = this.analyzeForTemplates(missions)
@@ -116,11 +116,13 @@ export class MigrationService {
       for (const mission of missions) {
         // 완료된 미션은 완료일을 기준으로, 아니면 오늘 날짜로
         const missionDate = mission.completedAt 
-          ? mission.completedAt.split('T')[0] 
+          ? mission.completedAt.split('T')[0]! 
           : today
 
-        const instance = this.convertMissionToInstance(mission, missionDate)
-        await databaseService.createInstance({
+        const instance = this.convertMissionToInstance(mission, missionDate!)
+        
+        // Build the instance object dynamically to handle optional properties
+        const instanceData: Omit<MissionInstance, 'id'> = {
           templateId: instance.templateId,
           date: instance.date,
           title: instance.title,
@@ -128,10 +130,18 @@ export class MigrationService {
           reward: instance.reward,
           category: instance.category,
           missionType: instance.missionType,
-          isCompleted: instance.isCompleted,
-          completedAt: instance.completedAt,
-          isTransferred: instance.isTransferred
-        })
+          isCompleted: instance.isCompleted
+        }
+        
+        // Only add optional properties if they have meaningful values
+        if (instance.completedAt) {
+          instanceData.completedAt = instance.completedAt
+        }
+        if (instance.isTransferred !== undefined) {
+          instanceData.isTransferred = instance.isTransferred
+        }
+        
+        await databaseService.createInstance(instanceData)
       }
 
       // 3. 기본 사용자 설정 생성
@@ -157,29 +167,12 @@ export class MigrationService {
 
   // 기본 설정 생성
   private static async createDefaultSetup(): Promise<void> {
-    // 기본 템플릿 생성
-    const defaultTemplates = [
-      {
-        title: '방 청소하기',
-        description: '침실 정리정돈하고 먼지 털기',
-        reward: 1000,
-        category: '집안일',
-        missionType: 'daily' as const,
-        isActive: true
-      },
-      {
-        title: '숙제 완료하기',
-        description: '오늘 낸 숙제 모두 끝내기',
-        reward: 1500,
-        category: '공부',
-        missionType: 'daily' as const,
-        isActive: true
-      }
-    ]
-
-    for (const template of defaultTemplates) {
-      await databaseService.createTemplate(template)
-    }
+    // 🚫 기본 템플릿 생성 로직 제거 - missionSupabase.ts에서만 관리
+    console.log('🚫 Migration 기본 템플릿 생성 비활성화됨 - missionSupabase.ts에서 관리')
+    
+    // 기존 템플릿이 있는지 확인만 수행
+    const existingTemplates = await databaseService.getAllTemplates()
+    console.log(`📊 Migration 확인: 기존 템플릿 ${existingTemplates.length}개`)
 
     await this.createDefaultUserSettings(7500)
   }
@@ -204,7 +197,7 @@ export class MigrationService {
 
   // 오늘 날짜 요약 업데이트
   private static async updateDateSummaryForToday(): Promise<void> {
-    const today = new Date().toISOString().split('T')[0]
+    const today = new Date().toISOString().split('T')[0]!
     const missions = await databaseService.getMissionsByDate(today)
     
     const summary = {

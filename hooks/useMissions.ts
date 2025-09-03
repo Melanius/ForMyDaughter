@@ -22,20 +22,22 @@ export function useMissions(selectedDate: string) {
       const dateMissions = await missionSupabaseService.getFamilyMissionInstances(selectedDate)
       
       // Mission 형태로 변환 (기존 UI 호환성을 위해)
-      const compatibleMissions: Mission[] = dateMissions.map(instance => ({
-        id: instance.id,
-        userId: instance.userId,
-        title: instance.title,
-        description: instance.description,
-        reward: instance.reward,
-        isCompleted: instance.isCompleted,
-        completedAt: instance.completedAt,
-        isTransferred: instance.isTransferred,
-        category: instance.category,
-        missionType: instance.missionType === 'daily' ? '데일리' : '이벤트',
-        date: instance.date,
-        templateId: instance.templateId
-      }))
+      const compatibleMissions: Mission[] = dateMissions
+        .filter(instance => instance.userId) // userId가 있는 미션만 필터링
+        .map(instance => ({
+          id: instance.id,
+          userId: instance.userId!,
+          title: instance.title,
+          description: instance.description,
+          reward: instance.reward,
+          isCompleted: instance.isCompleted,
+          completedAt: instance.completedAt || '',
+          isTransferred: instance.isTransferred || false,
+          category: instance.category,
+          missionType: instance.missionType === 'daily' ? '데일리' : '이벤트',
+          date: instance.date,
+          templateId: instance.templateId
+        }))
 
       setMissions(compatibleMissions)
     } catch (error) {
@@ -70,13 +72,17 @@ export function useMissions(selectedDate: string) {
 
       const mission: Mission = {
         id: createdId,
+        userId: profile?.id || '',
         title: newMission.title,
         description: newMission.description,
         reward: newMission.reward,
-        category: newMission.category,
-        missionType: newMission.missionType,
+        category: newMission.category || '기타',
+        missionType: newMission.missionType || '데일리',
         isCompleted: false,
-        date: newMission.date || selectedDate
+        completedAt: '',
+        isTransferred: false,
+        date: newMission.date || selectedDate,
+        templateId: null
       }
 
       setMissions(prev => [...prev, mission])
@@ -116,7 +122,7 @@ export function useMissions(selectedDate: string) {
       setMissions(prev =>
         prev.map(mission =>
           mission.id === missionId
-            ? { ...mission, isCompleted: false, completedAt: undefined }
+            ? { ...mission, isCompleted: false, completedAt: '' }
             : mission
         )
       )

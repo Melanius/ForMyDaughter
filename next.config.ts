@@ -1,9 +1,16 @@
 import type { NextConfig } from "next";
 
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env['ANALYZE'] === 'true',
+})
+
 const nextConfig: NextConfig = {
   // 성능 최적화
   poweredByHeader: false,
   compress: true,
+  
+  // Vercel 최적화
+  output: 'standalone',
   
   // 이미지 최적화
   images: {
@@ -16,7 +23,10 @@ const nextConfig: NextConfig = {
     optimizePackageImports: [
       '@supabase/supabase-js',
       'lucide-react',
+      '@tanstack/react-query',
     ],
+    serverComponentsExternalPackages: ['@supabase/supabase-js'],
+    optimizeServerReact: true,
   },
 
   // 빌드 최적화
@@ -56,4 +66,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);

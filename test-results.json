@@ -11,7 +11,7 @@
     "grepInvert": null,
     "maxFailures": 0,
     "metadata": {
-      "actualWorkers": 4
+      "actualWorkers": 1
     },
     "preserveOutput": "always",
     "reporter": [
@@ -41,7 +41,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 4
+          "actualWorkers": 1
         },
         "id": "chromium",
         "name": "chromium",
@@ -50,14 +50,14 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 30000
+        "timeout": 60000
       },
       {
         "outputDir": "/mnt/c/Users/hjlee/kids-allowance-app/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 4
+          "actualWorkers": 1
         },
         "id": "firefox",
         "name": "firefox",
@@ -66,14 +66,14 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 30000
+        "timeout": 60000
       },
       {
         "outputDir": "/mnt/c/Users/hjlee/kids-allowance-app/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 4
+          "actualWorkers": 1
         },
         "id": "webkit",
         "name": "webkit",
@@ -82,14 +82,14 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 30000
+        "timeout": 60000
       },
       {
         "outputDir": "/mnt/c/Users/hjlee/kids-allowance-app/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 4
+          "actualWorkers": 1
         },
         "id": "Mobile Chrome",
         "name": "Mobile Chrome",
@@ -98,14 +98,14 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 30000
+        "timeout": 60000
       },
       {
         "outputDir": "/mnt/c/Users/hjlee/kids-allowance-app/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 4
+          "actualWorkers": 1
         },
         "id": "Mobile Safari",
         "name": "Mobile Safari",
@@ -114,14 +114,14 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 30000
+        "timeout": 60000
       },
       {
         "outputDir": "/mnt/c/Users/hjlee/kids-allowance-app/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 4
+          "actualWorkers": 1
         },
         "id": "Tablet",
         "name": "Tablet",
@@ -130,7 +130,7 @@
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
         ],
-        "timeout": 30000
+        "timeout": 60000
       }
     ],
     "shard": null,
@@ -140,295 +140,214 @@
     "workers": 4,
     "webServer": {
       "command": "npm run dev",
-      "port": 3001,
+      "port": 3002,
       "reuseExistingServer": true,
       "timeout": 120000
     }
   },
   "suites": [
     {
-      "title": "basic-functionality.spec.js",
-      "file": "basic-functionality.spec.js",
+      "title": "parent-child-sync.spec.js",
+      "file": "parent-child-sync.spec.js",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "용돈 관리 앱 기본 기능",
-          "file": "basic-functionality.spec.js",
+          "title": "부모-자녀 계정 동기화 테스트",
+          "file": "parent-child-sync.spec.js",
           "line": 6,
           "column": 6,
           "specs": [
             {
-              "title": "페이지 로드 및 한글 폰트 렌더링 테스트",
-              "ok": true,
+              "title": "두 브라우저에서 부모-자녀 계정 동시 로그인 및 동기화 테스트",
+              "ok": false,
               "tags": [],
               "tests": [
                 {
-                  "timeout": 30000,
+                  "timeout": 60000,
                   "annotations": [],
                   "expectedStatus": "passed",
-                  "projectId": "Mobile Chrome",
-                  "projectName": "Mobile Chrome",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
                   "results": [
                     {
                       "workerIndex": 0,
                       "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 6312,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
+                      "status": "failed",
+                      "duration": 5757,
+                      "error": {
+                        "message": "ReferenceError: APP_URL is not defined",
+                        "stack": "ReferenceError: APP_URL is not defined\n    at loginUser (/mnt/c/Users/hjlee/kids-allowance-app/tests/e2e/parent-child-sync.spec.js:109:22)\n    at /mnt/c/Users/hjlee/kids-allowance-app/tests/e2e/parent-child-sync.spec.js:58:13",
+                        "location": {
+                          "file": "/mnt/c/Users/hjlee/kids-allowance-app/tests/e2e/parent-child-sync.spec.js",
+                          "column": 22,
+                          "line": 109
+                        },
+                        "snippet": "  107 |   \n  108 |   // 직접 로그인 페이지로 이동\n> 109 |   await page.goto(`${APP_URL}/login`);\n      |                      ^\n  110 |   await page.waitForLoadState('networkidle');\n  111 |   \n  112 |   // 이메일 입력 (정확한 선택자 사용)"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/mnt/c/Users/hjlee/kids-allowance-app/tests/e2e/parent-child-sync.spec.js",
+                            "column": 22,
+                            "line": 109
+                          },
+                          "message": "ReferenceError: APP_URL is not defined\n\n  107 |   \n  108 |   // 직접 로그인 페이지로 이동\n> 109 |   await page.goto(`${APP_URL}/login`);\n      |                      ^\n  110 |   await page.waitForLoadState('networkidle');\n  111 |   \n  112 |   // 이메일 입력 (정확한 선택자 사용)\n    at loginUser (/mnt/c/Users/hjlee/kids-allowance-app/tests/e2e/parent-child-sync.spec.js:109:22)\n    at /mnt/c/Users/hjlee/kids-allowance-app/tests/e2e/parent-child-sync.spec.js:58:13"
+                        }
+                      ],
+                      "stdout": [
+                        {
+                          "text": "=== 부모-자녀 계정 동기화 테스트 시작 ===\n"
+                        },
+                        {
+                          "text": "1단계: 앱 로딩 중...\n"
+                        },
+                        {
+                          "text": "[PARENT] info: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold\n"
+                        },
+                        {
+                          "text": "[CHILD] info: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold\n"
+                        },
+                        {
+                          "text": "[PARENT] log: ✅ BroadcastChannel 초기화 완료\n"
+                        },
+                        {
+                          "text": "[PARENT] log: ✅ Storage 이벤트 리스너 설정 완료\n"
+                        },
+                        {
+                          "text": "[PARENT] log: ✅ Enhanced BroadcastChannel 초기화 완료\n"
+                        },
+                        {
+                          "text": "[PARENT] log: ✅ Enhanced Realtime 초기화 완료\n"
+                        },
+                        {
+                          "text": "[PARENT] log: ⏰ 주기적 동기화 시작\n"
+                        },
+                        {
+                          "text": "[CHILD] log: ✅ BroadcastChannel 초기화 완료\n"
+                        },
+                        {
+                          "text": "[CHILD] log: ✅ Storage 이벤트 리스너 설정 완료\n"
+                        },
+                        {
+                          "text": "[CHILD] log: ✅ Enhanced BroadcastChannel 초기화 완료\n"
+                        },
+                        {
+                          "text": "[CHILD] log: ✅ Enhanced Realtime 초기화 완료\n"
+                        },
+                        {
+                          "text": "[CHILD] log: ⏰ 주기적 동기화 시작\n"
+                        },
+                        {
+                          "text": "[PARENT] log: 🎯 NavBar 렌더링 상태: {userType: undefined, isParentWithChild: false, profileId: undefined, loading: true}\n"
+                        },
+                        {
+                          "text": "[PARENT] log: 🎯 NavBar 렌더링 상태: {userType: undefined, isParentWithChild: false, profileId: undefined, loading: true}\n"
+                        },
+                        {
+                          "text": "[PARENT] error: Failed to load resource: the server responded with a status of 404 (Not Found)\n"
+                        },
+                        {
+                          "text": "✅ 두 브라우저에서 앱 로드 완료\n"
+                        },
+                        {
+                          "text": "2단계: 부모계정 로그인 중...\n"
+                        },
+                        {
+                          "text": "PARENT 로그인 시도: melanius88@naver.com\n"
+                        },
+                        {
+                          "text": "[PARENT] log: 🔄 동기화 구독 시작 (Supabase 실시간 제외)\n"
+                        },
+                        {
+                          "text": "[PARENT] log: 📝 동기화 리스너 등록 (총 1개)\n"
+                        },
+                        {
+                          "text": "[PARENT] log: 📝 Enhanced Sync 리스너 등록 (총 1개)\n"
+                        },
+                        {
+                          "text": "[CHILD] log: 🎯 NavBar 렌더링 상태: {userType: undefined, isParentWithChild: false, profileId: undefined, loading: true}\n"
+                        },
+                        {
+                          "text": "[CHILD] log: 🎯 NavBar 렌더링 상태: {userType: undefined, isParentWithChild: false, profileId: undefined, loading: true}\n"
+                        },
+                        {
+                          "text": "[CHILD] error: Failed to load resource: the server responded with a status of 404 (Not Found)\n"
+                        },
+                        {
+                          "text": "[PARENT] log: 🎯 NavBar 렌더링 상태: {userType: undefined, isParentWithChild: false, profileId: undefined, loading: false}\n"
+                        },
+                        {
+                          "text": "[PARENT] log: 🎯 NavBar 렌더링 상태: {userType: undefined, isParentWithChild: false, profileId: undefined, loading: false}\n"
+                        },
+                        {
+                          "text": "[PARENT] log: 🎯 NavBar 렌더링 상태: {userType: undefined, isParentWithChild: false, profileId: undefined, loading: false}\n"
+                        },
+                        {
+                          "text": "[PARENT] log: 🎯 NavBar 렌더링 상태: {userType: undefined, isParentWithChild: false, profileId: undefined, loading: false}\n"
+                        },
+                        {
+                          "text": "[CHILD] log: 🔄 동기화 구독 시작 (Supabase 실시간 제외)\n"
+                        },
+                        {
+                          "text": "[CHILD] log: 📝 동기화 리스너 등록 (총 1개)\n"
+                        },
+                        {
+                          "text": "[CHILD] log: 📝 Enhanced Sync 리스너 등록 (총 1개)\n"
+                        },
+                        {
+                          "text": "[CHILD] log: 🎯 NavBar 렌더링 상태: {userType: undefined, isParentWithChild: false, profileId: undefined, loading: false}\n"
+                        },
+                        {
+                          "text": "[CHILD] log: 🎯 NavBar 렌더링 상태: {userType: undefined, isParentWithChild: false, profileId: undefined, loading: false}\n"
+                        },
+                        {
+                          "text": "[CHILD] log: 🎯 NavBar 렌더링 상태: {userType: undefined, isParentWithChild: false, profileId: undefined, loading: false}\n"
+                        },
+                        {
+                          "text": "[CHILD] log: 🎯 NavBar 렌더링 상태: {userType: undefined, isParentWithChild: false, profileId: undefined, loading: false}\n"
+                        },
+                        {
+                          "text": "[PARENT] log: 📡 Enhanced Realtime 상태: SUBSCRIBED\n"
+                        },
+                        {
+                          "text": "[CHILD] log: 📡 Enhanced Realtime 상태: SUBSCRIBED\n"
+                        }
+                      ],
+                      "stderr": [
+                        {
+                          "text": "❌ 테스트 실행 중 오류 발생: ReferenceError: APP_URL is not defined\n    at loginUser \u001b[90m(/mnt/c/Users/hjlee/kids-allowance-app/\u001b[39mtests/e2e/parent-child-sync.spec.js:109:22\u001b[90m)\u001b[39m\n    at \u001b[90m/mnt/c/Users/hjlee/kids-allowance-app/\u001b[39mtests/e2e/parent-child-sync.spec.js:58:13\n    at \u001b[90m/mnt/c/Users/hjlee/kids-allowance-app/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/workerMain.js:309:9\n    at \u001b[90m/mnt/c/Users/hjlee/kids-allowance-app/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/testInfo.js:326:11\n    at TimeoutManager.withRunnable \u001b[90m(/mnt/c/Users/hjlee/kids-allowance-app/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/timeoutManager.js:67:14\u001b[90m)\u001b[39m\n    at TestInfoImpl._runWithTimeout \u001b[90m(/mnt/c/Users/hjlee/kids-allowance-app/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/testInfo.js:324:7\u001b[90m)\u001b[39m\n    at \u001b[90m/mnt/c/Users/hjlee/kids-allowance-app/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/workerMain.js:307:7\n    at WorkerMain._runTest \u001b[90m(/mnt/c/Users/hjlee/kids-allowance-app/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/workerMain.js:282:5\u001b[90m)\u001b[39m\n    at WorkerMain.runTestGroup \u001b[90m(/mnt/c/Users/hjlee/kids-allowance-app/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/worker/workerMain.js:194:11\u001b[90m)\u001b[39m\n    at process.<anonymous> \u001b[90m(/mnt/c/Users/hjlee/kids-allowance-app/\u001b[39mnode_modules/\u001b[4mplaywright\u001b[24m/lib/common/process.js:65:22\u001b[90m)\u001b[39m\n"
+                        }
+                      ],
                       "retry": 0,
-                      "startTime": "2025-08-24T13:21:30.683Z",
+                      "startTime": "2025-09-02T14:03:08.008Z",
                       "annotations": [],
-                      "attachments": []
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/mnt/c/Users/hjlee/kids-allowance-app/test-results/parent-child-sync-부모-자녀-계정-6486a-서-부모-자녀-계정-동시-로그인-및-동기화-테스트-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/mnt/c/Users/hjlee/kids-allowance-app/test-results/parent-child-sync-부모-자녀-계정-6486a-서-부모-자녀-계정-동시-로그인-및-동기화-테스트-chromium/test-failed-2.png"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/mnt/c/Users/hjlee/kids-allowance-app/tests/e2e/parent-child-sync.spec.js",
+                        "column": 22,
+                        "line": 109
+                      }
                     }
                   ],
-                  "status": "expected"
+                  "status": "unexpected"
                 }
               ],
-              "id": "2d0e50e3b0c3f296fb10-b49ac76197200287b489",
-              "file": "basic-functionality.spec.js",
+              "id": "d6d75dcaf9428fa4cd3f-33de886f4b4d1949c1d7",
+              "file": "parent-child-sync.spec.js",
               "line": 14,
-              "column": 3
-            },
-            {
-              "title": "미션 목록 표시 테스트",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Chrome",
-                  "projectName": "Mobile Chrome",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 1,
-                      "status": "passed",
-                      "duration": 4290,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-08-24T13:21:37.139Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "2d0e50e3b0c3f296fb10-fafde5c7b5901590ffa3",
-              "file": "basic-functionality.spec.js",
-              "line": 32,
-              "column": 3
-            },
-            {
-              "title": "현재 상황 섹션 테스트",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Chrome",
-                  "projectName": "Mobile Chrome",
-                  "results": [
-                    {
-                      "workerIndex": 2,
-                      "parallelIndex": 2,
-                      "status": "passed",
-                      "duration": 4525,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-08-24T13:21:27.169Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "2d0e50e3b0c3f296fb10-45fd8536cddbdbabe498",
-              "file": "basic-functionality.spec.js",
-              "line": 45,
-              "column": 3
-            },
-            {
-              "title": "이번 주 목표 섹션 테스트",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Chrome",
-                  "projectName": "Mobile Chrome",
-                  "results": [
-                    {
-                      "workerIndex": 3,
-                      "parallelIndex": 3,
-                      "status": "passed",
-                      "duration": 4472,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-08-24T13:21:27.168Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "2d0e50e3b0c3f296fb10-377956df3e7d139e41a1",
-              "file": "basic-functionality.spec.js",
-              "line": 60,
-              "column": 3
-            },
-            {
-              "title": "달력 섹션 테스트",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Chrome",
-                  "projectName": "Mobile Chrome",
-                  "results": [
-                    {
-                      "workerIndex": 3,
-                      "parallelIndex": 3,
-                      "status": "passed",
-                      "duration": 5149,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-08-24T13:21:32.094Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "2d0e50e3b0c3f296fb10-a23c6265e8a0a1a3638e",
-              "file": "basic-functionality.spec.js",
-              "line": 74,
-              "column": 3
-            },
-            {
-              "title": "미션 완료 기능 테스트",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Chrome",
-                  "projectName": "Mobile Chrome",
-                  "results": [
-                    {
-                      "workerIndex": 2,
-                      "parallelIndex": 2,
-                      "status": "passed",
-                      "duration": 5083,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-08-24T13:21:32.132Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "2d0e50e3b0c3f296fb10-1cb1bcf55c83b675392c",
-              "file": "basic-functionality.spec.js",
-              "line": 89,
-              "column": 3
-            },
-            {
-              "title": "반응형 디자인 테스트",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Chrome",
-                  "projectName": "Mobile Chrome",
-                  "results": [
-                    {
-                      "workerIndex": 2,
-                      "parallelIndex": 2,
-                      "status": "passed",
-                      "duration": 5199,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-08-24T13:21:37.319Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "2d0e50e3b0c3f296fb10-5b11cb19348966a76a4f",
-              "file": "basic-functionality.spec.js",
-              "line": 104,
-              "column": 3
-            },
-            {
-              "title": "성공 메시지 표시 테스트",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Chrome",
-                  "projectName": "Mobile Chrome",
-                  "results": [
-                    {
-                      "workerIndex": 3,
-                      "parallelIndex": 3,
-                      "status": "passed",
-                      "duration": 4500,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-08-24T13:21:37.349Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "2d0e50e3b0c3f296fb10-28d148e80d97f7366369",
-              "file": "basic-functionality.spec.js",
-              "line": 123,
               "column": 3
             }
           ]
@@ -438,11 +357,11 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2025-08-24T13:21:19.602Z",
-    "duration": 23093.076,
-    "expected": 8,
+    "startTime": "2025-09-02T14:02:44.381Z",
+    "duration": 29459.293999999998,
+    "expected": 0,
     "skipped": 0,
-    "unexpected": 0,
+    "unexpected": 1,
     "flaky": 0
   }
 }
