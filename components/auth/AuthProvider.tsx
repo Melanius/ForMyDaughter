@@ -4,8 +4,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '@/lib/types/supabase'
-import missionSupabaseService from '@/lib/services/missionSupabase'
-import { getTodayKST } from '@/lib/utils/dateUtils'
+import { checkDailyMissionsOnChildLogin } from '@/lib/services/dailyMissionManager'
 import { authLogger, missionLogger } from '@/lib/utils/logger'
 
 interface AuthContextType {
@@ -50,24 +49,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    try {
-      missionLogger.log('🎯 자녀 계정 로그인 감지 - 데일리 미션 체크 시작')
-      const today = getTodayKST()
-      const todayMissions = await missionSupabaseService.getFamilyMissionInstances(today)
-      const dailyMissions = todayMissions.filter(m => 
-        m.missionType === 'daily'
-      )
-      
-      if (dailyMissions.length === 0) {
-        missionLogger.warn('🚨 오늘의 데일리 미션이 없음 - 자동 생성 필요')
-        const generatedCount = await missionSupabaseService.generateDailyMissions(today)
-        missionLogger.log(`✨ ${generatedCount}개의 데일리 미션 자동 생성 완료`)
-      } else {
-        missionLogger.log(`✅ 오늘의 데일리 미션 ${dailyMissions.length}개 확인됨`)
-      }
-    } catch (error) {
-      missionLogger.error('❌ 자녀 계정 데일리 미션 체크 실패:', error)
-    }
+    // 새로운 통합 관리자 사용 (중복 방지)
+    await checkDailyMissionsOnChildLogin(profileData.id)
   }
 
   const refreshProfile = async () => {

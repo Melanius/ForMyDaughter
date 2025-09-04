@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/components/auth/AuthProvider'
-import missionSupabaseService from '@/lib/services/missionSupabase'
+import { dailyMissionManager } from '@/lib/services/dailyMissionManager'
 import { getTodayKST } from '@/lib/utils/dateUtils'
 
 export function useDailyMissionWelcome() {
@@ -38,29 +38,28 @@ export function useDailyMissionWelcome() {
   const checkTodayMissionsExist = async (): Promise<boolean> => {
     try {
       const today = getTodayString()
-      const todayMissions = await missionSupabaseService.getFamilyMissionInstances(today)
-      const dailyMissions = todayMissions.filter(m => 
-        m.missionType === 'daily'
-      )
-      return dailyMissions.length > 0
+      const missionCount = await dailyMissionManager.checkExistingDailyMissions(profile?.id, today)
+      return missionCount > 0
     } catch (error) {
       console.error('오늘 미션 확인 실패:', error)
       return false
     }
   }
 
-  // 데일리 미션 생성
+  // 데일리 미션 생성 (통합 관리자 사용)
   const generateTodayMissions = useCallback(async () => {
     try {
+      if (!profile?.id) return false
+      
       const today = getTodayString()
-      const generatedCount = await missionSupabaseService.generateDailyMissions(today)
+      const generatedCount = await dailyMissionManager.ensureDailyMissions(profile.id, today)
       console.log(`✨ ${generatedCount}개의 오늘 데일리 미션 생성됨`)
       return generatedCount > 0
     } catch (error) {
       console.error('데일리 미션 생성 실패:', error)
       throw error
     }
-  }, [])
+  }, [profile?.id])
 
   // 자녀 계정의 오늘 미션 체크 및 모달 표시 결정
   const checkDailyMissionWelcome = useCallback(async () => {

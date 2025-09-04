@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/client'
+import { getTodayKST, nowKST } from '../utils/dateUtils'
 
 const supabase = createClient()
 
@@ -28,7 +29,7 @@ export interface StreakResult {
 
 class StreakService {
   // 연속 완료 카운터 업데이트
-  async updateStreak(userId: string, completionDate: string = new Date().toISOString().split('T')[0]!): Promise<StreakResult> {
+  async updateStreak(userId: string, completionDate: string = getTodayKST()): Promise<StreakResult> {
     try {
       // 현재 진행상황 조회
       const { data: progress } = await supabase
@@ -299,7 +300,7 @@ class StreakService {
         .upsert({
           user_id: userId,
           ...settings,
-          updated_at: new Date().toISOString()
+          updated_at: nowKST()
         })
     } catch (error) {
       console.error('연속 완료 설정 업데이트 실패:', error)
@@ -315,7 +316,7 @@ class StreakService {
         .update({
           streak_count: 0,
           last_completion_date: null,
-          updated_at: new Date().toISOString()
+          updated_at: nowKST()
         })
         .eq('user_id', userId)
     } catch (error) {

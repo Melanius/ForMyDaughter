@@ -4,6 +4,7 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { Mission, MissionInstance } from '@/lib/types/mission'
 import missionSupabaseService from '@/lib/services/missionSupabase'
 import { useAuth } from '@/components/auth/AuthProvider'
+import { getTodayKST, nowKST, addDaysKST } from '@/lib/utils/dateUtils'
 
 // 쿼리 키 팩토리
 export const missionKeys = {
@@ -53,18 +54,16 @@ export function useMissionsQuery(selectedDate: string): MissionsQueryResult {
           templateId: instance.templateId
         }))
 
-      // 인접한 날짜들을 백그라운드에서 prefetch
-      const tomorrow = new Date(selectedDate)
-      tomorrow.setDate(tomorrow.getDate() + 1)
-      const yesterday = new Date(selectedDate)
-      yesterday.setDate(yesterday.getDate() - 1)
+      // 인접한 날짜들을 백그라운드에서 prefetch (KST 기준)
+      const tomorrow = addDaysKST(selectedDate, 1)
+      const yesterday = addDaysKST(selectedDate, -1)
 
       // 비동기적으로 prefetch (현재 쿼리 성능에 영향 없음)
       setTimeout(() => {
         queryClient.prefetchQuery({
-          queryKey: missionKeys.list(tomorrow.toISOString().split('T')[0]!),
+          queryKey: missionKeys.list(tomorrow),
           queryFn: async () => {
-            const missions = await missionSupabaseService.getFamilyMissionInstances(tomorrow.toISOString().split('T')[0]!)
+            const missions = await missionSupabaseService.getFamilyMissionInstances(tomorrow)
             return missions.filter(instance => instance.userId).map(instance => ({
               id: instance.id,
               userId: instance.userId!,
@@ -84,9 +83,9 @@ export function useMissionsQuery(selectedDate: string): MissionsQueryResult {
         })
 
         queryClient.prefetchQuery({
-          queryKey: missionKeys.list(yesterday.toISOString().split('T')[0]!),
+          queryKey: missionKeys.list(yesterday),
           queryFn: async () => {
-            const missions = await missionSupabaseService.getFamilyMissionInstances(yesterday.toISOString().split('T')[0]!)
+            const missions = await missionSupabaseService.getFamilyMissionInstances(yesterday)
             return missions.filter(instance => instance.userId).map(instance => ({
               id: instance.id,
               userId: instance.userId!,
@@ -197,7 +196,7 @@ export function useCompleteMissionMutation(selectedDate: string) {
         (oldMissions) => 
           oldMissions?.map(mission =>
             mission.id === missionId
-              ? { ...mission, isCompleted: true, completedAt: new Date().toISOString() }
+              ? { ...mission, isCompleted: true, completedAt: nowKST() }
               : mission
           ) || []
       )

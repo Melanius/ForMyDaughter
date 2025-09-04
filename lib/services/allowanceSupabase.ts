@@ -16,6 +16,7 @@ import {
   INCOME_CATEGORIES,
   EXPENSE_CATEGORIES 
 } from '../types/allowance'
+import { getTodayKST, nowKST } from '../utils/dateUtils'
 
 export interface SupabaseTransaction {
   id: string
@@ -328,7 +329,7 @@ export class AllowanceSupabaseService {
           .from('family_connection_requests')
           .update({ 
             status: 'approved',
-            responded_at: new Date().toISOString()
+            responded_at: nowKST()
           })
           .eq('id', pendingConnection.id)
           
@@ -491,7 +492,7 @@ export class AllowanceSupabaseService {
         .upsert({
           user_id: userId,
           current_balance: newBalance,
-          updated_at: new Date().toISOString()
+          updated_at: nowKST()
         }, {
           onConflict: 'user_id'
         })
@@ -746,7 +747,7 @@ export class AllowanceSupabaseService {
     // allowance_balances에 데이터가 없으면 거래내역으로 계산 후 저장
     console.log('💰 [DEBUG] allowance_balances에 데이터 없음, 거래내역으로 계산 중...')
     const transactions = await this.getFamilyTransactions()
-    const today = new Date().toISOString().split('T')[0] ?? ''
+    const today = getTodayKST()
 
     const totalIncome = transactions
       .filter(t => t.type === 'income' && t.date <= today)
@@ -765,7 +766,7 @@ export class AllowanceSupabaseService {
         .upsert({
           user_id: userId,
           current_balance: calculatedBalance,
-          updated_at: new Date().toISOString()
+          updated_at: nowKST()
         }, {
           onConflict: 'user_id'
         })
@@ -807,7 +808,7 @@ export class AllowanceSupabaseService {
       return 0
     }
 
-    const today = new Date().toISOString().split('T')[0] ?? ''
+    const today = getTodayKST()
     
     const totalIncome = transactions
       .filter(t => t.type === 'income' && t.date <= today)
@@ -826,7 +827,7 @@ export class AllowanceSupabaseService {
         .upsert({
           user_id: userId,
           current_balance: calculatedBalance,
-          updated_at: new Date().toISOString()
+          updated_at: nowKST()
         }, {
           onConflict: 'user_id'
         })
@@ -849,7 +850,7 @@ export class AllowanceSupabaseService {
       
       if (period === 'month') {
         const startDate = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-01`
-        const endDate = now.toISOString().split('T')[0] ?? ''
+        const endDate = getTodayKST()
         transactions = await this.getTransactionsInRange(startDate, endDate)
       } else {
         transactions = await this.getFamilyTransactions()
@@ -1006,7 +1007,7 @@ export class AllowanceSupabaseService {
         .upsert({
           user_id: userId,
           current_balance: newBalance,
-          updated_at: new Date().toISOString()
+          updated_at: nowKST()
         }, {
           onConflict: 'user_id'
         })

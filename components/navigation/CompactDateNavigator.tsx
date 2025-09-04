@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { CalendarModal } from '../ui/CalendarModal'
+import { getTodayKST } from '@/lib/utils/dateUtils'
 
 interface CompactDateNavigatorProps {
   selectedDate: string
@@ -65,8 +66,8 @@ export function CompactDateNavigator({ selectedDate, onDateChange }: CompactDate
   }
 
   const handleGoToToday = () => {
-    const today = new Date()
-    onDateChange(today.toISOString().split('T')[0])
+    const today = getTodayKST()
+    onDateChange(today)
   }
 
   // 길게 누르기 이벤트 핸들러

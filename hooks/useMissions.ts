@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Mission, MissionInstance } from '@/lib/types/mission'
 import missionSupabaseService from '@/lib/services/missionSupabase'
 import { useAuth } from '@/components/auth/AuthProvider'
+import { nowKST } from '@/lib/utils/dateUtils'
 
 export function useMissions(selectedDate: string) {
   const { profile } = useAuth()
@@ -100,7 +101,7 @@ export function useMissions(selectedDate: string) {
       setMissions(prev =>
         prev.map(mission =>
           mission.id === missionId
-            ? { ...mission, isCompleted: true, completedAt: new Date().toISOString() }
+            ? { ...mission, isCompleted: true, completedAt: nowKST() }
             : mission
         )
       )

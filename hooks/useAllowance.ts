@@ -6,6 +6,7 @@ import missionSupabaseService from '@/lib/services/missionSupabase'
 import enhancedSyncService from '@/lib/services/enhancedSync'
 import { Mission } from '@/lib/types/mission'
 import { useAuth } from '@/components/auth/AuthProvider'
+import { getTodayKST } from '@/lib/utils/dateUtils'
 
 export function useAllowance() {
   const { profile } = useAuth()
@@ -48,7 +49,7 @@ export function useAllowance() {
     }
 
     try {
-      const today = new Date().toISOString().split('T')[0]!
+      const today = getTodayKST()
       const missionIds = pendingMissions.map(m => m.id)
       
       // 1. 미션 상태를 전달 완료로 업데이트

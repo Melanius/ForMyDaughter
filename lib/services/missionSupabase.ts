@@ -8,6 +8,7 @@
  */
 
 import { createClient } from '@/lib/supabase/client'
+import { nowKST } from '../utils/dateUtils'
 import { MissionTemplate, MissionInstance } from '../types/mission'
 
 export interface SupabaseMissionTemplate {
@@ -185,7 +186,7 @@ export class MissionSupabaseService {
    */
   async completeMission(missionId: string): Promise<boolean> {
     const { user } = await this.getCurrentUser()
-    const now = new Date().toISOString()
+    const now = nowKST()
 
     const { error } = await this.supabase
       .from('mission_instances')
@@ -250,7 +251,7 @@ export class MissionSupabaseService {
     if (updates.missionType !== undefined) updateData['mission_type'] = updates.missionType
 
     // 수정 시간 업데이트
-    updateData['updated_at'] = new Date().toISOString()
+    updateData['updated_at'] = nowKST()
 
     const { error } = await this.supabase
       .from('mission_instances')
@@ -411,7 +412,7 @@ export class MissionSupabaseService {
     }
 
     console.log(`✨ 새 템플릿 '${template.title}' 생성 시작...`)
-    const now = new Date().toISOString()
+    const now = nowKST()
     const { data, error } = await this.supabase
       .from('mission_templates')
       .insert({
@@ -466,7 +467,7 @@ export class MissionSupabaseService {
     if (updates.isActive !== undefined) updateData['is_active'] = updates.isActive
 
     // 수정 시간 업데이트
-    updateData['updated_at'] = new Date().toISOString()
+    updateData['updated_at'] = nowKST()
     
     console.log('📝 업데이트 데이터:', updateData)
 
@@ -509,7 +510,7 @@ export class MissionSupabaseService {
       .from('mission_templates')
       .update({
         is_active: false,
-        updated_at: new Date().toISOString()
+        updated_at: nowKST()
       })
       .eq('id', templateId)
       .eq('user_id', (user as { id: string }).id) // 본인이 생성한 템플릿만 삭제 가능

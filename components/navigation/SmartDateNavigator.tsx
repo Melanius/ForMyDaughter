@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { CalendarModal } from '../ui/CalendarModal'
+import { getTodayKST, addDaysKST } from '@/lib/utils/dateUtils'
 
 interface SmartDateNavigatorProps {
   selectedDate: string
@@ -65,20 +66,15 @@ export function SmartDateNavigator({ selectedDate, onDateChange }: SmartDateNavi
   }
 
   const handlePrevDate = () => {
-    const currentDate = new Date(selectedDate)
-    currentDate.setDate(currentDate.getDate() - 1)
-    onDateChange(currentDate.toISOString().split('T')[0])
+    onDateChange(addDaysKST(selectedDate, -1))
   }
 
   const handleNextDate = () => {
-    const currentDate = new Date(selectedDate)
-    currentDate.setDate(currentDate.getDate() + 1)
-    onDateChange(currentDate.toISOString().split('T')[0])
+    onDateChange(addDaysKST(selectedDate, 1))
   }
 
   const handleGoToToday = () => {
-    const today = new Date()
-    onDateChange(today.toISOString().split('T')[0])
+    onDateChange(getTodayKST())
   }
 
   // 길게 누르기 이벤트 핸들러

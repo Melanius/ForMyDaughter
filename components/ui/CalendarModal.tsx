@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { formatDateKST } from '@/lib/utils/dateUtils'
 
 interface CalendarModalProps {
   isOpen: boolean
@@ -67,13 +68,13 @@ export function CalendarModal({ isOpen, selectedDate, onSelectDate, onClose }: C
   }
 
   const handleDateClick = (date: Date) => {
-    const dateString = date.toISOString().split('T')[0]
+    const dateString = formatDateKST(date)
     onSelectDate(dateString)
     onClose()
   }
 
   const formatDateString = (date: Date) => {
-    return date.toISOString().split('T')[0]
+    return formatDateKST(date)
   }
 
   return (

@@ -77,3 +77,17 @@ export function getTomorrowKST(): string {
   
   return formatDateKST(tomorrow)
 }
+
+/**
+ * 주어진 날짜에 일수를 더하거나 빼서 새로운 날짜를 반환 (한국 시간 기준)
+ * @param dateString 기준 날짜 문자열 (YYYY-MM-DD)
+ * @param days 더할 일수 (음수면 빼기)
+ * @returns 계산된 날짜 문자열 (예: "2025-08-31")
+ */
+export function addDaysKST(dateString: string, days: number): string {
+  const baseDate = parseKSTDate(dateString)
+  const resultDate = new Date(baseDate)
+  resultDate.setDate(resultDate.getDate() + days)
+  
+  return formatDateKST(resultDate)
+}

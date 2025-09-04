@@ -6,6 +6,7 @@ import { useAuth } from '@/components/auth/AuthProvider'
 import missionSupabaseService from '@/lib/services/missionSupabase'
 import allowanceSupabaseService from '@/lib/services/allowanceSupabase'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { getTodayKST, formatDateKST } from '@/lib/utils/dateUtils'
 
 interface WalletSectionProps {
   currentAllowance: number
@@ -111,8 +112,8 @@ export const WalletSection = memo(function WalletSection({
         const firstDay = new Date(parseInt(year), parseInt(month) - 1, 1)
         const lastDay = new Date(parseInt(year), parseInt(month), 0)
         
-        const startDate = firstDay.toISOString().split('T')[0]
-        const endDate = lastDay.toISOString().split('T')[0]
+        const startDate = formatDateKST(firstDay)
+        const endDate = formatDateKST(lastDay)
         
         // 해당 월의 거래 내역 조회
         const transactions = await allowanceSupabaseService.getFamilyTransactions()
@@ -410,13 +411,13 @@ export const WalletSection = memo(function WalletSection({
                 .sort(([a], [b]) => b.localeCompare(a)) // 최신 날짜부터
                 .map(([date, { missions, amount }]) => {
                   const dateObj = new Date(date)
-                  const today = new Date().toISOString().split('T')[0]
+                  const today = getTodayKST()
                   const yesterday = new Date()
                   yesterday.setDate(yesterday.getDate() - 1)
                   
                   let dateLabel = date
                   if (date === today) dateLabel = '오늘'
-                  else if (date === yesterday.toISOString().split('T')[0]) dateLabel = '어제'
+                  else if (date === formatDateKST(yesterday)) dateLabel = '어제'
                   else dateLabel = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`
                   
                   return (

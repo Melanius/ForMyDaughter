@@ -10,6 +10,7 @@ import {
   AllowanceBalance, 
   ALLOWANCE_DB_CONFIG 
 } from '../types/allowance'
+import { nowKST } from '../utils/dateUtils'
 
 class DatabaseService {
   private db: IDBDatabase | null = null
@@ -177,7 +178,7 @@ class DatabaseService {
 
   // Mission Template operations
   async createTemplate(template: Omit<MissionTemplate, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
-    const now = new Date().toISOString()
+    const now = nowKST()
     const newTemplate: MissionTemplate = {
       id: `template_${Date.now()}`,
       ...template,
@@ -195,7 +196,7 @@ class DatabaseService {
     const updated: MissionTemplate = {
       ...existing,
       ...updates,
-      updatedAt: new Date().toISOString()
+      updatedAt: nowKST()
     }
     await this.update(DB_CONFIG.STORES.MISSION_TEMPLATES, updated)
   }
@@ -295,7 +296,7 @@ class DatabaseService {
     const newTransaction: AllowanceTransaction = {
       id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       ...transaction,
-      createdAt: new Date().toISOString()
+      createdAt: nowKST()
     }
     await this.add(ALLOWANCE_DB_CONFIG.STORES.TRANSACTIONS, newTransaction)
     return newTransaction.id
