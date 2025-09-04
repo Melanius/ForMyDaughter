@@ -530,7 +530,7 @@ export class AllowanceSupabaseService {
 
           for (const targetUserId of notifyTargets) {
             enhancedSyncService.notify({
-              type: 'transaction_added',
+              type: 'allowance_update',
               entityId: data.id,
               data: {
                 transaction_id: data.id,

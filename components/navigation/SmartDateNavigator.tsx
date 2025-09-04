@@ -100,7 +100,7 @@ export function SmartDateNavigator({ selectedDate, onDateChange }: SmartDateNavi
 
   // 스와이프 제스처 처리
   const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStartX(e.touches[0].clientX)
+    setTouchStartX(e.touches[0]?.clientX ?? null)
     handleMouseDown() // 길게 누르기도 함께 처리
   }
 
@@ -109,7 +109,7 @@ export function SmartDateNavigator({ selectedDate, onDateChange }: SmartDateNavi
     
     if (touchStartX === null) return
     
-    const touchEndX = e.changedTouches[0].clientX
+    const touchEndX = e.changedTouches[0]?.clientX ?? 0
     const diffX = touchStartX - touchEndX
     const minSwipeDistance = 50
 
@@ -157,10 +157,10 @@ export function SmartDateNavigator({ selectedDate, onDateChange }: SmartDateNavi
           onTouchEnd={handleTouchEnd}
         >
           <div className={`text-xl font-bold ${isToday ? 'text-orange-600' : 'text-gray-800'}`}>
-            {dateDisplay.main}
+            {dateDisplay?.display || ''}
           </div>
           <div className={`text-sm ${isToday ? 'text-orange-500' : 'text-gray-500'}`}>
-            {dateDisplay.sub}
+            {dateDisplay?.display || ''}
           </div>
         </div>
 

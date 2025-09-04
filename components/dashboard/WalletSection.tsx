@@ -107,6 +107,7 @@ export const WalletSection = memo(function WalletSection({
       
       try {
         const [year, month] = selectedMonth.split('-')
+        if (!year || !month) return
         
         // 선택된 월의 첫날과 마지막날 계산
         const firstDay = new Date(parseInt(year), parseInt(month) - 1, 1)
@@ -172,25 +173,32 @@ export const WalletSection = memo(function WalletSection({
   // 월 변경 핸들러
   const handleMonthChange = (direction: 'prev' | 'next') => {
     const [year, month] = selectedMonth.split('-').map(Number)
+    if (year === undefined || month === undefined) return
     
     let newYear = year
     let newMonth = month
     
     if (direction === 'prev') {
-      newMonth -= 1
-      if (newMonth < 1) {
-        newMonth = 12
-        newYear -= 1
+      if (newMonth) {
+        newMonth -= 1
+        if (newMonth < 1) {
+          newMonth = 12
+          if (newYear) newYear -= 1
+        }
       }
     } else {
-      newMonth += 1
-      if (newMonth > 12) {
-        newMonth = 1
-        newYear += 1
+      if (newMonth) {
+        newMonth += 1
+        if (newMonth > 12) {
+          newMonth = 1
+          if (newYear) newYear += 1
+        }
       }
     }
     
-    setSelectedMonth(`${newYear}-${newMonth.toString().padStart(2, '0')}`)
+    if (newMonth && newYear) {
+      setSelectedMonth(`${newYear}-${newMonth.toString().padStart(2, '0')}`)
+    }
   }
 
   // 월 이름 포맷팅

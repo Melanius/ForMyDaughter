@@ -56,13 +56,13 @@ export function CompactDateNavigator({ selectedDate, onDateChange }: CompactDate
   const handlePrevDate = () => {
     const currentDate = new Date(selectedDate)
     currentDate.setDate(currentDate.getDate() - 1)
-    onDateChange(currentDate.toISOString().split('T')[0])
+    onDateChange(currentDate.toISOString().split('T')[0]!)
   }
 
   const handleNextDate = () => {
     const currentDate = new Date(selectedDate)
     currentDate.setDate(currentDate.getDate() + 1)
-    onDateChange(currentDate.toISOString().split('T')[0])
+    onDateChange(currentDate.toISOString().split('T')[0]!)
   }
 
   const handleGoToToday = () => {

@@ -54,7 +54,7 @@ export default function MonthlyCalendar({ selectedDate, onDateSelect }: MonthlyC
     const endDate = new Date(lastDay)
     endDate.setDate(endDate.getDate() + (6 - lastDay.getDay()))
     
-    const days = []
+    const days: any[] = []
     const currentDate = new Date(startDate)
     
     while (currentDate <= endDate) {

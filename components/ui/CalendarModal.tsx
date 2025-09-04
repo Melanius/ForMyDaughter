@@ -42,7 +42,7 @@ export function CalendarModal({ isOpen, selectedDate, onSelectDate, onClose }: C
     const daysInMonth = lastDay.getDate()
     const startingDayOfWeek = firstDay.getDay()
 
-    const days = []
+    const days: (Date | null)[] = []
     
     // 이전 달의 빈 공간
     for (let i = 0; i < startingDayOfWeek; i++) {

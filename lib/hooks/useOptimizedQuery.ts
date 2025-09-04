@@ -11,13 +11,7 @@ const DEFAULT_QUERY_OPTIONS = {
   staleTime: 5 * 60 * 1000, // 5분
   gcTime: 10 * 60 * 1000,   // 10분 (cacheTime 대신 gcTime 사용)
   refetchOnWindowFocus: false,
-  retry: (failureCount: number, error: Error) => {
-    // 네트워크 오류인 경우에만 재시도
-    if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      return failureCount < 2
-    }
-    return false
-  },
+  retry: 2,
   retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 30000),
 }
 

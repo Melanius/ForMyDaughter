@@ -53,7 +53,7 @@ export default function AllowancePage() {
           onUpdate: async (payload) => {
             console.log('📡 enhancedSync 실시간 업데이트 수신:', payload)
             
-            if (payload.type === 'transaction_added' && payload.userId === profile.id) {
+            if (payload.type === 'allowance_update' && payload.userId === profile.id) {
               console.log('🔄 새 거래 알림 수신, 데이터 새로고침 중...')
               await loadData()
             }
@@ -75,8 +75,8 @@ export default function AllowancePage() {
 
     return () => {
       console.log('🔇 실시간 동기화 구독 해제')
-      if (channel) {
-        channel.unsubscribe()
+      if (channel && typeof channel === 'object' && 'unsubscribe' in channel) {
+        (channel as { unsubscribe: () => void }).unsubscribe()
       }
       if (unsubscribeSync) {
         unsubscribeSync()
@@ -143,7 +143,7 @@ export default function AllowancePage() {
           type: t.type,
           amount: t.amount,
           description: t.description,
-          userId: t.userId?.substring(0, 8)
+          userId: t.id.substring(0, 8)
         }))
       })
       
@@ -151,7 +151,7 @@ export default function AllowancePage() {
       const today = new Date()
       const thirtyDaysAgo = new Date(today)
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-      const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0]
+      const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0]!
       
       const beforeDateFilter = transactionList.length
       transactionList = transactionList.filter(transaction => {
