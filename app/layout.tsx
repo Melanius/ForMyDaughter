@@ -1,6 +1,7 @@
 import './globals.css'
 import { AuthProvider } from '@/components/auth/AuthProvider'
 import { NavigationBar } from '@/components/layout/NavBar'
+import { MobileBottomNav } from '@/components/navigation/MobileBottomNav'
 import { ErrorBoundaryWrapper } from '@/components/ErrorBoundary'
 import { QueryProvider } from '@/components/providers/QueryProvider'
 import { Noto_Sans_KR } from 'next/font/google'
@@ -32,6 +33,7 @@ export default function RootLayout({
                 <main>
                   {children}
                 </main>
+                <MobileBottomNav />
               </div>
             </AuthProvider>
           </QueryProvider>

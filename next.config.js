@@ -5,11 +5,27 @@ const nextConfig = {
   },
   // Supabase 외부 패키지 설정 (Next.js 15 방식)
   serverExternalPackages: ['@supabase/supabase-js'],
+  
+  // 성능 최적화 설정
   experimental: {
-    // Next.js 15에서 runtime 옵션 제거됨
+    optimizePackageImports: ['lucide-react', '@tanstack/react-query'],
+    turbo: {
+      rules: {
+        '*.svg': {
+          loaders: ['@svgr/webpack'],
+          as: '*.js',
+        },
+      },
+    },
   },
-  // 웹팩 설정으로 Supabase 모듈 최적화
-  webpack: (config) => {
+  
+  // 컴파일 최적화
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
+  
+  // 웹팩 설정으로 성능 및 번들 최적화
+  webpack: (config, { dev, isServer }) => {
     config.resolve.fallback = {
       ...config.resolve.fallback,
       fs: false,
@@ -17,11 +33,35 @@ const nextConfig = {
       tls: false,
     }
     
-    // WSL 환경에서 파일 감시 개선 (Hot Reload 문제 해결)
-    config.watchOptions = {
-      poll: 1000,           // 1초마다 폴링으로 파일 변경 감지
-      aggregateTimeout: 300, // 300ms 후 변경사항 반영
-      ignored: ['**/node_modules/**', '**/.git/**', '**/.next/**']
+    // WSL 환경에서 파일 감시 개선
+    if (dev) {
+      config.watchOptions = {
+        poll: 1000,
+        aggregateTimeout: 300,
+        ignored: ['**/node_modules/**', '**/.git/**', '**/.next/**', '**/test-*.js']
+      }
+    }
+    
+    // 번들 분석 및 최적화
+    config.optimization = {
+      ...config.optimization,
+      splitChunks: {
+        chunks: 'all',
+        cacheGroups: {
+          vendor: {
+            test: /[\\/]node_modules[\\/]/,
+            name: 'vendors',
+            priority: 10,
+            reuseExistingChunk: true,
+          },
+          supabase: {
+            test: /[\\/]node_modules[\\/]@supabase[\\/]/,
+            name: 'supabase',
+            priority: 20,
+            reuseExistingChunk: true,
+          },
+        },
+      },
     }
     
     return config

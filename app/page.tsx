@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { MissionSection } from '../components/dashboard/MissionSection'
-import { WalletSection } from '../components/dashboard/WalletSection'
+import { FloatingActionButton } from '../components/ui/FloatingActionButton'
+import { ActionSelectionModal } from '../components/ui/ActionSelectionModal'
 
 const TemplateManager = lazy(() => import('../components/mission/TemplateManager').then(module => ({ default: module.TemplateManager })))
 const PerformanceSection = lazy(() => import('../components/dashboard/PerformanceSection').then(module => ({ default: module.PerformanceSection })))
@@ -19,7 +20,6 @@ import {
   useUpdateMissionTransferStatus,
   missionKeys
 } from '../hooks/useMissionsQuery'
-import { useAllowance } from '../hooks/useAllowance'
 import { Mission } from '../lib/types/mission'
 import { useAuth } from '@/components/auth/AuthProvider'
 import missionSupabaseService from '../lib/services/missionSupabase'
@@ -37,6 +37,7 @@ export default function HomePage() {
   const [selectedDate, setSelectedDate] = useState(() => getTodayKST())
   const [activeTab, setActiveTab] = useState<'missions' | 'templates'>('missions')
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showActionModal, setShowActionModal] = useState(false)
   const [editingMission, setEditingMission] = useState<Mission | null>(null)
   const [celebrationTrigger, setCelebrationTrigger] = useState<{ 
     streakCount: number
@@ -49,7 +50,6 @@ export default function HomePage() {
     family_code: string
   }[]>([])
   const [isParentWithChild, setIsParentWithChild] = useState(false)
-  const [walletRefreshTrigger, setWalletRefreshTrigger] = useState(0)
 
   // 날짜 변경 핸들러
   const handleDateChange = useCallback((newDate: string) => {
@@ -73,15 +73,6 @@ export default function HomePage() {
   const deleteMissionMutation = useDeleteMissionMutation(selectedDate)
   const updateMissionTransferStatus = useUpdateMissionTransferStatus(selectedDate)
 
-  const {
-    currentAllowance,
-    loading: allowanceLoading,
-    error: allowanceError,
-    loadBalance,
-    transferMissions,
-    undoTransfer,
-    updateBalance
-  } = useAllowance()
 
   // 자녀 계정 데일리 미션 웰컴 모달
   const {
@@ -172,13 +163,7 @@ export default function HomePage() {
       onUpdate: (payload) => {
         console.log('⚡ 강화된 동기화 수신:', payload)
         
-        if (payload.type === 'allowance_update' && payload.data) {
-          const newBalance = (payload.data['balance'] as number) || (payload.data['current_balance'] as number)
-          if (typeof newBalance === 'number') {
-            updateBalance(newBalance)
-            console.log('💰 용돈 동기화 업데이트:', newBalance)
-          }
-        } else if (payload.type === 'mission_update') {
+        if (payload.type === 'mission_update') {
           // React Query 캐시 무효화로 자동 리패치
           queryClient.invalidateQueries({ queryKey: missionKeys.lists() })
         }
@@ -201,7 +186,7 @@ export default function HomePage() {
         console.error('구독 해제 중 오류:', error)
       }
     }
-  }, [queryClient, updateBalance])
+  }, [queryClient])
 
   // 이벤트 핸들러들
   const handleMissionComplete = useCallback(async (missionId: string) => {
@@ -303,74 +288,71 @@ export default function HomePage() {
     }
   }, [editingMission, addMissionMutation, updateMissionMutation])
 
-  const handleTransferMissions = useCallback(async (allPendingMissions: Mission[]) => {
-    try {
-      console.log('🎯 전달할 전체 대기 미션 수:', allPendingMissions.length)
-      const result = await transferMissions(allPendingMissions)
-      if (result.success) {
-        updateMissionTransferStatus(
-          allPendingMissions.map(m => m.id),
-          true
-        )
-        // WalletSection 새로고침 트리거
-        setWalletRefreshTrigger(prev => prev + 1)
-        console.log('✅ 전체 미션 전달 완료')
-      }
-    } catch (error) {
-      console.error('미션 전달 실패:', error)
-      alert(error instanceof Error ? error.message : '미션 전달에 실패했습니다.')
-    }
-  }, [transferMissions, updateMissionTransferStatus])
-
   const handleUndoTransfer = useCallback(async (missionId: string) => {
     const mission = Array.isArray(missions) ? missions.find(m => m.id === missionId) : undefined
     if (!mission || !mission.isTransferred) return
 
     try {
-      await undoTransfer(missionId, mission.reward)
+      // 미션 전달 상태만 변경 (allowance 관련 로직 제거)
       updateMissionTransferStatus([missionId], false)
     } catch (error) {
       console.error('전달 되돌리기 실패:', error)
       alert(error instanceof Error ? error.message : '전달 되돌리기에 실패했습니다.')
     }
-  }, [missions, undoTransfer, updateMissionTransferStatus])
+  }, [missions, updateMissionTransferStatus])
 
   const handleStreakUpdate = useCallback((newStreak: number, bonusEarned: number) => {
-    if (bonusEarned > 0) {
-      updateBalance(currentAllowance + bonusEarned)
-    }
-  }, [currentAllowance, updateBalance])
+    // 연속 달성 업데이트 (allowance 관련 로직은 지갑 페이지에서 처리)
+    console.log('연속 달성 업데이트:', { newStreak, bonusEarned })
+  }, [])
 
   const handleCloseModal = useCallback(() => {
     setShowAddModal(false)
     setEditingMission(null)
   }, [])
 
-  const loading = missionsLoading || allowanceLoading
+  const handleFloatingButtonClick = useCallback(() => {
+    if (profile?.user_type === 'parent') {
+      setShowActionModal(true)
+    } else {
+      // 자녀는 바로 미션 추가
+      setShowAddModal(true)
+    }
+  }, [profile?.user_type])
 
-  if (loading) {
+  const handleActionSelect = useCallback((action: 'mission' | 'template') => {
+    setShowActionModal(false)
+    if (action === 'mission') {
+      setShowAddModal(true)
+    } else {
+      setActiveTab('templates')
+    }
+  }, [])
+
+  if (missionsLoading) {
     return (
-      <div className="p-8">
-        <div className="max-w-4xl mx-auto text-center">
-          <p className="text-gray-600">데이터를 불러오는 중...</p>
+      <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 p-8">
+        <div className="max-w-4xl mx-auto text-center pt-20">
+          <div className="text-6xl mb-6">🎯</div>
+          <p className="text-gray-600 text-lg">미션을 불러오는 중...</p>
         </div>
       </div>
     )
   }
 
-  if (missionsError || allowanceError) {
+  if (missionsError) {
     return (
-      <div className="p-8">
-        <div className="max-w-4xl mx-auto text-center">
-          <p className="text-red-600">
-            {missionsError || allowanceError}
+      <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 p-8">
+        <div className="max-w-4xl mx-auto text-center pt-20">
+          <div className="text-6xl mb-6">❌</div>
+          <p className="text-red-600 text-lg mb-6">
+            {missionsError}
           </p>
           <button
             onClick={() => {
               queryClient.invalidateQueries({ queryKey: missionKeys.lists() })
-              loadBalance()
             }}
-            className="mt-4 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg"
+            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-2xl transition-colors"
           >
             다시 시도
           </button>
@@ -380,42 +362,26 @@ export default function HomePage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 p-4 md:p-8 pb-20 md:pb-8">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-center text-gray-800 mb-4">
-          미션<span className="hidden sm:inline"> 어드벤처</span>
-        </h1>
-        <p className="text-lg sm:text-xl text-center text-gray-600 mb-8 sm:mb-12 px-4">
-          재미있는 미션을 클리어하고 용돈을 모아보자!
-        </p>
         
         <div className="mb-12">
           <div className="bg-white rounded-xl shadow-lg p-8">
-            {/* 탭 네비게이션 */}
-            <div className="flex border-b border-gray-200 mb-6">
-              <button
-                onClick={() => setActiveTab('missions')}
-                className={`px-2 sm:px-6 py-2 sm:py-3 font-medium transition-colors text-sm sm:text-base ${
-                  activeTab === 'missions'
-                    ? 'text-blue-600 border-b-2 border-blue-600'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-              >
-                오늘<span className="hidden sm:inline">의 미션</span>
-              </button>
-              {profile?.user_type === 'parent' && (
+            {/* 템플릿 모드일 때만 헤더 표시 */}
+            {activeTab === 'templates' && (
+              <div className="flex justify-center items-center gap-4 mb-8">
+                <div className="bg-gradient-to-r from-orange-500 to-pink-500 text-white px-6 py-3 rounded-2xl font-medium shadow-lg">
+                  <span className="text-xl mr-2">🛠️</span>
+                  <span>템플릿 관리</span>
+                </div>
                 <button
-                  onClick={() => setActiveTab('templates')}
-                  className={`px-2 sm:px-6 py-2 sm:py-3 font-medium transition-colors text-sm sm:text-base ${
-                    activeTab === 'templates'
-                      ? 'text-blue-600 border-b-2 border-blue-600'
-                      : 'text-gray-600 hover:text-gray-800'
-                  }`}
+                  onClick={() => setActiveTab('missions')}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors font-medium text-sm"
                 >
-                  만들기
+                  미션으로 돌아가기
                 </button>
-              )}
-            </div>
+              </div>
+            )}
 
             {activeTab === 'missions' ? (
               <MissionSection
@@ -447,16 +413,6 @@ export default function HomePage() {
             )}
           </div>
         </div>
-        
-        <WalletSection
-          currentAllowance={currentAllowance}
-          missions={missions}
-          isParentWithChild={isParentWithChild}
-          userType={profile?.user_type || 'child'}
-          connectedChildren={connectedChildren}
-          onTransferMissions={handleTransferMissions}
-          refreshTrigger={walletRefreshTrigger}
-        />
 
         <Suspense fallback={
           <div className="bg-white rounded-xl shadow-lg p-6 text-center mb-6">
@@ -506,6 +462,17 @@ export default function HomePage() {
           />
         </Suspense>
       )}
+      
+      {/* Floating Action Button */}
+      <FloatingActionButton onClick={handleFloatingButtonClick} />
+      
+      {/* Action Selection Modal (부모용) */}
+      <ActionSelectionModal
+        isOpen={showActionModal}
+        onClose={() => setShowActionModal(false)}
+        onSelectAddMission={() => handleActionSelect('mission')}
+        onSelectCreateTemplate={() => handleActionSelect('template')}
+      />
     </div>
   )
 }

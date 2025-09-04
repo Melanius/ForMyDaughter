@@ -268,24 +268,120 @@ export class MissionSupabaseService {
   }
 
   /**
-   * 🗑️ 미션 삭제
+   * 🗑️ 미션 삭제 (부모/자녀 모두 가능, 권한에 따라 다른 로직)
    */
   async deleteMissionInstance(missionId: string): Promise<boolean> {
-    const { user } = await this.getCurrentUser()
+    console.log('🔍 [DELETE] 미션 삭제 시작:', { missionId })
+    
+    try {
+      const { user, profile } = await this.getCurrentUser()
+      console.log('🔍 [DELETE] 현재 사용자:', { 
+        userId: user.id, 
+        userType: profile.user_type,
+        userName: profile.full_name 
+      })
 
-    const { error } = await this.supabase
-      .from('mission_instances')
-      .delete()
-      .eq('id', missionId)
-      .eq('user_id', (user as { id: string }).id) // 본인 미션만 삭제 가능
+      // 먼저 미션 정보를 조회하여 권한 확인
+      const { data: mission, error: fetchError } = await this.supabase
+        .from('mission_instances')
+        .select('id, user_id, title')
+        .eq('id', missionId)
+        .single()
 
-    if (error) {
-      console.error('미션 삭제 실패:', error)
-      return false
+      if (fetchError) {
+        console.error('🚨 [DELETE] 미션 조회 실패:', fetchError)
+        throw new Error(`미션을 찾을 수 없습니다: ${fetchError.message}`)
+      }
+
+      console.log('🔍 [DELETE] 미션 정보:', {
+        missionId: mission.id,
+        title: mission.title,
+        userId: mission.user_id
+      })
+
+      // 권한 확인: 부모만 미션 삭제 가능
+      let canDelete = false
+      let deleteReason = ''
+      
+      if (profile.user_type === 'child') {
+        // 자녀: 미션 삭제 불가능
+        canDelete = false
+        deleteReason = '자녀는 미션을 삭제할 수 없습니다'
+        console.log('🔍 [DELETE] 자녀 권한 체크:', { canDelete, deleteReason })
+      } else if (profile.user_type === 'parent') {
+        // 부모: 가족 구성원의 모든 미션 삭제 가능
+        console.log('🔍 [DELETE] 가족 미션 여부 확인 중...')
+        const { data: missionOwnerProfile, error: ownerError } = await this.supabase
+          .from('profiles')
+          .select('id, parent_id, full_name, user_type')
+          .eq('id', mission.user_id)
+          .single()
+        
+        if (ownerError) {
+          console.error('🚨 [DELETE] 미션 소유자 프로필 조회 실패:', ownerError)
+          canDelete = false
+          deleteReason = '미션 소유자 정보를 찾을 수 없습니다'
+        } else {
+          console.log('🔍 [DELETE] 미션 소유자 프로필:', missionOwnerProfile)
+          
+          // 부모 본인의 미션이거나 자녀의 미션인 경우 삭제 가능
+          if (missionOwnerProfile.id === user.id) {
+            canDelete = true
+            deleteReason = '부모 본인의 미션'
+          } else if (missionOwnerProfile.parent_id === user.id) {
+            canDelete = true
+            deleteReason = '자녀의 미션'
+          } else {
+            canDelete = false
+            deleteReason = '다른 가족의 미션'
+          }
+        }
+        console.log('🔍 [DELETE] 부모 권한 체크:', { canDelete, deleteReason })
+      }
+
+      if (!canDelete) {
+        console.error('🚨 [DELETE] 권한 없음:', { 
+          userType: profile.user_type,
+          reason: deleteReason 
+        })
+        throw new Error(`이 미션을 삭제할 권한이 없습니다 (${deleteReason})`)
+      }
+
+      console.log('✅ [DELETE] 권한 확인 완료, 삭제 실행 중...')
+
+      // 실제 삭제 실행
+      const { data: deleteData, error: deleteError } = await this.supabase
+        .from('mission_instances')
+        .delete()
+        .eq('id', missionId)
+        .select() // 삭제된 행 반환
+
+      if (deleteError) {
+        console.error('🚨 [DELETE] DB 삭제 실패:', deleteError)
+        throw new Error(`미션 삭제에 실패했습니다: ${deleteError.message}`)
+      }
+
+      console.log('✅ [DELETE] DB 삭제 성공:', deleteData)
+
+      // 삭제 확인 (삭제된 행이 반환되었는지 체크)
+      if (!deleteData || deleteData.length === 0) {
+        console.error('🚨 [DELETE] 삭제된 행이 없음 - RLS 정책 문제일 수 있음')
+        throw new Error('미션이 삭제되지 않았습니다. 권한을 확인해주세요.')
+      }
+
+      console.log('🎉 [DELETE] 미션 삭제 완료:', { 
+        missionId, 
+        title: mission.title,
+        deletedRows: deleteData.length 
+      })
+      
+      return true
+
+    } catch (error) {
+      console.error('🚨 [DELETE] 전체 삭제 프로세스 실패:', error)
+      // 에러를 다시 throw하여 UI에서 처리할 수 있도록
+      throw error
     }
-
-    console.log('✅ 미션 삭제 성공:', missionId)
-    return true
   }
 
   /**

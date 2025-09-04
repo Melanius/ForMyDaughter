@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { memo } from 'react'
 import { DateSummary } from '../lib/types/mission'
 
 interface CalendarCellProps {
@@ -13,7 +13,7 @@ interface CalendarCellProps {
   onClick: () => void
 }
 
-export default function CalendarCell({
+const CalendarCell = memo(function CalendarCell({
   date,
   day,
   isCurrentMonth,
@@ -143,4 +143,6 @@ export default function CalendarCell({
       {renderMissionIndicator()}
     </button>
   )
-}
+})
+
+export default CalendarCell

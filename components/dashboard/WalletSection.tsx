@@ -4,6 +4,8 @@ import { useState, useEffect, memo } from 'react'
 import { Mission } from '@/lib/types/mission'
 import { useAuth } from '@/components/auth/AuthProvider'
 import missionSupabaseService from '@/lib/services/missionSupabase'
+import allowanceSupabaseService from '@/lib/services/allowanceSupabase'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface WalletSectionProps {
   currentAllowance: number
@@ -34,6 +36,17 @@ export const WalletSection = memo(function WalletSection({
   const [allPendingMissions, setAllPendingMissions] = useState<Mission[]>([])
   const [loading, setLoading] = useState(false)
   const [showPendingDetail, setShowPendingDetail] = useState(false)
+  
+  // 월별 조회 관련 상태
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`
+  })
+  const [monthlyStats, setMonthlyStats] = useState<{
+    income: number
+    expense: number
+  }>({ income: 0, expense: 0 })
+  const [isCurrentMonth, setIsCurrentMonth] = useState(true)
 
   // 모든 완료되었지만 승인되지 않은 미션들을 로드
   useEffect(() => {
@@ -86,6 +99,54 @@ export const WalletSection = memo(function WalletSection({
     loadAllPendingMissions()
   }, [profile?.id, userType, connectedChildren, missions, refreshTrigger])
 
+  // 월별 통계 로드
+  useEffect(() => {
+    const loadMonthlyStats = async () => {
+      if (!profile?.id) return
+      
+      try {
+        const [year, month] = selectedMonth.split('-')
+        
+        // 선택된 월의 첫날과 마지막날 계산
+        const firstDay = new Date(parseInt(year), parseInt(month) - 1, 1)
+        const lastDay = new Date(parseInt(year), parseInt(month), 0)
+        
+        const startDate = firstDay.toISOString().split('T')[0]
+        const endDate = lastDay.toISOString().split('T')[0]
+        
+        // 해당 월의 거래 내역 조회
+        const transactions = await allowanceSupabaseService.getFamilyTransactions()
+        
+        // 선택된 월 범위로 필터링
+        const monthlyTransactions = transactions.filter(t => 
+          t.date >= startDate && t.date <= endDate
+        )
+        
+        // 수입/지출 합계 계산
+        const income = monthlyTransactions
+          .filter(t => t.type === 'income')
+          .reduce((sum, t) => sum + t.amount, 0)
+          
+        const expense = monthlyTransactions
+          .filter(t => t.type === 'expense')
+          .reduce((sum, t) => sum + t.amount, 0)
+        
+        setMonthlyStats({ income, expense })
+        
+        // 현재 월인지 확인
+        const now = new Date()
+        const currentMonth = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`
+        setIsCurrentMonth(selectedMonth === currentMonth)
+        
+      } catch (error) {
+        console.error('월별 통계 로드 실패:', error)
+        setMonthlyStats({ income: 0, expense: 0 })
+      }
+    }
+
+    loadMonthlyStats()
+  }, [selectedMonth, profile?.id, refreshTrigger])
+
   // 누적 정산 정보 계산
   const pendingSummary: PendingMissionSummary = allPendingMissions.reduce((acc, mission) => {
     const date = mission.date || 'unknown'
@@ -107,6 +168,42 @@ export const WalletSection = memo(function WalletSection({
 
   const hasPendingMissions = allPendingMissions.length > 0
 
+  // 월 변경 핸들러
+  const handleMonthChange = (direction: 'prev' | 'next') => {
+    const [year, month] = selectedMonth.split('-').map(Number)
+    
+    let newYear = year
+    let newMonth = month
+    
+    if (direction === 'prev') {
+      newMonth -= 1
+      if (newMonth < 1) {
+        newMonth = 12
+        newYear -= 1
+      }
+    } else {
+      newMonth += 1
+      if (newMonth > 12) {
+        newMonth = 1
+        newYear += 1
+      }
+    }
+    
+    setSelectedMonth(`${newYear}-${newMonth.toString().padStart(2, '0')}`)
+  }
+
+  // 월 이름 포맷팅
+  const getMonthLabel = (monthStr: string) => {
+    const [year, month] = monthStr.split('-')
+    const now = new Date()
+    const currentMonth = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`
+    
+    if (monthStr === currentMonth) {
+      return `${month}월 (현재)`
+    }
+    return `${year}년 ${month}월`
+  }
+
   // 디버깅 로그 (초기 로드 시에만)
   useEffect(() => {
     if (profile?.id) {
@@ -116,54 +213,156 @@ export const WalletSection = memo(function WalletSection({
         allPendingMissionsCount: allPendingMissions.length,
         missionsCount: missions.length,
         pendingSummaryTotal: pendingSummary.totalAmount,
-        isParentWithChild
+        isParentWithChild,
+        selectedMonth,
+        monthlyStats,
+        isCurrentMonth
       })
     }
-  }, [profile?.id, userType, hasPendingMissions, allPendingMissions.length, missions.length, pendingSummary.totalAmount, isParentWithChild])
+  }, [profile?.id, userType, hasPendingMissions, allPendingMissions.length, missions.length, pendingSummary.totalAmount, isParentWithChild, selectedMonth, monthlyStats, isCurrentMonth])
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-4 sm:p-8 text-center mb-6 sm:mb-8">
-      <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 sm:mb-6">
-        {isParentWithChild ? (
-          <>자녀<span className="hidden sm:inline"> 지갑</span></>
-        ) : (
-          <>내<span className="hidden sm:inline"> 지갑</span></>
-        )}
-      </h2>
-      
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
-        <div className="bg-green-50 rounded-lg p-4">
-          <p className="text-2xl sm:text-3xl font-bold text-green-600">
-            {currentAllowance.toLocaleString()}원
-          </p>
-          <p className="text-sm sm:text-base text-gray-600">
-            보유<span className="hidden sm:inline"> 금액</span>
-          </p>
-        </div>
+      <div className="flex justify-between items-center mb-4 sm:mb-6">
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
+          {isParentWithChild ? (
+            <>자녀<span className="hidden sm:inline"> 지갑</span></>
+          ) : (
+            <>내<span className="hidden sm:inline"> 지갑</span></>
+          )}
+        </h2>
         
-        <div className="bg-orange-50 rounded-lg p-4 relative">
-          <div className="flex items-center justify-center space-x-2">
-            <p className="text-2xl sm:text-3xl font-bold text-orange-600">
-              {loading ? '로딩...' : `${pendingSummary.totalAmount.toLocaleString()}원`}
+        {/* 월 선택기 */}
+        <div className="flex items-center space-x-2 bg-gray-50 rounded-lg px-3 py-2">
+          <button
+            onClick={() => handleMonthChange('prev')}
+            className="p-1 hover:bg-gray-200 rounded transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          
+          <span className="text-sm font-medium text-gray-700 min-w-[80px]">
+            {getMonthLabel(selectedMonth)}
+          </span>
+          
+          <button
+            onClick={() => handleMonthChange('next')}
+            className="p-1 hover:bg-gray-200 rounded transition-colors"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+      
+      {/* 반응형 레이아웃: 모바일(세로) vs 데스크톱(가로) */}
+      <div className="space-y-4 sm:space-y-0">
+        {/* 모바일 레이아웃: 잔액 위, 수입/지출 아래 */}
+        <div className="block sm:hidden space-y-4">
+          {/* 현재 잔액 - 월별 조회시에도 그대로 유지 */}
+          <div className={`rounded-lg p-4 ${isCurrentMonth ? 'bg-green-50' : 'bg-gray-50'}`}>
+            <p className={`text-2xl font-bold ${isCurrentMonth ? 'text-green-600' : 'text-gray-600'}`}>
+              {currentAllowance.toLocaleString()}원
             </p>
-            {pendingSummary.totalCount > 0 && (
-              <button
-                onClick={() => setShowPendingDetail(!showPendingDetail)}
-                className="text-orange-600 hover:text-orange-700 transition-colors ml-2 p-1 hover:bg-orange-100 rounded-full"
-                aria-label="정산 내역 상세보기"
-              >
-                📋
-              </button>
-            )}
+            <p className={`text-sm ${isCurrentMonth ? 'text-gray-600' : 'text-gray-500'}`}>
+              내 돈 {!isCurrentMonth && '(현재)'}
+            </p>
           </div>
-          <p className="text-sm sm:text-base text-gray-600">
-            받을<span className="hidden sm:inline"> 금액</span>
-            {pendingSummary.totalCount > 0 && (
-              <span className="text-xs text-orange-600 ml-1">
-                ({pendingSummary.totalCount}개 대기)
-              </span>
-            )}
-          </p>
+          
+          {/* 수입/지출 반반 - 월별 조회시 강조 */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className={`rounded-lg p-4 ${
+              !isCurrentMonth 
+                ? 'bg-gradient-to-br from-blue-100 to-blue-200 ring-2 ring-blue-300 shadow-lg' 
+                : 'bg-blue-50'
+            }`}>
+              <p className={`font-bold ${
+                !isCurrentMonth ? 'text-2xl text-blue-700' : 'text-lg text-blue-600'
+              }`}>
+                {(isCurrentMonth ? pendingSummary.totalAmount : monthlyStats.income).toLocaleString()}원
+              </p>
+              <p className={`text-sm ${!isCurrentMonth ? 'text-blue-600 font-medium' : 'text-gray-600'}`}>
+                번 돈
+                {isCurrentMonth && pendingSummary.totalCount > 0 && (
+                  <button
+                    onClick={() => setShowPendingDetail(!showPendingDetail)}
+                    className="text-blue-600 hover:text-blue-700 transition-colors ml-1 text-xs"
+                    aria-label="정산 내역 상세보기"
+                  >
+                    📋
+                  </button>
+                )}
+              </p>
+            </div>
+            
+            <div className={`rounded-lg p-4 ${
+              !isCurrentMonth 
+                ? 'bg-gradient-to-br from-red-100 to-red-200 ring-2 ring-red-300 shadow-lg' 
+                : 'bg-red-50'
+            }`}>
+              <p className={`font-bold ${
+                !isCurrentMonth ? 'text-2xl text-red-700' : 'text-lg text-red-600'
+              }`}>
+                {(isCurrentMonth ? 0 : monthlyStats.expense).toLocaleString()}원
+              </p>
+              <p className={`text-sm ${!isCurrentMonth ? 'text-red-600 font-medium' : 'text-gray-600'}`}>
+                쓴 돈
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* 데스크톱 레이아웃: 3개 가로 정렬 */}
+        <div className="hidden sm:grid sm:grid-cols-3 sm:gap-6">
+          {/* 현재 잔액 - 월별 조회시에도 그대로 유지 */}
+          <div className={`rounded-lg p-4 ${isCurrentMonth ? 'bg-green-50' : 'bg-gray-50'}`}>
+            <p className={`text-2xl lg:text-3xl font-bold ${isCurrentMonth ? 'text-green-600' : 'text-gray-600'}`}>
+              {currentAllowance.toLocaleString()}원
+            </p>
+            <p className={`text-base ${isCurrentMonth ? 'text-gray-600' : 'text-gray-500'}`}>
+              내 돈 {!isCurrentMonth && '(현재)'}
+            </p>
+          </div>
+          
+          {/* 수입 - 월별 조회시 강조 */}
+          <div className={`rounded-lg p-4 transition-all duration-300 ${
+            !isCurrentMonth 
+              ? 'bg-gradient-to-br from-blue-100 to-blue-200 ring-2 ring-blue-300 shadow-lg transform scale-105' 
+              : 'bg-blue-50'
+          }`}>
+            <p className={`font-bold ${
+              !isCurrentMonth ? 'text-3xl lg:text-4xl text-blue-700' : 'text-2xl lg:text-3xl text-blue-600'
+            }`}>
+              {(isCurrentMonth ? pendingSummary.totalAmount : monthlyStats.income).toLocaleString()}원
+            </p>
+            <p className={`text-base ${!isCurrentMonth ? 'text-blue-600 font-medium' : 'text-gray-600'}`}>
+              번 돈
+              {isCurrentMonth && pendingSummary.totalCount > 0 && (
+                <button
+                  onClick={() => setShowPendingDetail(!showPendingDetail)}
+                  className="text-blue-600 hover:text-blue-700 transition-colors ml-1 text-sm"
+                  aria-label="정산 내역 상세보기"
+                >
+                  📋
+                </button>
+              )}
+            </p>
+          </div>
+          
+          {/* 지출 - 월별 조회시 강조 */}
+          <div className={`rounded-lg p-4 transition-all duration-300 ${
+            !isCurrentMonth 
+              ? 'bg-gradient-to-br from-red-100 to-red-200 ring-2 ring-red-300 shadow-lg transform scale-105' 
+              : 'bg-red-50'
+          }`}>
+            <p className={`font-bold ${
+              !isCurrentMonth ? 'text-3xl lg:text-4xl text-red-700' : 'text-2xl lg:text-3xl text-red-600'
+            }`}>
+              {(isCurrentMonth ? 0 : monthlyStats.expense).toLocaleString()}원
+            </p>
+            <p className={`text-base ${!isCurrentMonth ? 'text-red-600 font-medium' : 'text-gray-600'}`}>
+              쓴 돈
+            </p>
+          </div>
         </div>
       </div>
       

@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, TrendingUp, TrendingDown, Wallet, Calendar, Edit2, Trash2, Filter } from 'lucide-react'
+import { Plus, TrendingUp, TrendingDown, Wallet, Edit2, Trash2, Filter } from 'lucide-react'
 import { AllowanceTransaction, AllowanceStatistics, INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '../../lib/types/allowance'
 import allowanceSupabaseService from '../../lib/services/allowanceSupabase'
 import enhancedSyncService from '../../lib/services/enhancedSync'
 import { useAuth } from '../../components/auth/AuthProvider'
-import { getTodayKST, parseKSTDate, formatDateKST } from '@/lib/utils/dateUtils'
+import { getTodayKST } from '@/lib/utils/dateUtils'
 
 // Lazy loading을 일시적으로 비활성화하고 직접 import
 import AddTransactionModal from '../../components/allowance/AddTransactionModal'
@@ -19,7 +19,7 @@ export default function AllowancePage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingTransaction, setEditingTransaction] = useState<AllowanceTransaction | null>(null)
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all')
-  const [selectedDate, setSelectedDate] = useState(getTodayKST())
+  const [selectedDate] = useState(getTodayKST())
 
   // 초기 데이터 로드 (selectedDate, filterType 변경시)
   useEffect(() => {
@@ -37,7 +37,7 @@ export default function AllowancePage() {
 
     console.log('🔄 [DEBUG] 실시간 동기화 구독 시작')
     
-    let channel: any = null
+    let channel: unknown = null
     let unsubscribeSync: (() => void) | null = null
 
     const setupSubscriptions = async () => {
@@ -372,7 +372,7 @@ export default function AllowancePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 p-4 sm:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 p-4 sm:p-8 pb-20 md:pb-8">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-3">
@@ -381,47 +381,95 @@ export default function AllowancePage() {
           <p className="text-lg text-gray-600">돈을 어떻게 사용했는지 기록해보자!</p>
         </div>
 
-        {/* 통계 요약 카드 - 가계부 스타일 */}
+        {/* 통계 요약 카드 - 반응형 레이아웃 */}
         {statistics && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-blue-700 font-medium">💰 내 용돈</p>
-                  <p className="text-3xl font-bold text-blue-800 mt-2">
-                    {statistics.currentBalance.toLocaleString()}원
-                  </p>
+          <div className="mb-8">
+            {/* 모바일 레이아웃: 잔액 위, 수입/지출 아래 반반 */}
+            <div className="block md:hidden space-y-6">
+              {/* 현재 잔액 */}
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-blue-700 font-medium">💰 내 돈</p>
+                    <p className="text-3xl font-bold text-blue-800 mt-2">
+                      {statistics.currentBalance.toLocaleString()}원
+                    </p>
+                  </div>
+                  <div className="bg-blue-200 p-3 rounded-full">
+                    <Wallet className="w-8 h-8 text-blue-700" />
+                  </div>
                 </div>
-                <div className="bg-blue-200 p-3 rounded-full">
-                  <Wallet className="w-8 h-8 text-blue-700" />
+              </div>
+
+              {/* 수입/지출 반반 배치 */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl shadow-lg p-4 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                  <div className="text-center">
+                    <div className="bg-green-200 p-2 rounded-full w-fit mx-auto mb-3">
+                      <TrendingUp className="w-6 h-6 text-green-700" />
+                    </div>
+                    <p className="text-xs text-green-700 font-medium">📈 번 돈</p>
+                    <p className="text-xl font-bold text-green-800 mt-1">
+                      {statistics.monthlyIncome.toLocaleString()}원
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-2xl shadow-lg p-4 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                  <div className="text-center">
+                    <div className="bg-pink-200 p-2 rounded-full w-fit mx-auto mb-3">
+                      <TrendingDown className="w-6 h-6 text-pink-700" />
+                    </div>
+                    <p className="text-xs text-pink-700 font-medium">📉 쓴 돈</p>
+                    <p className="text-xl font-bold text-pink-800 mt-1">
+                      {statistics.monthlyExpense.toLocaleString()}원
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-green-700 font-medium">📈 받은 돈</p>
-                  <p className="text-3xl font-bold text-green-800 mt-2">
-                    {statistics.monthlyIncome.toLocaleString()}원
-                  </p>
-                </div>
-                <div className="bg-green-200 p-3 rounded-full">
-                  <TrendingUp className="w-8 h-8 text-green-700" />
+            {/* 데스크톱 레이아웃: 3개 가로 정렬 */}
+            <div className="hidden md:grid md:grid-cols-3 gap-6">
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-blue-700 font-medium">💰 내 돈</p>
+                    <p className="text-3xl font-bold text-blue-800 mt-2">
+                      {statistics.currentBalance.toLocaleString()}원
+                    </p>
+                  </div>
+                  <div className="bg-blue-200 p-3 rounded-full">
+                    <Wallet className="w-8 h-8 text-blue-700" />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-pink-700 font-medium">📉 쓴 돈</p>
-                  <p className="text-3xl font-bold text-pink-800 mt-2">
-                    {statistics.monthlyExpense.toLocaleString()}원
-                  </p>
+              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-green-700 font-medium">📈 번 돈</p>
+                    <p className="text-3xl font-bold text-green-800 mt-2">
+                      {statistics.monthlyIncome.toLocaleString()}원
+                    </p>
+                  </div>
+                  <div className="bg-green-200 p-3 rounded-full">
+                    <TrendingUp className="w-8 h-8 text-green-700" />
+                  </div>
                 </div>
-                <div className="bg-pink-200 p-3 rounded-full">
-                  <TrendingDown className="w-8 h-8 text-pink-700" />
+              </div>
+
+              <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-pink-700 font-medium">📉 쓴 돈</p>
+                    <p className="text-3xl font-bold text-pink-800 mt-2">
+                      {statistics.monthlyExpense.toLocaleString()}원
+                    </p>
+                  </div>
+                  <div className="bg-pink-200 p-3 rounded-full">
+                    <TrendingDown className="w-8 h-8 text-pink-700" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -430,25 +478,40 @@ export default function AllowancePage() {
 
         {/* 컨트롤 영역 - 가계부 스타일 */}
         <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl shadow-lg p-6 mb-8 border-l-4 border-yellow-400">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
               📋 거래 기록장
             </h2>
-          </div>
 
-          {/* 필터 */}
-          <div className="flex space-x-4">
-            <div className="flex items-center space-x-3 bg-white px-4 py-2 rounded-full shadow-md">
-              <Filter className="w-4 h-4 text-orange-500" />
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value as 'all' | 'income' | 'expense')}
-                className="bg-transparent focus:outline-none text-gray-700 font-medium cursor-pointer"
+            {/* 필터 아이콘 - 우측 배치 */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  // 순환: all → income → expense → all
+                  const nextFilter = filterType === 'all' ? 'income' : filterType === 'income' ? 'expense' : 'all'
+                  setFilterType(nextFilter)
+                }}
+                className={`p-3 rounded-full shadow-md transition-all duration-300 transform hover:scale-110 ${
+                  filterType === 'all' 
+                    ? 'bg-gray-100 text-gray-600' 
+                    : filterType === 'income'
+                    ? 'bg-green-100 text-green-600'
+                    : 'bg-red-100 text-red-600'
+                }`}
+                title={
+                  filterType === 'all' ? '전체 보기' : 
+                  filterType === 'income' ? '수입만 보기' : 
+                  '지출만 보기'
+                }
               >
-                <option value="all">📊 전체 보기</option>
-                <option value="income">💰 수입만</option>
-                <option value="expense">💸 지출만</option>
-              </select>
+                {filterType === 'all' ? (
+                  <Filter className="w-5 h-5" />
+                ) : filterType === 'income' ? (
+                  <TrendingUp className="w-5 h-5" />
+                ) : (
+                  <TrendingDown className="w-5 h-5" />
+                )}
+              </button>
             </div>
           </div>
         </div>

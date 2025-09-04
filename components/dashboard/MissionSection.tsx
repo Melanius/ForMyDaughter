@@ -3,7 +3,7 @@
 import { useState, memo, lazy, Suspense } from 'react'
 import { Mission } from '@/lib/types/mission'
 import { MissionCard } from '../mission/MissionCard'
-import { DateSwipeNavigator } from '../navigation/DateSwipeNavigator'
+import { CompactDateNavigator } from '../navigation/CompactDateNavigator'
 
 const AddMissionModal = lazy(() => import('../mission/AddMissionModal').then(module => ({ default: module.AddMissionModal })))
 
@@ -51,25 +51,6 @@ export const MissionSection = memo(function MissionSection({
 }: MissionSectionProps) {
   return (
     <div>
-      {/* 날짜 스와이프 네비게이터 */}
-      <DateSwipeNavigator 
-        selectedDate={selectedDate}
-        onDateChange={onDateChange}
-        dateRange={{ past: 7, future: 7 }}
-      />
-      
-      {/* 미션 추가 버튼 */}
-      {userType === 'parent' && (
-        <div className="flex justify-center mb-6">
-          <button
-            onClick={() => onShowAddModal(true)}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg transition-colors text-sm font-medium shadow-lg hover:shadow-xl"
-          >
-            ✚ 미션 추가
-          </button>
-        </div>
-      )}
-
       <div className="space-y-4">
         {loading ? (
           <div className="text-center py-8">
@@ -77,7 +58,18 @@ export const MissionSection = memo(function MissionSection({
           </div>
         ) : (
           <>
-            <p className="text-xs sm:text-sm text-gray-400">미션: {missions.length}개</p>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">📋</span>
+                <span className="text-sm font-medium text-gray-600">
+                  오늘의 미션 <span className="bg-blue-100 text-blue-600 px-2 py-1 rounded-full text-xs font-bold">{missions.length}</span>개
+                </span>
+              </div>
+              <CompactDateNavigator 
+                selectedDate={selectedDate}
+                onDateChange={onDateChange}
+              />
+            </div>
             
             {missions.map(mission => (
               <MissionCard

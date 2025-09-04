@@ -6,6 +6,7 @@ import type { User } from '@supabase/supabase-js'
 import type { Profile } from '@/lib/types/supabase'
 import missionSupabaseService from '@/lib/services/missionSupabase'
 import { getTodayKST } from '@/lib/utils/dateUtils'
+import { authLogger, missionLogger } from '@/lib/utils/logger'
 
 interface AuthContextType {
   user: User | null
@@ -38,7 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await checkDailyMissionsForChild(data)
       
     } catch (error) {
-      console.error('Error fetching profile:', error)
+      authLogger.error('Error fetching profile:', error)
       setProfile(null)
     }
   }
@@ -50,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      console.log('🎯 자녀 계정 로그인 감지 - 데일리 미션 체크 시작')
+      missionLogger.log('🎯 자녀 계정 로그인 감지 - 데일리 미션 체크 시작')
       const today = getTodayKST()
       const todayMissions = await missionSupabaseService.getFamilyMissionInstances(today)
       const dailyMissions = todayMissions.filter(m => 
@@ -58,14 +59,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       )
       
       if (dailyMissions.length === 0) {
-        console.log('🚨 오늘의 데일리 미션이 없음 - 자동 생성 필요')
+        missionLogger.warn('🚨 오늘의 데일리 미션이 없음 - 자동 생성 필요')
         const generatedCount = await missionSupabaseService.generateDailyMissions(today)
-        console.log(`✨ ${generatedCount}개의 데일리 미션 자동 생성 완료`)
+        missionLogger.log(`✨ ${generatedCount}개의 데일리 미션 자동 생성 완료`)
       } else {
-        console.log(`✅ 오늘의 데일리 미션 ${dailyMissions.length}개 확인됨`)
+        missionLogger.log(`✅ 오늘의 데일리 미션 ${dailyMissions.length}개 확인됨`)
       }
     } catch (error) {
-      console.error('❌ 자녀 계정 데일리 미션 체크 실패:', error)
+      missionLogger.error('❌ 자녀 계정 데일리 미션 체크 실패:', error)
     }
   }
 

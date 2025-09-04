@@ -36,45 +36,62 @@ export const MissionCard = memo(function MissionCard({
   }
 
   return (
-    <div className={`p-6 rounded-xl border-2 transition-all duration-200 ${
+    <div className={`p-6 rounded-2xl transition-all duration-200 shadow-lg hover:shadow-xl ${
       mission.isCompleted 
-        ? 'bg-green-50 border-green-200' 
-        : 'bg-white border-gray-200'
+        ? 'bg-gradient-to-r from-green-100 to-emerald-100 border-2 border-green-200' 
+        : mission.isTransferred
+        ? 'bg-gradient-to-r from-blue-100 to-indigo-100 border-2 border-blue-200'
+        : 'bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200 hover:border-orange-300'
     }`}>
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            <h3 className={`text-lg font-semibold ${
-              mission.isCompleted ? 'text-green-800 line-through' : 'text-gray-800'
+          <div className="flex items-center gap-2 mb-3">
+            {mission.isCompleted && <span className="text-3xl animate-pulse">🎉</span>}
+            {mission.isTransferred && !mission.isCompleted && <span className="text-2xl">💰</span>}
+            {!mission.isCompleted && !mission.isTransferred && <span className="text-2xl">🎯</span>}
+            <h3 className={`text-lg font-bold ${
+              mission.isCompleted ? 'text-green-800' : 'text-gray-800'
             }`}>
               {mission.title}
             </h3>
+          </div>
+          
+          <div className="flex items-center gap-2 mb-3">
             {mission.missionType && (
-              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+              <span className={`flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-full ${
                 mission.missionType === '데일리' 
-                  ? 'bg-blue-100 text-blue-800' 
-                  : 'bg-purple-100 text-purple-800'
+                  ? 'bg-blue-500 text-white' 
+                  : 'bg-purple-500 text-white'
               }`}>
-                {mission.missionType === '데일리' ? '📅 데일리' : '⭐ 이벤트'}
+                <span>{mission.missionType === '데일리' ? '📅' : '⭐'}</span>
+                <span>{mission.missionType}</span>
               </span>
             )}
             {mission.category && (
-              <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">
+              <span className="px-3 py-1 text-xs bg-gray-200 text-gray-700 rounded-full font-medium">
                 {mission.category}
               </span>
             )}
-            {mission.isCompleted && <span className="text-2xl">✅</span>}
           </div>
           
           {mission.description && (
-            <p className="text-gray-600 text-sm mb-3">{mission.description}</p>
+            <p className="text-gray-600 text-sm mb-4 leading-relaxed">{mission.description}</p>
           )}
           
           <div className="flex items-center gap-4">
-            <span className="font-semibold text-green-600">{mission.reward.toLocaleString()}원</span>
-            <span className="text-xs text-gray-500">
-              {mission.isCompleted ? '완료됨' : '미완료'}
-            </span>
+            <div className="flex items-center gap-1">
+              <span className="text-xl">💰</span>
+              <span className="text-xl font-bold text-green-600">{mission.reward.toLocaleString()}원</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className={`text-sm font-medium ${
+                mission.isCompleted ? 'text-green-600' : 
+                mission.isTransferred ? 'text-blue-600' : 'text-orange-600'
+              }`}>
+                {mission.isCompleted ? '✅ 완료' : 
+                 mission.isTransferred ? '💰 전달됨' : '⏳ 대기중'}
+              </span>
+            </div>
           </div>
         </div>
         
@@ -84,36 +101,39 @@ export const MissionCard = memo(function MissionCard({
               <button
                 onClick={() => handleAction(onComplete)}
                 disabled={isProcessing || mission.isTransferred}
-                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium disabled:bg-gray-300"
+                className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-4 py-2 rounded-2xl transition-all duration-200 text-sm font-bold disabled:from-gray-300 disabled:to-gray-300 shadow-lg hover:shadow-xl"
               >
-                {isProcessing ? '처리중...' : '완료'}
+                <span>{isProcessing ? '⏳' : '✅'}</span>
+                <span>{isProcessing ? '처리중' : '완료!'}</span>
               </button>
               {userType === 'parent' && (
-                <>
+                <div className="flex gap-1">
                   <button
                     onClick={() => handleAction(onEdit)}
                     disabled={isProcessing || mission.isTransferred}
-                    className="bg-blue-500 hover:bg-blue-600 text-white px-2 sm:px-3 py-1 rounded transition-colors text-xs whitespace-nowrap disabled:bg-gray-300"
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 px-3 py-1 rounded-md transition-colors text-xs font-medium disabled:bg-gray-100 disabled:text-gray-400 border border-slate-200"
                   >
                     수정
                   </button>
                   <button
                     onClick={() => handleAction(onDelete)}
                     disabled={isProcessing || mission.isTransferred}
-                    className="bg-red-500 hover:bg-red-600 text-white px-2 sm:px-3 py-1 rounded transition-colors text-xs whitespace-nowrap disabled:bg-gray-300"
+                    className="bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 px-3 py-1 rounded-md transition-colors text-xs font-medium disabled:bg-gray-100 disabled:text-gray-400 border border-red-200"
                   >
                     삭제
                   </button>
-                </>
+                </div>
               )}
             </>
           ) : mission.isTransferred ? (
             <div className="text-center">
-              <div className="text-sm text-gray-500 bg-gray-100 px-3 py-2 rounded mb-2">전달 완료</div>
+              <div className="flex items-center gap-1 text-sm text-blue-700 bg-blue-100 px-3 py-2 rounded-xl mb-2 font-medium">
+                <span>전달 완료</span>
+              </div>
               <button
                 onClick={() => handleAction(onUndoTransfer)}
                 disabled={isProcessing}
-                className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded transition-colors text-xs disabled:bg-gray-300"
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900 px-3 py-1 rounded-md transition-colors text-xs font-medium disabled:bg-gray-100 disabled:text-gray-400 border border-gray-200"
               >
                 되돌리기
               </button>
@@ -123,7 +143,7 @@ export const MissionCard = memo(function MissionCard({
               <button
                 onClick={() => handleAction(onUndoComplete)}
                 disabled={isProcessing}
-                className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium disabled:bg-gray-300"
+                className="bg-orange-100 hover:bg-orange-200 text-orange-700 hover:text-orange-800 px-4 py-2 rounded-md transition-colors text-sm font-medium disabled:bg-gray-100 disabled:text-gray-400 border border-orange-200"
               >
                 취소
               </button>
@@ -132,14 +152,14 @@ export const MissionCard = memo(function MissionCard({
                   <button
                     onClick={() => handleAction(onEdit)}
                     disabled={isProcessing}
-                    className="bg-blue-500 hover:bg-blue-600 text-white px-2 sm:px-3 py-1 rounded transition-colors text-xs whitespace-nowrap disabled:bg-gray-300"
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 px-3 py-1 rounded-md transition-colors text-xs font-medium disabled:bg-gray-100 disabled:text-gray-400 border border-slate-200"
                   >
                     수정
                   </button>
                   <button
                     onClick={() => handleAction(onDelete)}
                     disabled={isProcessing}
-                    className="bg-red-500 hover:bg-red-600 text-white px-2 sm:px-3 py-1 rounded transition-colors text-xs whitespace-nowrap disabled:bg-gray-300"
+                    className="bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 px-3 py-1 rounded-md transition-colors text-xs font-medium disabled:bg-gray-100 disabled:text-gray-400 border border-red-200"
                   >
                     삭제
                   </button>

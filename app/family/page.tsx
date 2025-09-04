@@ -174,10 +174,20 @@ export default function FamilyPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <h1 className="text-3xl font-bold mb-8">가족 관리</h1>
+    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 p-4 md:p-8 pb-20 md:pb-8">
+      <div className="max-w-4xl mx-auto">
+        {/* 헤더 */}
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <span className="text-4xl sm:text-5xl">👨‍👩‍👧‍👦</span>
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-800">
+              가족
+            </h1>
+            <span className="text-4xl sm:text-5xl">❤️</span>
+          </div>
+        </div>
 
-      {profile.user_type === 'parent' ? (
+        {profile.user_type === 'parent' ? (
         <div className="space-y-8">
           {/* 가족 코드 섹션 */}
           <div className="bg-white rounded-lg shadow-md p-6">
@@ -260,27 +270,49 @@ export default function FamilyPage() {
             )}
           </div>
         </div>
-      ) : (
-        /* 자녀 계정용 UI */
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold mb-4">가족 연결 상태</h2>
-          {profile.parent_id ? (
-            <div className="text-green-600">
-              <p className="font-medium">부모 계정과 연결되어 있습니다</p>
-              <p className="text-sm text-gray-600 mt-2">
-                모든 미션과 용돈 관리가 부모님과 공유됩니다.
-              </p>
+        ) : (
+          /* 자녀용 가족 페이지 */
+          <div className="bg-white rounded-2xl shadow-lg p-8">
+            <div className="text-center py-12">
+              <div className="text-6xl mb-6">🏠</div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-6">
+                우리 가족 공간
+              </h2>
+              
+              {profile.parent_id ? (
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 max-w-md mx-auto">
+                  <div className="text-4xl mb-4">✨</div>
+                  <p className="text-lg font-semibold text-green-700 mb-2">
+                    부모님과 연결됨!
+                  </p>
+                  <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+                    <span>🎯</span>
+                    <span>미션과 용돈이 공유돼요</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl p-6 max-w-md mx-auto">
+                  <div className="text-4xl mb-4">⏳</div>
+                  <p className="text-lg font-semibold text-orange-700 mb-2">
+                    부모님 승인 대기 중
+                  </p>
+                  <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+                    <span>🙏</span>
+                    <span>조금만 기다려주세요!</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-8 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 max-w-md mx-auto">
+                <div className="text-3xl mb-3">🚧</div>
+                <p className="text-sm text-gray-700">
+                  더 많은 가족 기능을 준비하고 있어요!
+                </p>
+              </div>
             </div>
-          ) : (
-            <div className="text-yellow-600">
-              <p className="font-medium">부모님의 승인을 기다리고 있습니다</p>
-              <p className="text-sm text-gray-600 mt-2">
-                부모님께서 연결 요청을 승인해주시면 이용할 수 있습니다.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
