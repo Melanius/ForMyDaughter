@@ -8,7 +8,7 @@
  */
 
 import { createClient } from '@/lib/supabase/client'
-import { nowKST } from '../utils/dateUtils'
+import { nowKST, shouldCreateMissionForDate } from '../utils/dateUtils'
 import { MissionTemplate, MissionInstance } from '../types/mission'
 
 export interface SupabaseMissionTemplate {
@@ -626,6 +626,13 @@ export class MissionSupabaseService {
     for (const userId of targetUserIds) {
       for (const template of limitedTemplates) {
         try {
+          // 반복 패턴 확인 - 해당 날짜에 미션을 생성해야 하는지 체크
+          const pattern = template.recurringPattern || 'daily'
+          if (!shouldCreateMissionForDate(date, pattern)) {
+            console.log(`반복 패턴으로 스킵: ${template.title} (${pattern}, ${date})`)
+            continue
+          }
+
           // 중복 미션 체크
           const { data: existingMission } = await this.supabase
             .from('mission_instances')

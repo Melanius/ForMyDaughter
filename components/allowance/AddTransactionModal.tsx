@@ -162,21 +162,21 @@ export default function AddTransactionModal({ onClose, onAdd, editingTransaction
             <label className="block text-sm font-medium text-gray-700 mb-3">
               카테고리 *
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               {(type === 'income' ? incomeCategories : expenseCategories).map((cat) => (
                 <button
                   key={cat}
                   type="button"
                   onClick={() => setCategory(cat)}
-                  className={`p-3 rounded-lg border transition-all text-left ${
+                  className={`p-3 rounded-lg border transition-all text-center ${
                     category === cat
                       ? 'border-blue-500 bg-blue-50 text-blue-700'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  <div className="flex items-center space-x-2">
+                  <div className="flex flex-col items-center space-y-1">
                     <span className="text-lg">{getCategoryIcon(cat)}</span>
-                    <span className="text-sm font-medium">{cat}</span>
+                    <span className="text-xs font-medium">{cat}</span>
                   </div>
                 </button>
               ))}

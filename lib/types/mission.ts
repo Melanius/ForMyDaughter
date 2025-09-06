@@ -15,6 +15,19 @@ export interface Mission {
   templateId?: string | null // 템플릿 ID, null이면 일회성 미션
 }
 
+// 반복 패턴 타입 정의
+export type RecurringPattern = 
+  | 'daily'        // 매일
+  | 'weekdays'     // 평일만 (월-금)
+  | 'weekends'     // 주말만 (토-일)
+  | 'weekly_sun'   // 매주 일요일
+  | 'weekly_mon'   // 매주 월요일
+  | 'weekly_tue'   // 매주 화요일
+  | 'weekly_wed'   // 매주 수요일
+  | 'weekly_thu'   // 매주 목요일
+  | 'weekly_fri'   // 매주 금요일
+  | 'weekly_sat'   // 매주 토요일
+
 // 미션 템플릿 인터페이스
 export interface MissionTemplate {
   id: string
@@ -23,6 +36,7 @@ export interface MissionTemplate {
   reward: number
   category: string
   missionType: 'daily' | 'event'
+  recurringPattern?: RecurringPattern  // 반복 패턴 (daily 타입일 때만 사용)
   isActive: boolean
   createdAt: string
   updatedAt: string

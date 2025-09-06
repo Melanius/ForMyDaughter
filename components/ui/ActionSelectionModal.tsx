@@ -27,24 +27,24 @@ export function ActionSelectionModal({
 
         <div className="space-y-3">
           <button
+            onClick={onSelectCreateTemplate}
+            className="w-full bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white px-6 py-4 rounded-xl transition-all duration-200 font-medium text-left flex items-center gap-3 shadow-lg hover:shadow-xl"
+          >
+            <span className="text-2xl">📅</span>
+            <div>
+              <div className="font-semibold">미션 템플릿 관리</div>
+              <div className="text-sm opacity-90">반복되는 미션을 관리합니다</div>
+            </div>
+          </button>
+
+          <button
             onClick={onSelectAddMission}
             className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-6 py-4 rounded-xl transition-all duration-200 font-medium text-left flex items-center gap-3 shadow-lg hover:shadow-xl"
           >
             <span className="text-2xl">🎯</span>
             <div>
-              <div className="font-semibold">미션 추가</div>
-              <div className="text-sm opacity-90">새로운 미션을 바로 추가합니다</div>
-            </div>
-          </button>
-
-          <button
-            onClick={onSelectCreateTemplate}
-            className="w-full bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white px-6 py-4 rounded-xl transition-all duration-200 font-medium text-left flex items-center gap-3 shadow-lg hover:shadow-xl"
-          >
-            <span className="text-2xl">📝</span>
-            <div>
-              <div className="font-semibold">템플릿 만들기</div>
-              <div className="text-sm opacity-90">반복 사용할 템플릿을 만듭니다</div>
+              <div className="font-semibold">이벤트 미션 추가</div>
+              <div className="text-sm opacity-90">특별한 일회성 미션을 추가합니다</div>
             </div>
           </button>
         </div>

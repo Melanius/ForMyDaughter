@@ -1,9 +1,28 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { MissionTemplate } from '../../lib/types/mission'
+import { MissionTemplate, RecurringPattern } from '../../lib/types/mission'
 import { MissionTemplateModal } from './MissionTemplateModal'
 import missionSupabaseService from '../../lib/services/missionSupabase'
+
+// 반복 패턴을 한국어로 표시하는 함수
+const getRecurringPatternLabel = (pattern?: RecurringPattern): string => {
+  if (!pattern) return '매일'
+  
+  switch (pattern) {
+    case 'daily': return '매일'
+    case 'weekdays': return '평일만'
+    case 'weekends': return '주말만'
+    case 'weekly_sun': return '매주 일요일'
+    case 'weekly_mon': return '매주 월요일'
+    case 'weekly_tue': return '매주 화요일'
+    case 'weekly_wed': return '매주 수요일'
+    case 'weekly_thu': return '매주 목요일'
+    case 'weekly_fri': return '매주 금요일'
+    case 'weekly_sat': return '매주 토요일'
+    default: return '매일'
+  }
+}
 
 export function TemplateManager() {
   const [templates, setTemplates] = useState<MissionTemplate[]>([])
@@ -47,10 +66,11 @@ export function TemplateManager() {
         // 템플릿 수정
         await missionSupabaseService.updateMissionTemplate(editingTemplate.id, {
           title: templateData.title,
-          description: templateData.description,
+          description: '',
           reward: templateData.reward,
           category: templateData.category,
           missionType: templateData.missionType,
+          recurringPattern: templateData.recurringPattern,
           isActive: templateData.isActive
         })
         console.log('✅ 템플릿 수정 완료')
@@ -253,7 +273,7 @@ function TemplateCard({ template, onEdit, onDelete, onToggleActive }: TemplateCa
               ? 'bg-blue-100 text-blue-800' 
               : 'bg-purple-100 text-purple-800'
           }`}>
-            {template.missionType === 'daily' ? '📅 데일리' : '⭐ 이벤트'}
+            📅 {getRecurringPatternLabel(template.recurringPattern)}
           </span>
           <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">
             {template.category}
@@ -274,7 +294,6 @@ function TemplateCard({ template, onEdit, onDelete, onToggleActive }: TemplateCa
 
       {/* 템플릿 내용 */}
       <h4 className="font-semibold text-gray-800 mb-2">{template.title}</h4>
-      <p className="text-sm text-gray-600 mb-3 line-clamp-2">{template.description}</p>
       <p className="font-semibold text-green-600 mb-4">{template.reward.toLocaleString()}원</p>
 
       {/* 액션 버튼 */}

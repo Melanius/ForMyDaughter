@@ -74,10 +74,6 @@ export const MissionCard = memo(function MissionCard({
             )}
           </div>
           
-          {mission.description && (
-            <p className="text-gray-600 text-sm mb-4 leading-relaxed">{mission.description}</p>
-          )}
-          
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1">
               <span className="text-xl">💰</span>
@@ -98,27 +94,31 @@ export const MissionCard = memo(function MissionCard({
         <div className="flex flex-col gap-2 ml-4">
           {!mission.isCompleted ? (
             <>
-              <button
-                onClick={() => handleAction(onComplete)}
-                disabled={isProcessing || mission.isTransferred}
-                className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-4 py-2 rounded-2xl transition-all duration-200 text-sm font-bold disabled:from-gray-300 disabled:to-gray-300 shadow-lg hover:shadow-xl"
-              >
-                <span>{isProcessing ? '⏳' : '✅'}</span>
-                <span>{isProcessing ? '처리중' : '완료!'}</span>
-              </button>
+              {/* 자녀만 완료 버튼 표시 */}
+              {userType !== 'parent' && (
+                <button
+                  onClick={() => handleAction(onComplete)}
+                  disabled={isProcessing || mission.isTransferred}
+                  className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-4 py-2 rounded-2xl transition-all duration-200 text-sm font-bold disabled:from-gray-300 disabled:to-gray-300 shadow-lg hover:shadow-xl mb-3"
+                >
+                  <span>{isProcessing ? '⏳' : '✅'}</span>
+                  <span>{isProcessing ? '처리중' : '완료!'}</span>
+                </button>
+              )}
+              {/* 부모 관리 버튼들 */}
               {userType === 'parent' && (
-                <div className="flex gap-1">
+                <div className="flex flex-col gap-2">
                   <button
                     onClick={() => handleAction(onEdit)}
                     disabled={isProcessing || mission.isTransferred}
-                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 px-3 py-1 rounded-md transition-colors text-xs font-medium disabled:bg-gray-100 disabled:text-gray-400 border border-slate-200"
+                    className="w-full bg-white hover:bg-blue-50 text-blue-600 hover:text-blue-700 px-4 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium border-2 border-blue-200 hover:border-blue-300 disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200"
                   >
                     수정
                   </button>
                   <button
                     onClick={() => handleAction(onDelete)}
                     disabled={isProcessing || mission.isTransferred}
-                    className="bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 px-3 py-1 rounded-md transition-colors text-xs font-medium disabled:bg-gray-100 disabled:text-gray-400 border border-red-200"
+                    className="w-full bg-white hover:bg-red-50 text-red-600 hover:text-red-700 px-4 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium border-2 border-red-200 hover:border-red-300 disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200"
                   >
                     삭제
                   </button>
@@ -127,43 +127,49 @@ export const MissionCard = memo(function MissionCard({
             </>
           ) : mission.isTransferred ? (
             <div className="text-center">
-              <div className="flex items-center gap-1 text-sm text-blue-700 bg-blue-100 px-3 py-2 rounded-xl mb-2 font-medium">
-                <span>전달 완료</span>
+              <div className="flex items-center justify-center text-sm text-blue-700 bg-blue-100 px-4 py-2.5 rounded-lg mb-3 font-medium">
+                전달 완료
               </div>
-              <button
-                onClick={() => handleAction(onUndoTransfer)}
-                disabled={isProcessing}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900 px-3 py-1 rounded-md transition-colors text-xs font-medium disabled:bg-gray-100 disabled:text-gray-400 border border-gray-200"
-              >
-                되돌리기
-              </button>
+              {userType === 'parent' && (
+                <button
+                  onClick={() => handleAction(onUndoTransfer)}
+                  disabled={isProcessing}
+                  className="w-full bg-white hover:bg-gray-50 text-gray-600 hover:text-gray-700 px-4 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium border-2 border-gray-200 hover:border-gray-300 disabled:bg-gray-50 disabled:text-gray-400"
+                >
+                  전달 되돌리기
+                </button>
+              )}
             </div>
           ) : (
             <>
-              <button
-                onClick={() => handleAction(onUndoComplete)}
-                disabled={isProcessing}
-                className="bg-orange-100 hover:bg-orange-200 text-orange-700 hover:text-orange-800 px-4 py-2 rounded-md transition-colors text-sm font-medium disabled:bg-gray-100 disabled:text-gray-400 border border-orange-200"
-              >
-                취소
-              </button>
+              {/* 자녀만 완료 취소 버튼 표시 */}
+              {userType !== 'parent' && (
+                <button
+                  onClick={() => handleAction(onUndoComplete)}
+                  disabled={isProcessing}
+                  className="bg-orange-100 hover:bg-orange-200 text-orange-700 hover:text-orange-800 px-4 py-2.5 rounded-lg transition-colors text-sm font-medium disabled:bg-gray-100 disabled:text-gray-400 border-2 border-orange-200 hover:border-orange-300 mb-3"
+                >
+                  완료 취소
+                </button>
+              )}
+              {/* 부모 관리 버튼들 */}
               {userType === 'parent' && (
-                <>
+                <div className="flex flex-col gap-2">
                   <button
                     onClick={() => handleAction(onEdit)}
                     disabled={isProcessing}
-                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 px-3 py-1 rounded-md transition-colors text-xs font-medium disabled:bg-gray-100 disabled:text-gray-400 border border-slate-200"
+                    className="w-full bg-white hover:bg-blue-50 text-blue-600 hover:text-blue-700 px-4 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium border-2 border-blue-200 hover:border-blue-300 disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200"
                   >
                     수정
                   </button>
                   <button
                     onClick={() => handleAction(onDelete)}
                     disabled={isProcessing}
-                    className="bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 px-3 py-1 rounded-md transition-colors text-xs font-medium disabled:bg-gray-100 disabled:text-gray-400 border border-red-200"
+                    className="w-full bg-white hover:bg-red-50 text-red-600 hover:text-red-700 px-4 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium border-2 border-red-200 hover:border-red-300 disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200"
                   >
                     삭제
                   </button>
-                </>
+                </div>
               )}
             </>
           )}
