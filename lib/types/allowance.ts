@@ -26,14 +26,15 @@ export interface AllowanceStatistics {
   currentBalance: number    // 현재 잔액
   totalIncome: number      // 총 수입
   totalExpense: number     // 총 지출
-  monthlyIncome: number    // 이번 달 수입
-  monthlyExpense: number   // 이번 달 지출
+  monthlyIncome: number    // 선택된 기간 수입
+  monthlyExpense: number   // 선택된 기간 지출
   topCategories: {         // 상위 지출 카테고리
     category: string
     amount: number
     percentage: number
   }[]
   recentTransactions: AllowanceTransaction[]  // 최근 거래 내역 (최대 10개)
+  periodLabel?: string     // 선택된 기간 라벨
 }
 
 // 카테고리 상수

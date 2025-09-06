@@ -475,6 +475,7 @@ export default function HomePage() {
         onSelectAddMission={() => handleActionSelect('mission')}
         onSelectCreateTemplate={() => handleActionSelect('template')}
       />
+        </div>
       </div>
     </div>
   )

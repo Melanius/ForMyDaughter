@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Wallet, Filter, BarChart3 } from 'lucide-react'
+import { Wallet, Filter, BarChart3, TrendingUp, TrendingDown, ChevronDown, ChevronUp } from 'lucide-react'
 import { AllowanceTransaction, AllowanceStatistics, INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '../../lib/types/allowance'
 import allowanceSupabaseService from '../../lib/services/allowanceSupabase'
 import enhancedSyncService from '../../lib/services/enhancedSync'
@@ -25,6 +25,9 @@ export default function AllowancePage() {
   const [currentFilter, setCurrentFilter] = useState<FilterOption>({ type: 'this_month' })
   const [allTransactions, setAllTransactions] = useState<AllowanceTransaction[]>([])
   const [editingTransaction, setEditingTransaction] = useState<AllowanceTransaction | null>(null)
+  
+  // 거래 내역 페이지네이션을 위한 상태
+  const [visibleTransactionsCount, setVisibleTransactionsCount] = useState(10)
 
   // 현재 월 계산 (KST 기준)
   const currentMonth = useMemo(() => {
@@ -78,12 +81,54 @@ export default function AllowancePage() {
     })
   }, [allTransactions, currentFilter.startDate, currentFilter.endDate])
 
-  // 필터링된 데이터로 통계 계산 (Memoized for performance)
+  // 현재 달 기준 통계 계산 (내 지갑용 - 필터 무관)
+  const currentMonthStatistics = useMemo(() => {
+    const now = new Date()
+    const currentYear = now.getFullYear()
+    const currentMonth = now.getMonth() + 1
+    const currentMonthKey = `${currentYear}-${String(currentMonth).padStart(2, '0')}`
+    
+    let income = 0
+    let expense = 0
+    let totalIncome = 0
+    let totalExpense = 0
+    
+    // 전체 거래에서 현재 달과 전체 누계 계산
+    allTransactions.forEach(transaction => {
+      const transactionDate = new Date(transaction.date)
+      const transactionYear = transactionDate.getFullYear()
+      const transactionMonth = transactionDate.getMonth() + 1
+      const transactionMonthKey = `${transactionYear}-${String(transactionMonth).padStart(2, '0')}`
+      
+      // 전체 누계
+      if (transaction.type === 'income') {
+        totalIncome += transaction.amount
+      } else {
+        totalExpense += transaction.amount
+      }
+      
+      // 현재 달만
+      if (transactionMonthKey === currentMonthKey) {
+        if (transaction.type === 'income') {
+          income += transaction.amount
+        } else {
+          expense += transaction.amount
+        }
+      }
+    })
+    
+    return {
+      currentBalance: totalIncome - totalExpense, // 전체 누계로 현재 잔액
+      monthlyIncome: income, // 현재 달만
+      monthlyExpense: expense // 현재 달만
+    }
+  }, [allTransactions])
+
+  // 필터링된 데이터로 거래 내역만 계산 (용돈기입장용)
   const filteredStatistics = useMemo(() => {
     let income = 0
     let expense = 0
     
-    // 하나의 루프로 최적화
     filteredTransactions.forEach(transaction => {
       if (transaction.type === 'income') {
         income += transaction.amount
@@ -99,9 +144,38 @@ export default function AllowancePage() {
     }
   }, [filteredTransactions])
 
+  // 페이지네이션된 거래 내역 계산
+  const visibleTransactions = useMemo(() => {
+    return filteredTransactions.slice(0, visibleTransactionsCount)
+  }, [filteredTransactions, visibleTransactionsCount])
+  
   // 현재 표시될 거래 내역 및 통계
-  const displayedTransactions = filteredTransactions
-  const displayedStatistics = filteredStatistics
+  const displayedTransactions = visibleTransactions
+  const displayedStatistics = currentMonthStatistics // 내 지갑은 항상 현재 달 기준
+  
+  // 더보기 관련 계산
+  const totalTransactions = filteredTransactions.length
+  const hasMoreTransactions = visibleTransactionsCount < totalTransactions
+  const remainingTransactions = totalTransactions - visibleTransactionsCount
+
+  // 더보기/접기 핸들러 함수들
+  const handleLoadMore = useCallback(() => {
+    setVisibleTransactionsCount(prev => Math.min(prev + 10, totalTransactions))
+  }, [totalTransactions])
+  
+  const handleShowLess = useCallback(() => {
+    setVisibleTransactionsCount(10)
+    // 부드러운 스크롤을 위해 용돈기입장 섹션으로 스크롤
+    document.querySelector('[data-transactions-section]')?.scrollIntoView({ 
+      behavior: 'smooth',
+      block: 'start'
+    })
+  }, [])
+
+  // 필터가 변경될 때 visibleTransactionsCount 초기화
+  useEffect(() => {
+    setVisibleTransactionsCount(10)
+  }, [currentFilter])
 
   // 초기 데이터 로딩
   useEffect(() => {
@@ -148,19 +222,19 @@ export default function AllowancePage() {
         <div className="p-4 sm:p-8 pb-20 md:pb-8">
           <div className="max-w-4xl mx-auto">
             
-            {/* 페이지 헤더 */}
-            <div className="text-center mb-6">
-              <h1 className="text-2xl font-bold text-gray-800 mb-2 flex items-center justify-center space-x-2">
-                <span className="text-3xl">💰</span>
-                <span>나의 용돈 관리</span>
-                <span className="text-3xl">🎯</span>
-              </h1>
-              <p className="text-gray-600 text-sm">똑똑하게 용돈을 관리하고 저축 습관을 길러보세요!</p>
-            </div>
-            
-            {/* 통계 카드들 */}
+            {/* 내 지갑 섹션 */}
             {displayedStatistics && (
               <div className="mb-8">
+                {/* 내 지갑 헤더 */}
+                <div className="flex items-center justify-center mb-6">
+                  <div className="bg-white rounded-2xl shadow-lg px-6 py-4 border-2 border-blue-100">
+                    <h1 className="text-2xl font-bold text-gray-800 flex items-center space-x-2">
+                      <Wallet className="w-8 h-8 text-blue-600" />
+                      <span>내 지갑</span>
+                      <span className="text-2xl">💎</span>
+                    </h1>
+                  </div>
+                </div>
                 {/* 현재 잔액 - 상단 전체 너비 */}
                 <div className="bg-white rounded-lg shadow p-6 mb-4">
                   <div className="flex items-center justify-between">
@@ -185,7 +259,7 @@ export default function AllowancePage() {
                         </p>
                       </div>
                       <div className="ml-2">
-                        <span className="text-lg">💰</span>
+                        <TrendingUp className="w-6 h-6 text-green-600" />
                       </div>
                     </div>
                   </div>
@@ -199,7 +273,7 @@ export default function AllowancePage() {
                         </p>
                       </div>
                       <div className="ml-2">
-                        <span className="text-lg">💸</span>
+                        <TrendingDown className="w-6 h-6 text-pink-600" />
                       </div>
                     </div>
                   </div>
@@ -208,13 +282,20 @@ export default function AllowancePage() {
             )}
 
             {/* 거래 내역 */}
-            <div className="bg-white rounded-lg shadow">
+            <div className="bg-white rounded-lg shadow" data-transactions-section>
               <div className="p-6 border-b">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-bold text-gray-800 flex items-center space-x-2">
-                    <span>📝</span>
-                    <span>용돈기입장</span>
-                  </h2>
+                  <div className="flex items-center space-x-2">
+                    <h2 className="text-xl font-bold text-gray-800 flex items-center space-x-2">
+                      <span>📝</span>
+                      <span>용돈기입장</span>
+                    </h2>
+                    {totalTransactions > 0 && (
+                      <span className="bg-blue-100 text-blue-700 text-sm font-medium px-2 py-1 rounded-full">
+                        총 {totalTransactions}개
+                      </span>
+                    )}
+                  </div>
                   <div className="flex space-x-2">
                     <button
                       onClick={() => setShowAnalytics(true)}
@@ -225,7 +306,7 @@ export default function AllowancePage() {
                     </button>
                     <button
                       onClick={() => setShowFilterModal(true)}
-                      className="p-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center"
+                      className="p-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors flex items-center justify-center"
                       title="필터"
                     >
                       <Filter className="w-4 h-4" />
@@ -248,12 +329,7 @@ export default function AllowancePage() {
                   <div className="space-y-3">
                     {displayedTransactions.map((transaction) => (
                       <div key={transaction.id} className="flex items-center justify-between p-4 bg-white rounded-xl border-2 border-gray-100 hover:border-gray-200 transition-colors shadow-sm">
-                        <div className="flex items-center space-x-4">
-                          <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${
-                            transaction.type === 'income' ? 'bg-green-100' : 'bg-pink-100'
-                          }`}>
-                            {transaction.type === 'income' ? '💰' : '💸'}
-                          </div>
+                        <div className="flex-1">
                           <div>
                             <p className="font-medium text-gray-800 text-base">{transaction.description}</p>
                             <p className="text-sm text-gray-600 mt-1">{transaction.category}</p>
@@ -271,6 +347,35 @@ export default function AllowancePage() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+                
+                {/* 더보기/접기 버튼 */}
+                {totalTransactions > 10 && (
+                  <div className="mt-6 text-center">
+                    {hasMoreTransactions ? (
+                      <button
+                        onClick={handleLoadMore}
+                        className="inline-flex items-center space-x-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-3 rounded-full font-medium transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                      >
+                        <ChevronDown className="w-5 h-5" />
+                        <span>더 보기</span>
+                        <span className="bg-white bg-opacity-20 px-2 py-1 rounded-full text-sm">
+                          {remainingTransactions}개 더 있어요
+                        </span>
+                      </button>
+                    ) : (
+                      visibleTransactionsCount > 10 && (
+                        <button
+                          onClick={handleShowLess}
+                          className="inline-flex items-center space-x-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-full font-medium transition-all duration-300 transform hover:scale-105"
+                        >
+                          <ChevronUp className="w-5 h-5" />
+                          <span>접기</span>
+                          <span className="text-sm opacity-70">처음 10개만 보기</span>
+                        </button>
+                      )
+                    )}
                   </div>
                 )}
               </div>

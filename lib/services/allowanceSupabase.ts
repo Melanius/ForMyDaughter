@@ -839,21 +839,77 @@ export class AllowanceSupabaseService {
   }
 
   /**
-   * 📈 통계 정보 조회
+   * 📈 통계 정보 조회 (기간별 필터링 지원)
    */
-  async getStatistics(period: 'month' | 'all' = 'month'): Promise<AllowanceStatistics> {
+  async getStatistics(params?: {
+    type?: 'preset' | 'custom'
+    preset?: 'current_month' | 'last_3months' | 'this_year' | 'last_year'
+    custom?: { startMonth: string, endMonth: string } // 'YYYY-MM' format
+  }): Promise<AllowanceStatistics> {
     try {
       const now = new Date()
       const currentBalance = await this.getCurrentBalance()
       
-      let transactions: AllowanceTransaction[]
+      // 기본값: 이번 달
+      const defaultParams = { type: 'preset' as const, preset: 'current_month' as const }
+      const finalParams = params || defaultParams
       
-      if (period === 'month') {
-        const startDate = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-01`
-        const endDate = getTodayKST()
+      let transactions: AllowanceTransaction[]
+      let periodLabel = ''
+      
+      if (finalParams.type === 'custom' && finalParams.custom) {
+        // 커스텀 기간
+        const { startMonth, endMonth } = finalParams.custom
+        const startDate = `${startMonth}-01`
+        
+        // 종료 월의 마지막 날 계산
+        const endYear = parseInt(endMonth.split('-')[0])
+        const endMonthNum = parseInt(endMonth.split('-')[1])
+        const lastDay = new Date(endYear, endMonthNum, 0).getDate()
+        const endDate = `${endMonth}-${lastDay.toString().padStart(2, '0')}`
+        
         transactions = await this.getTransactionsInRange(startDate, endDate)
+        periodLabel = `${startMonth} ~ ${endMonth}`
       } else {
-        transactions = await this.getFamilyTransactions()
+        // 프리셋 기간
+        const preset = finalParams.preset || 'current_month'
+        let startDate: string
+        let endDate: string
+        
+        switch (preset) {
+          case 'current_month':
+            startDate = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-01`
+            endDate = getTodayKST()
+            periodLabel = '이번 달'
+            break
+            
+          case 'last_3months':
+            const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1)
+            startDate = `${threeMonthsAgo.getFullYear()}-${(threeMonthsAgo.getMonth() + 1).toString().padStart(2, '0')}-01`
+            endDate = getTodayKST()
+            periodLabel = '지난 3개월'
+            break
+            
+          case 'this_year':
+            startDate = `${now.getFullYear()}-01-01`
+            endDate = getTodayKST()
+            periodLabel = `${now.getFullYear()}년`
+            break
+            
+          case 'last_year':
+            const lastYear = now.getFullYear() - 1
+            startDate = `${lastYear}-01-01`
+            endDate = `${lastYear}-12-31`
+            periodLabel = `${lastYear}년`
+            break
+            
+          default:
+            startDate = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-01`
+            endDate = getTodayKST()
+            periodLabel = '이번 달'
+        }
+        
+        transactions = await this.getTransactionsInRange(startDate, endDate)
       }
 
       const income = transactions.filter(t => t.type === 'income')
@@ -886,10 +942,11 @@ export class AllowanceSupabaseService {
         currentBalance,
         totalIncome,
         totalExpense,
-        monthlyIncome: period === 'month' ? totalIncome : income.filter(t => t.date.startsWith(`${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`)).reduce((sum, t) => sum + t.amount, 0),
-        monthlyExpense: period === 'month' ? totalExpense : expenses.filter(t => t.date.startsWith(`${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`)).reduce((sum, t) => sum + t.amount, 0),
+        monthlyIncome: totalIncome, // 선택된 기간의 총 수입
+        monthlyExpense: totalExpense, // 선택된 기간의 총 지출
         topCategories,
-        recentTransactions
+        recentTransactions,
+        periodLabel // 선택된 기간 라벨 추가
       }
     } catch (error) {
       console.error('통계 조회 실패:', error)
@@ -900,7 +957,8 @@ export class AllowanceSupabaseService {
         monthlyIncome: 0,
         monthlyExpense: 0,
         topCategories: [],
-        recentTransactions: []
+        recentTransactions: [],
+        periodLabel: '오류'
       }
     }
   }

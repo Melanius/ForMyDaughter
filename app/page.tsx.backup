@@ -1,456 +1,498 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { MissionSection } from '../components/dashboard/MissionSection'
+import { FloatingActionButton } from '../components/ui/FloatingActionButton'
+import { ActionSelectionModal } from '../components/ui/ActionSelectionModal'
+import { RewardNotificationBadge } from '../components/reward/RewardNotificationBadge'
+import { PullToRefresh } from '../components/ui/PullToRefresh'
 
-interface Mission {
-  id: string
-  title: string
-  description?: string
-  reward: number
-  isCompleted: boolean
-  completedAt?: string
-}
+const TemplateManager = lazy(() => import('../components/mission/TemplateManager').then(module => ({ default: module.TemplateManager })))
+const StreakSection = lazy(() => import('../components/dashboard/StreakSection').then(module => ({ default: module.StreakSection })))
+const MissionCompletionNotification = lazy(() => import('../components/notifications/MissionCompletionNotification'))
+import { 
+  useMissionsQuery,
+  useAddMissionMutation,
+  useCompleteMissionMutation,
+  useUncompleteMissionMutation,
+  useUpdateMissionMutation,
+  useDeleteMissionMutation,
+  useUpdateMissionTransferStatus,
+  missionKeys
+} from '../hooks/useMissionsQuery'
+import { Mission } from '../lib/types/mission'
+import { useAuth } from '@/components/auth/AuthProvider'
+import missionSupabaseService from '../lib/services/missionSupabase'
+import streakService from '../lib/services/streak'
+import syncService from '../lib/services/sync'
+import enhancedSyncService from '../lib/services/enhancedSync'
+import { createClient } from '@/lib/supabase/client'
+import { DailyMissionWelcomeModal } from '../components/modals/DailyMissionWelcomeModal'
+import { useDailyMissionWelcome } from '../hooks/useDailyMissionWelcome'
+import { getTodayKST, nowKST } from '../lib/utils/dateUtils'
 
 export default function HomePage() {
-  const [missions, setMissions] = useState<Mission[]>([])
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const { profile } = useAuth()
+  const queryClient = useQueryClient()
+  const [selectedDate, setSelectedDate] = useState(() => getTodayKST())
+  const [activeTab, setActiveTab] = useState<'missions' | 'templates'>('missions')
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [showActionModal, setShowActionModal] = useState(false)
   const [editingMission, setEditingMission] = useState<Mission | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [currentAllowance, setCurrentAllowance] = useState(7500)
+  const [celebrationTrigger, setCelebrationTrigger] = useState<{ 
+    streakCount: number
+    bonusAmount: number
+    timestamp: number 
+  } | null>(null)
+  const [connectedChildren, setConnectedChildren] = useState<{
+    id: string
+    full_name: string
+    family_code: string
+  }[]>([])
+  const [isParentWithChild, setIsParentWithChild] = useState(false)
 
-  // 클라이언트에서만 미션 데이터 로드
+  // 날짜 변경 핸들러
+  const handleDateChange = useCallback((newDate: string) => {
+    console.log('🗓️ 날짜 변경:', selectedDate, '->', newDate)
+    setSelectedDate(newDate)
+  }, [selectedDate])
+
+  // React Query 훅 사용
+  const {
+    missions,
+    loading: missionsLoading,
+    error: missionsError,
+    refetch: loadMissions
+  } = useMissionsQuery(selectedDate)
+
+  // Mutation 훅들
+  const addMissionMutation = useAddMissionMutation(selectedDate)
+  const completeMissionMutation = useCompleteMissionMutation(selectedDate)
+  const uncompleteMissionMutation = useUncompleteMissionMutation(selectedDate)
+  const updateMissionMutation = useUpdateMissionMutation(selectedDate)
+  const deleteMissionMutation = useDeleteMissionMutation(selectedDate)
+  const updateMissionTransferStatus = useUpdateMissionTransferStatus(selectedDate)
+
+
+  // 자녀 계정 데일리 미션 웰컴 모달
+  const {
+    showWelcomeModal,
+    isChecking: isCheckingDailyMissions,
+    handleConfirmWelcome,
+    handleCloseWelcome
+  } = useDailyMissionWelcome()
+
+  // 가족 연결 상태 확인
   useEffect(() => {
-    const initialMissions: Mission[] = [
-      {
-        id: '1',
-        title: '방 청소하기',
-        description: '침실 정리정돈하고 먼지 털기',
-        reward: 1000,
-        isCompleted: false
-      },
-      {
-        id: '2', 
-        title: '숙제 완료하기',
-        description: '오늘 낸 숙제 모두 끝내기',
-        reward: 1500,
-        isCompleted: true,
-        completedAt: new Date().toISOString()
+    const checkFamilyConnection = async () => {
+      if (profile?.user_type !== 'parent') return
+
+      try {
+        const supabase = createClient()
+        const { data: children, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, family_code')
+          .eq('parent_id', profile.id)
+          .eq('user_type', 'child')
+        
+        if (!error && children && children.length > 0) {
+          setConnectedChildren(children)
+          setIsParentWithChild(true)
+          console.log('👨‍👩‍👧‍👦 연결된 자녀:', children.length, '명')
+        } else {
+          setConnectedChildren([])
+          setIsParentWithChild(false)
+        }
+      } catch (error) {
+        console.error('가족 연결 상태 확인 실패:', error)
+        setIsParentWithChild(false)
       }
-    ]
-    
-    setMissions(initialMissions)
-    setLoading(false)
-    console.log('미션 데이터 로드됨:', initialMissions)
+    }
+
+    checkFamilyConnection()
+  }, [profile])
+
+  // 🔒 부모 기본 템플릿 생성 (세션당 한 번만, localStorage로 중복 실행 방지)
+  useEffect(() => {
+    const initializeParentTemplates = async () => {
+      if (!profile || profile.user_type !== 'parent') return
+
+      // 🔒 이미 이 세션에서 템플릿 체크를 했는지 확인
+      const sessionKey = `template_check_${profile.id}_session`
+      if (localStorage.getItem(sessionKey)) {
+        console.log('🚫 이 세션에서 이미 템플릿 체크 완료됨 - 건너뜀')
+        return
+      }
+
+      try {
+        console.log('🏗️ 부모 계정 감지 - 기본 템플릿 확인 및 생성 로직 시작...')
+        await missionSupabaseService.createDefaultTemplates()
+        
+        const allTemplates = await missionSupabaseService.getFamilyMissionTemplates()
+        const activeDaily = allTemplates.filter(t => t.missionType === 'daily' && t.isActive)
+        console.log(`📋 최종 확인 - 총 템플릿: ${allTemplates.length}개, 활성 데일리: ${activeDaily.length}개`)
+        
+        // 🔒 세션 체크 완료 플래그 설정
+        localStorage.setItem(sessionKey, 'checked')
+      } catch (error) {
+        console.error('부모 템플릿 초기화 실패:', error)
+      }
+    }
+
+    initializeParentTemplates()
+  }, [profile?.id]) // profile.id가 변경될 때만 실행 (로그인/로그아웃시에만)
+
+  // 📅 데일리 미션 생성은 오직 useDailyMissionWelcome 훅을 통해서만 수행됨
+  // 자녀 계정의 첫 로그인 시에만 웰컴 모달을 통해 생성
+
+  // 동기화 설정 (Supabase 실시간 구독 비활성화)
+  useEffect(() => {
+    console.log('🔄 동기화 구독 시작 (Supabase 실시간 제외)')
+
+    // 레거시 동기화 (같은 브라우저 탭 간)
+    const legacyUnsubscribe = syncService.subscribe({
+      onMissionUpdate: (payload) => {
+        console.log('🔥 레거시 동기화 수신:', payload)
+        // React Query 캐시 무효화로 자동 리패치
+        queryClient.invalidateQueries({ queryKey: missionKeys.lists() })
+      }
+    })
+
+    // 강화된 동기화 (다중 브라우저 간)
+    const enhancedUnsubscribe = enhancedSyncService.subscribe({
+      onUpdate: (payload) => {
+        console.log('⚡ 강화된 동기화 수신:', payload)
+        
+        if (payload.type === 'mission_update') {
+          // React Query 캐시 무효화로 자동 리패치
+          queryClient.invalidateQueries({ queryKey: missionKeys.lists() })
+        }
+      }
+    })
+
+    // 주기적 데이터 새로고침 (Supabase 실시간 구독 대체)
+    const refreshInterval = setInterval(() => {
+      console.log('🔄 주기적 데이터 새로고침')
+      queryClient.invalidateQueries({ queryKey: missionKeys.lists() })
+    }, 30000) // 30초마다 새로고침
+
+    return () => {
+      console.log('🔇 동기화 구독 해제')
+      try {
+        legacyUnsubscribe()
+        enhancedUnsubscribe()
+        clearInterval(refreshInterval)
+      } catch (error) {
+        console.error('구독 해제 중 오류:', error)
+      }
+    }
+  }, [queryClient])
+
+  // 이벤트 핸들러들
+  const handleMissionComplete = useCallback(async (missionId: string) => {
+    const mission = Array.isArray(missions) ? missions.find(m => m.id === missionId) : undefined
+    if (!mission || mission.isCompleted || !profile?.id) return
+
+    try {
+      await completeMissionMutation.mutateAsync(missionId)
+      
+      // 연속 완료 카운터 업데이트
+      try {
+        const streakResult = await streakService.updateStreak(profile.id)
+        
+        if (streakResult.shouldCelebrate) {
+          setCelebrationTrigger({
+            streakCount: streakResult.newStreak,
+            bonusAmount: streakResult.bonusEarned,
+            timestamp: Date.now()
+          })
+        }
+      } catch (streakError) {
+        console.error('연속 카운터 업데이트 실패:', streakError)
+      }
+
+      // 강화된 동기화 알림
+      enhancedSyncService.notify({
+        type: 'mission_update',
+        entityId: missionId,
+        data: {
+          isCompleted: true,
+          completedAt: nowKST(),
+          userId: profile.id
+        },
+        userId: profile.id
+      })
+    } catch (error) {
+      console.error('미션 완료 실패:', error)
+      alert('미션 완룄에 실패했습니다. 다시 시도해주세요.')
+    }
+  }, [missions, profile?.id, completeMissionMutation])
+
+  const handleUndoComplete = useCallback(async (missionId: string) => {
+    try {
+      await uncompleteMissionMutation.mutateAsync(missionId)
+    } catch (error) {
+      console.error('미션 완료 취소 실패:', error)
+      alert(error instanceof Error ? error.message : '미션 완료 취소에 실패했습니다.')
+    }
+  }, [uncompleteMissionMutation])
+
+  const handleDeleteMission = useCallback(async (missionId: string) => {
+    if (!confirm('정말로 이 미션을 삭제하시겠습니까?')) return
+
+    try {
+      await deleteMissionMutation.mutateAsync(missionId)
+    } catch (error) {
+      console.error('미션 삭제 실패:', error)
+      alert(error instanceof Error ? error.message : '미션 삭제에 실패했습니다.')
+    }
+  }, [deleteMissionMutation])
+
+  // Pull-to-refresh 핸들러
+  const handleRefresh = useCallback(async () => {
+    try {
+      console.log('🔄 미션 페이지 새로고침 시작')
+      
+      // 쿼리 무효화 및 재로드
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: missionKeys.byDate(selectedDate) }),
+        queryClient.refetchQueries({ queryKey: missionKeys.byDate(selectedDate) })
+      ])
+      
+      console.log('✅ 미션 페이지 새로고침 완료')
+    } catch (error) {
+      console.error('❌ 미션 페이지 새로고침 실패:', error)
+    }
+  }, [queryClient, selectedDate])
+
+  const handleEditMission = useCallback((mission: Mission) => {
+    if (mission.isTransferred) return
+    setEditingMission(mission)
+    setShowAddModal(true)
   }, [])
 
-  const handleMissionComplete = (missionId: string) => {
-    setMissions(prev =>
-      prev.map(mission =>
-        mission.id === missionId
-          ? { ...mission, isCompleted: true, completedAt: new Date().toISOString() }
-          : mission
-      )
-    )
-    
-    const mission = missions.find(m => m.id === missionId)
-    if (mission) {
-      setCurrentAllowance(prev => prev + mission.reward)
+  const handleAddMission = useCallback(async (newMission: {
+    title: string
+    description: string
+    reward: number
+    category?: string
+    missionType?: string
+    date?: string
+  }) => {
+    try {
+      if (editingMission) {
+        // 미션 수정
+        await updateMissionMutation.mutateAsync({
+          missionId: editingMission.id,
+          updates: {
+            title: newMission.title,
+            description: newMission.description,
+            reward: newMission.reward,
+            ...(newMission.category && { category: newMission.category }),
+            ...(newMission.missionType && { missionType: newMission.missionType })
+          }
+        })
+        setEditingMission(null)
+      } else {
+        // 새 미션 추가
+        await addMissionMutation.mutateAsync(newMission)
+      }
+      setShowAddModal(false)
+    } catch (error) {
+      console.error('미션 추가/수정 실패:', error)
+      alert(error instanceof Error ? error.message : '미션 처리에 실패했습니다.')
+      setShowAddModal(false)
     }
-  }
+  }, [editingMission, addMissionMutation, updateMissionMutation])
 
-  const handleAddMission = (missionData: { title: string; description: string; reward: number }) => {
-    const newMission: Mission = {
-      id: Date.now().toString(),
-      ...missionData,
-      isCompleted: false
+  const handleUndoTransfer = useCallback(async (missionId: string) => {
+    const mission = Array.isArray(missions) ? missions.find(m => m.id === missionId) : undefined
+    if (!mission || !mission.isTransferred) return
+
+    try {
+      // 미션 전달 상태만 변경 (allowance 관련 로직 제거)
+      updateMissionTransferStatus([missionId], false)
+    } catch (error) {
+      console.error('전달 되돌리기 실패:', error)
+      alert(error instanceof Error ? error.message : '전달 되돌리기에 실패했습니다.')
     }
-    setMissions(prev => [newMission, ...prev])
-    setIsAddModalOpen(false)
-  }
+  }, [missions, updateMissionTransferStatus])
 
-  const handleEditMission = (missionId: string) => {
-    const mission = missions.find(m => m.id === missionId)
-    if (mission) {
-      setEditingMission(mission)
-      setIsEditModalOpen(true)
-    }
-  }
+  const handleStreakUpdate = useCallback((newStreak: number, bonusEarned: number) => {
+    // 연속 달성 업데이트 (allowance 관련 로직은 지갑 페이지에서 처리)
+    console.log('연속 달성 업데이트:', { newStreak, bonusEarned })
+  }, [])
 
-  const handleUpdateMission = (missionData: { title: string; description: string; reward: number }) => {
-    if (!editingMission) return
-    
-    setMissions(prev =>
-      prev.map(mission =>
-        mission.id === editingMission.id
-          ? { ...mission, ...missionData }
-          : mission
-      )
-    )
-    setIsEditModalOpen(false)
+  const handleCloseModal = useCallback(() => {
+    setShowAddModal(false)
     setEditingMission(null)
+  }, [])
+
+  const handleFloatingButtonClick = useCallback(() => {
+    if (profile?.user_type === 'parent') {
+      setShowActionModal(true)
+    } else {
+      // 자녀는 바로 미션 추가
+      setShowAddModal(true)
+    }
+  }, [profile?.user_type])
+
+  const handleActionSelect = useCallback((action: 'mission' | 'template') => {
+    setShowActionModal(false)
+    if (action === 'mission') {
+      setShowAddModal(true)
+    } else {
+      setActiveTab('templates')
+    }
+  }, [])
+
+  if (missionsLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 p-8">
+        <div className="max-w-4xl mx-auto text-center pt-20">
+          <div className="text-6xl mb-6">🎯</div>
+          <p className="text-gray-600 text-lg">미션을 불러오는 중...</p>
+        </div>
+      </div>
+    )
   }
 
-  const handleDeleteMission = (missionId: string) => {
-    if (confirm('정말로 이 미션을 삭제하시겠습니까?')) {
-      setMissions(prev => prev.filter(mission => mission.id !== missionId))
-    }
-  }
-
-  const handleUndoComplete = (missionId: string) => {
-    const mission = missions.find(m => m.id === missionId)
-    if (mission && mission.isCompleted) {
-      setMissions(prev =>
-        prev.map(mission =>
-          mission.id === missionId
-            ? { ...mission, isCompleted: false, completedAt: undefined }
-            : mission
-        )
-      )
-      
-      // 용돈에서 보상 차감
-      setCurrentAllowance(prev => prev - mission.reward)
-    }
+  if (missionsError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 p-8">
+        <div className="max-w-4xl mx-auto text-center pt-20">
+          <div className="text-6xl mb-6">❌</div>
+          <p className="text-red-600 text-lg mb-6">
+            {missionsError}
+          </p>
+          <button
+            onClick={() => {
+              queryClient.invalidateQueries({ queryKey: missionKeys.lists() })
+            }}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-2xl transition-colors"
+          >
+            다시 시도
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="p-8">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-5xl font-bold text-center text-gray-800 mb-4">
-          🌟 우리 아이 용돈 관리 🌟
-        </h1>
-        <p className="text-xl text-center text-gray-600 mb-12">
-          미션을 완료하고 용돈을 모으는 재미있는 여행을 시작해요!
-        </p>
+    <PullToRefresh onRefresh={handleRefresh} className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50">
+      <div className="p-4 md:p-8 pb-20 md:pb-8">
+        <div className="max-w-4xl mx-auto">
         
-        {/* 오늘의 미션 섹션 */}
+        {/* 부모 계정 정산 알림 배지 */}
+        {profile?.user_type === 'parent' && (
+          <div className="mb-6 flex justify-center">
+            <RewardNotificationBadge />
+          </div>
+        )}
+
         <div className="mb-12">
           <div className="bg-white rounded-xl shadow-lg p-8">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">📋 오늘의 미션</h2>
-              <button 
-                onClick={() => setIsAddModalOpen(true)}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
-              >
-                + 미션 추가
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              {loading ? (
+            {/* 템플릿 모드일 때만 헤더 표시 */}
+            {activeTab === 'templates' && (
+              <div className="flex justify-center items-center gap-4 mb-8">
+                <div className="bg-gradient-to-r from-orange-500 to-pink-500 text-white px-6 py-3 rounded-2xl font-medium shadow-lg">
+                  <span className="text-xl mr-2">🛠️</span>
+                  <span>템플릿 관리</span>
+                </div>
+                <button
+                  onClick={() => setActiveTab('missions')}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors font-medium text-sm"
+                >
+                  미션으로 돌아가기
+                </button>
+              </div>
+            )}
+
+            {activeTab === 'missions' ? (
+              <MissionSection
+                missions={missions}
+                loading={false}
+                selectedDate={selectedDate}
+                onDateChange={handleDateChange}
+                userType={profile?.user_type || 'child'}
+                showAddModal={showAddModal}
+                editingMission={editingMission}
+                onShowAddModal={setShowAddModal}
+                onAddMission={handleAddMission}
+                onEditMission={handleEditMission}
+                onDeleteMission={handleDeleteMission}
+                onMissionComplete={handleMissionComplete}
+                onUndoComplete={handleUndoComplete}
+                onUndoTransfer={handleUndoTransfer}
+                onCloseModal={handleCloseModal}
+              />
+            ) : (
+              <Suspense fallback={
                 <div className="text-center py-8">
-                  <div className="text-6xl mb-4">⏳</div>
-                  <p className="text-gray-600">미션을 불러오는 중...</p>
+                  <div className="animate-spin h-8 w-8 border-b-2 border-blue-600 rounded-full mx-auto mb-4"></div>
+                  <p className="text-gray-600">템플릿 관리 로딩 중...</p>
                 </div>
-              ) : (
-                <>
-                  {/* 미션 개수 표시 (디버깅용) */}
-                  <p className="text-sm text-gray-400">현재 미션 개수: {missions.length}</p>
-                  
-                  {missions.map(mission => (
-                <div key={mission.id} className={`p-6 rounded-xl border-2 transition-all duration-200 ${
-                  mission.isCompleted 
-                    ? 'bg-green-50 border-green-200' 
-                    : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-md'
-                }`}>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className={`text-lg font-semibold ${
-                          mission.isCompleted ? 'text-green-800 line-through' : 'text-gray-800'
-                        }`}>
-                          {mission.title}
-                        </h3>
-                        {mission.isCompleted && <span className="text-2xl">✅</span>}
-                      </div>
-                      
-                      {mission.description && (
-                        <p className="text-gray-600 text-sm mb-3">{mission.description}</p>
-                      )}
-                      
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-1">
-                          <span className="text-yellow-500">💰</span>
-                          <span className="font-semibold text-green-600">{mission.reward.toLocaleString()}원</span>
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {mission.isCompleted ? '완료됨' : '미완료'}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex flex-col gap-2 ml-4">
-                      {!mission.isCompleted ? (
-                        <>
-                          <button
-                            onClick={() => handleMissionComplete(mission.id)}
-                            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
-                          >
-                            완료
-                          </button>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleEditMission(mission.id)}
-                              className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded transition-colors text-xs"
-                            >
-                              수정
-                            </button>
-                            <button
-                              onClick={() => handleDeleteMission(mission.id)}
-                              className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded transition-colors text-xs"
-                            >
-                              삭제
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        <button
-                          onClick={() => handleUndoComplete(mission.id)}
-                          className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
-                        >
-                          취소
-                        </button>
-                      )}
-                  </div>
-                </div>
-              ))}
-              
-                  {missions.length === 0 && (
-                    <div className="text-center py-8">
-                      <div className="text-6xl mb-4">🎯</div>
-                      <p className="text-gray-600 mb-4">아직 미션이 없어요</p>
-                      <button 
-                        onClick={() => setIsAddModalOpen(true)}
-                        className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg transition-colors"
-                      >
-                        첫 번째 미션 만들기
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+              }>
+                <TemplateManager />
+              </Suspense>
+            )}
           </div>
         </div>
+
+        <Suspense fallback={
+          <div className="bg-white rounded-xl shadow-lg p-6 text-center mb-6">
+            <div className="animate-spin h-8 w-8 border-b-2 border-purple-600 rounded-full mx-auto mb-4"></div>
+            <p className="text-gray-600">연속 완료 정보 로딩 중...</p>
+          </div>
+        }>
+          <StreakSection
+            userType={profile?.user_type || 'child'}
+            celebrationTrigger={celebrationTrigger}
+            onStreakUpdate={handleStreakUpdate}
+          />
+        </Suspense>
+
         
-        <div className="grid md:grid-cols-3 gap-8 mb-12">
-          <div className="bg-white rounded-xl shadow-lg p-8 text-center hover:shadow-xl transition-shadow">
-            <div className="text-6xl mb-4">📅</div>
-            <h3 className="text-2xl font-bold text-gray-800 mb-2">대시보드</h3>
-            <p className="text-gray-600">오늘의 미션과 현재 용돈을 확인해요</p>
-          </div>
-          
-          <div className="bg-white rounded-xl shadow-lg p-8 text-center hover:shadow-xl transition-shadow">
-            <div className="text-6xl mb-4">⭐</div>
-            <h3 className="text-2xl font-bold text-gray-800 mb-2">미션 달력</h3>
-            <p className="text-gray-600">달력에서 미션을 확인하고 완료해요</p>
-          </div>
-          
-          <div className="bg-white rounded-xl shadow-lg p-8 text-center hover:shadow-xl transition-shadow">
-            <div className="text-6xl mb-4">💰</div>
-            <h3 className="text-2xl font-bold text-gray-800 mb-2">용돈 기입장</h3>
-            <p className="text-gray-600">용돈 내역을 확인하고 기록해요</p>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">현재 상황</h2>
-          <div className="grid grid-cols-3 gap-6">
-            <div>
-              <p className="text-3xl font-bold text-blue-600">15</p>
-              <p className="text-gray-600">완료한 미션</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-green-600">{currentAllowance.toLocaleString()}원</p>
-              <p className="text-gray-600">현재 용돈</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-purple-600">5일</p>
-              <p className="text-gray-600">연속 완료</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="text-center mt-12">
-          <p className="text-gray-500">🎉 웹앱이 성공적으로 실행되었습니다! 🎉</p>
+        <div className="text-center">
+          <p className="text-xs sm:text-sm text-gray-500">
+            미션<span className="hidden sm:inline"> 어드벤처가</span> 시작!
+          </p>
         </div>
       </div>
-      
-      {/* 미션 추가 모달 */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-gray-800">새 미션 추가</h3>
-              <button
-                onClick={() => setIsAddModalOpen(false)}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
-              >
-                ×
-              </button>
-            </div>
-            
-            <form onSubmit={(e) => {
-              e.preventDefault()
-              const formData = new FormData(e.currentTarget)
-              handleAddMission({
-                title: formData.get('title') as string,
-                description: formData.get('description') as string,
-                reward: Number(formData.get('reward'))
-              })
-            }} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  미션 제목 *
-                </label>
-                <input
-                  type="text"
-                  name="title"
-                  placeholder="예: 방 청소하기"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  상세 설명
-                </label>
-                <textarea
-                  name="description"
-                  placeholder="미션에 대한 자세한 설명을 입력해주세요"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-20 resize-none"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  보상 금액
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    name="reward"
-                    defaultValue="500"
-                    min="100"
-                    step="100"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <span className="absolute right-3 top-2 text-gray-500">원</span>
-                </div>
-              </div>
-              
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  취소
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
-                >
-                  미션 추가
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+
+      {/* 자녀 계정 데일리 미션 웰컴 모달 */}
+      <DailyMissionWelcomeModal
+        isOpen={showWelcomeModal}
+        onClose={handleCloseWelcome}
+        onConfirm={async () => {
+          await handleConfirmWelcome()
+          queryClient.invalidateQueries({ queryKey: missionKeys.lists() }) // 모달 확인 후 미션 목록 새로고침
+        }}
+        {...(profile?.full_name && { childName: profile.full_name })}
+      />
+
+      {/* 부모 계정 미션 완료 알림 */}
+      {profile?.user_type === 'parent' && (
+        <Suspense fallback={null}>
+          <MissionCompletionNotification 
+            connectedChildren={connectedChildren}
+          />
+        </Suspense>
       )}
       
-      {/* 미션 수정 모달 */}
-      {isEditModalOpen && editingMission && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-gray-800">미션 수정</h3>
-              <button
-                onClick={() => {
-                  setIsEditModalOpen(false)
-                  setEditingMission(null)
-                }}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
-              >
-                ×
-              </button>
-            </div>
-            
-            <form onSubmit={(e) => {
-              e.preventDefault()
-              const formData = new FormData(e.currentTarget)
-              handleUpdateMission({
-                title: formData.get('title') as string,
-                description: formData.get('description') as string,
-                reward: Number(formData.get('reward'))
-              })
-            }} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  미션 제목 *
-                </label>
-                <input
-                  type="text"
-                  name="title"
-                  defaultValue={editingMission.title}
-                  placeholder="예: 방 청소하기"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  상세 설명
-                </label>
-                <textarea
-                  name="description"
-                  defaultValue={editingMission.description}
-                  placeholder="미션에 대한 자세한 설명을 입력해주세요"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-20 resize-none"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  보상 금액
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    name="reward"
-                    defaultValue={editingMission.reward}
-                    min="100"
-                    step="100"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <span className="absolute right-3 top-2 text-gray-500">원</span>
-                </div>
-              </div>
-              
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsEditModalOpen(false)
-                    setEditingMission(null)
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  취소
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
-                >
-                  수정 완료
-                </button>
-              </div>
-            </form>
-          </div>
+      {/* Floating Action Button */}
+      <FloatingActionButton onClick={handleFloatingButtonClick} />
+      
+      {/* Action Selection Modal (부모용) */}
+      <ActionSelectionModal
+        isOpen={showActionModal}
+        onClose={() => setShowActionModal(false)}
+        onSelectAddMission={() => handleActionSelect('mission')}
+        onSelectCreateTemplate={() => handleActionSelect('template')}
+      />
         </div>
-      )}
-    </div>
+      </div>
+    </PullToRefresh>
   )
 }
