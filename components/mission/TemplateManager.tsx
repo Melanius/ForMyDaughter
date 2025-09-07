@@ -1,9 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { MissionTemplate, RecurringPattern } from '../../lib/types/mission'
 import { MissionTemplateModal } from './MissionTemplateModal'
 import missionSupabaseService from '../../lib/services/missionSupabase'
+import { getTodayKST } from '../../lib/utils/dateUtils'
+
+// 즉시 미션 추가 모달을 lazy import
+const AddMissionModal = lazy(() => import('./AddMissionModal').then(module => ({ default: module.AddMissionModal })))
 
 // 반복 패턴을 한국어로 표시하는 함수
 const getRecurringPatternLabel = (pattern?: RecurringPattern): string => {
@@ -24,10 +28,71 @@ const getRecurringPatternLabel = (pattern?: RecurringPattern): string => {
   }
 }
 
+// 반복 패턴 이모지 (템플릿과 동일)
+const getPatternEmoji = (pattern?: RecurringPattern): string => {
+  if (!pattern) return '☀️'
+  
+  switch (pattern) {
+    case 'daily': return '☀️'
+    case 'weekdays': return '🎒'
+    case 'weekends': return '🏖️'
+    case 'weekly_sun':
+    case 'weekly_mon':
+    case 'weekly_tue':
+    case 'weekly_wed':
+    case 'weekly_thu':
+    case 'weekly_fri':
+    case 'weekly_sat':
+      return '📋'
+    default: return '☀️'
+  }
+}
+
+// 카테고리별 색상 시스템 (MissionCard와 동일)
+const getCategoryStyle = (category?: string): string => {
+  if (!category) return 'bg-gray-100 text-gray-700 border-gray-200'
+  
+  switch (category) {
+    case '집안일':
+      return 'bg-green-100 text-green-700 border-green-200'
+    case '공부':
+      return 'bg-purple-100 text-purple-700 border-purple-200'
+    case '운동':
+      return 'bg-orange-100 text-orange-700 border-orange-200'
+    case '독서':
+      return 'bg-yellow-100 text-yellow-700 border-yellow-200'
+    case '건강':
+      return 'bg-pink-100 text-pink-700 border-pink-200'
+    case '예의':
+      return 'bg-indigo-100 text-indigo-700 border-indigo-200'
+    case '기타':
+      return 'bg-gray-100 text-gray-700 border-gray-200'
+    default:
+      return 'bg-gray-100 text-gray-700 border-gray-200'
+  }
+}
+
+// 카테고리 아이콘 (MissionCard와 동일)
+const getCategoryIcon = (category?: string): string => {
+  if (!category) return '📝'
+  
+  switch (category) {
+    case '집안일': return '🏠'
+    case '공부': return '📚'
+    case '운동': return '⚽'
+    case '독서': return '📖'
+    case '건강': return '💪'
+    case '예의': return '🙏'
+    case '기타': return '📝'
+    default: return '📝'
+  }
+}
+
 export function TemplateManager() {
   const [templates, setTemplates] = useState<MissionTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [showAddMissionModal, setShowAddMissionModal] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<MissionTemplate | null>(null)
 
   useEffect(() => {
@@ -84,6 +149,18 @@ export function TemplateManager() {
       console.log('🔄 템플릿 목록 다시 로드 시작')
       await loadTemplates()
       console.log('✅ 템플릿 목록 로드 완료')
+
+      // 새 템플릿이고 데일리 타입이며 활성화 상태라면 즉시 오늘 미션 생성
+      if (!editingTemplate && templateData.missionType === 'daily' && templateData.isActive) {
+        console.log('🚀 새 데일리 템플릿 활성화됨 - 즉시 오늘 미션 생성 시도')
+        try {
+          const today = getTodayKST()
+          const createdCount = await missionSupabaseService.generateDailyMissions(today)
+          console.log(`✨ 템플릿 활성화 후 ${createdCount}개 미션 즉시 생성됨`)
+        } catch (error) {
+          console.error('❌ 템플릿 활성화 후 즉시 미션 생성 실패:', error)
+        }
+      }
       
       setShowModal(false)
       setEditingTemplate(null)
@@ -138,6 +215,59 @@ export function TemplateManager() {
     setEditingTemplate(null)
   }
 
+  const handleAddMission = async (missionData: {
+    title: string
+    description: string
+    reward: number
+    category?: string
+    missionType?: string
+    date?: string
+  }) => {
+    try {
+      console.log('📝 TemplateManager - 즉시 미션 추가:', missionData)
+      
+      const isEventMission = missionData.missionType === '이벤트'
+      const instanceData = {
+        templateId: null,
+        date: missionData.date || getTodayKST(),
+        title: missionData.title,
+        description: missionData.description,
+        reward: missionData.reward,
+        category: missionData.category || '기타',
+        missionType: isEventMission ? 'event' : 'daily',
+        isCompleted: false,
+        isTransferred: false
+      } as const
+
+      if (isEventMission) {
+        // 이벤트 미션은 가족 전체에게 생성
+        console.log('⭐ 이벤트 미션 - 가족 전체에게 생성')
+        await missionSupabaseService.addEventMissionToFamily(instanceData)
+      } else {
+        // 일반 미션은 본인에게만 생성  
+        console.log('☀️ 일반 미션 - 본인에게만 생성')
+        await missionSupabaseService.addMissionInstance(instanceData)
+      }
+
+      console.log('✅ 즉시 미션 추가 성공')
+      setShowAddMissionModal(false)
+      
+      // 성공 메시지 표시
+      if (isEventMission) {
+        alert('이벤트 미션이 모든 가족 구성원에게 추가되었습니다!')
+      } else {
+        alert('미션이 추가되었습니다!')
+      }
+    } catch (error) {
+      console.error('❌ 즉시 미션 추가 실패:', error)
+      alert('미션 추가 중 오류가 발생했습니다.')
+    }
+  }
+
+  const handleCloseAddMissionModal = () => {
+    setShowAddMissionModal(false)
+  }
+
   const dailyTemplates = templates.filter(t => t.missionType === 'daily')
   const eventTemplates = templates.filter(t => t.missionType === 'event')
 
@@ -159,12 +289,20 @@ export function TemplateManager() {
             반복 사용할 미션 템플릿을 만들고 관리하세요. 데일리 템플릿은 매일 자동으로 생성됩니다.
           </p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors font-medium"
-        >
-          + 템플릿 추가
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowAddMissionModal(true)}
+            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors font-medium"
+          >
+            ⚡ 즉시 미션 추가
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors font-medium"
+          >
+            📋 템플릿 추가
+          </button>
+        </div>
       </div>
 
       {/* 데일리 템플릿 섹션 */}
@@ -247,6 +385,24 @@ export function TemplateManager() {
           editingTemplate={editingTemplate}
         />
       )}
+
+      {/* 즉시 미션 추가 모달 */}
+      {showAddMissionModal && (
+        <Suspense fallback={
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 text-center">
+              <div className="animate-spin h-8 w-8 border-b-2 border-blue-600 rounded-full mx-auto mb-4"></div>
+              <p>로딩 중...</p>
+            </div>
+          </div>
+        }>
+          <AddMissionModal
+            onClose={handleCloseAddMissionModal}
+            onAdd={handleAddMission}
+            defaultDate={getTodayKST()}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }
@@ -268,15 +424,17 @@ function TemplateCard({ template, onEdit, onDelete, onToggleActive }: TemplateCa
       {/* 템플릿 헤더 */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center space-x-2">
-          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+          <span className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${
             template.missionType === 'daily' 
               ? 'bg-blue-100 text-blue-800' 
               : 'bg-purple-100 text-purple-800'
           }`}>
-            📅 {getRecurringPatternLabel(template.recurringPattern)}
+            <span>{getPatternEmoji(template.recurringPattern)}</span>
+            <span>{getRecurringPatternLabel(template.recurringPattern)}</span>
           </span>
-          <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">
-            {template.category}
+          <span className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full border ${getCategoryStyle(template.category)}`}>
+            <span>{getCategoryIcon(template.category)}</span>
+            <span>{template.category}</span>
           </span>
         </div>
         

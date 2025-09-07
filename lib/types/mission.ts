@@ -10,6 +10,7 @@ export interface Mission {
   isTransferred?: boolean
   category?: string
   missionType?: string
+  recurringPattern?: RecurringPattern // 반복 패턴
   // 새로 추가되는 필드들
   date?: string             // YYYY-MM-DD 형식, 기본값: 오늘 날짜
   templateId?: string | null // 템플릿 ID, null이면 일회성 미션
@@ -53,6 +54,7 @@ export interface MissionInstance {
   reward: number
   category: string
   missionType: 'daily' | 'event'
+  recurringPattern?: RecurringPattern // 반복 패턴
   isCompleted: boolean
   completedAt?: string
   isTransferred?: boolean

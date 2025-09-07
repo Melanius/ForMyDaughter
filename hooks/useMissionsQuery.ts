@@ -135,41 +135,34 @@ export function useAddMissionMutation(selectedDate: string) {
       missionType?: string
       date?: string
     }) => {
-      const createdId = await missionSupabaseService.addMissionInstance({
+      const isEventMission = newMission.missionType === '이벤트'
+      const missionData = {
         templateId: null,
         date: newMission.date || selectedDate,
         title: newMission.title,
         description: newMission.description,
         reward: newMission.reward,
         category: newMission.category || '기타',
-        missionType: newMission.missionType === '이벤트' ? 'event' : 'daily',
+        missionType: isEventMission ? 'event' : 'daily',
         isCompleted: false,
         isTransferred: false
-      })
+      } as const
 
-      const mission: Mission = {
-        id: createdId,
-        userId: profile?.id || '',
-        title: newMission.title,
-        description: newMission.description,
-        reward: newMission.reward,
-        category: newMission.category || '기타',
-        missionType: newMission.missionType || '데일리',
-        isCompleted: false,
-        completedAt: '',
-        isTransferred: false,
-        date: newMission.date || selectedDate,
-        templateId: null
+      // 이벤트 미션이고 부모 계정이면 모든 자녀에게 생성
+      if (isEventMission && profile?.user_type === 'parent') {
+        const createdIds = await missionSupabaseService.addEventMissionToFamily(missionData)
+        return createdIds[0] || 'family-event-mission' // 첫 번째 ID 반환 (기존 호환성 유지)
+      } else {
+        // 일반 미션이거나 자녀 계정이면 본인에게만 생성
+        const createdId = await missionSupabaseService.addMissionInstance(missionData)
+        return createdId
       }
-
-      return { mission, createdId }
     },
-    onSuccess: ({ mission }) => {
-      // 현재 날짜의 캐시를 업데이트
-      queryClient.setQueryData<Mission[]>(
-        missionKeys.list(selectedDate),
-        (oldMissions) => oldMissions ? [...oldMissions, mission] : [mission]
-      )
+    onSuccess: (createdId) => {
+      // 미션 목록을 다시 로드
+      queryClient.invalidateQueries({
+        queryKey: missionKeys.list(selectedDate)
+      })
 
       // 관련된 쿼리들을 무효화
       queryClient.invalidateQueries({ queryKey: missionKeys.lists() })

@@ -9,7 +9,7 @@
 
 import { createClient } from '@/lib/supabase/client'
 import { nowKST, shouldCreateMissionForDate } from '../utils/dateUtils'
-import { MissionTemplate, MissionInstance } from '../types/mission'
+import { MissionTemplate, MissionInstance, RecurringPattern } from '../types/mission'
 
 export interface SupabaseMissionTemplate {
   id: string
@@ -19,6 +19,7 @@ export interface SupabaseMissionTemplate {
   reward: number
   category: string
   mission_type: 'daily' | 'event'
+  recurring_pattern?: RecurringPattern
   is_active: boolean
   created_at: string
   updated_at: string
@@ -34,6 +35,7 @@ export interface SupabaseMissionInstance {
   reward: number
   category: string
   mission_type: 'daily' | 'event'
+  recurring_pattern?: RecurringPattern
   is_completed: boolean
   completed_at?: string
   is_transferred: boolean
@@ -106,7 +108,6 @@ export class MissionSupabaseService {
       .from('mission_templates')
       .select('*')
       .in('user_id', creatorIds)
-      .eq('is_active', true)
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -165,6 +166,7 @@ export class MissionSupabaseService {
         reward: mission.reward,
         category: mission.category,
         mission_type: mission.missionType,
+        recurring_pattern: mission.recurringPattern,
         is_completed: mission.isCompleted,
         completed_at: mission.completedAt,
         is_transferred: mission.isTransferred
@@ -179,6 +181,37 @@ export class MissionSupabaseService {
 
     console.log('✅ 미션 추가 성공:', data.id)
     return data.id
+  }
+
+  /**
+   * ➕ 이벤트 미션을 가족 구성원 모두에게 생성 (부모 전용)
+   */
+  async addEventMissionToFamily(mission: Omit<MissionInstance, 'id' | 'userId'>): Promise<string[]> {
+    const { profile, childrenIds } = await this.getCurrentUser()
+
+    // 부모만 가족 이벤트 미션 생성 가능
+    if (profile.user_type !== 'parent') {
+      throw new Error('가족 이벤트 미션은 부모만 생성할 수 있습니다.')
+    }
+
+    const createdIds: string[] = []
+    
+    // 모든 자녀에게 미션 생성
+    for (const childId of childrenIds) {
+      try {
+        const missionId = await this.addMissionInstance({
+          ...mission,
+          userId: childId
+        })
+        createdIds.push(missionId)
+        console.log(`✅ 자녀 ${childId}에게 이벤트 미션 생성: ${missionId}`)
+      } catch (error) {
+        console.error(`❌ 자녀 ${childId}에게 미션 생성 실패:`, error)
+      }
+    }
+
+    console.log(`🎉 총 ${createdIds.length}명의 자녀에게 이벤트 미션 생성 완료`)
+    return createdIds
   }
 
   /**
@@ -422,6 +455,7 @@ export class MissionSupabaseService {
         reward: template.reward,
         category: template.category,
         mission_type: template.missionType,
+        recurring_pattern: template.recurringPattern,
         is_active: template.isActive
       })
       .select('id')
@@ -445,6 +479,7 @@ export class MissionSupabaseService {
     reward?: number
     category?: string
     missionType?: 'daily' | 'event'
+    recurringPattern?: RecurringPattern
     isActive?: boolean
   }): Promise<boolean> {
     console.log('🔧 템플릿 수정 요청:', templateId, updates)
@@ -464,6 +499,7 @@ export class MissionSupabaseService {
     if (updates.reward !== undefined) updateData['reward'] = updates.reward
     if (updates.category !== undefined) updateData['category'] = updates.category
     if (updates.missionType !== undefined) updateData['mission_type'] = updates.missionType
+    if (updates.recurringPattern !== undefined) updateData['recurring_pattern'] = updates.recurringPattern
     if (updates.isActive !== undefined) updateData['is_active'] = updates.isActive
 
     // 수정 시간 업데이트
@@ -658,6 +694,7 @@ export class MissionSupabaseService {
               reward: template.reward,
               category: template.category,
               mission_type: 'daily',
+              recurring_pattern: template.recurringPattern,
               is_completed: false,
               is_transferred: false
             })
@@ -686,6 +723,7 @@ export class MissionSupabaseService {
       reward: supabaseData.reward,
       category: supabaseData.category,
       missionType: supabaseData.mission_type,
+      recurringPattern: supabaseData.recurring_pattern,
       isActive: supabaseData.is_active,
       createdAt: supabaseData.created_at,
       updatedAt: supabaseData.updated_at
@@ -703,6 +741,7 @@ export class MissionSupabaseService {
       reward: supabaseData.reward,
       category: supabaseData.category,
       missionType: supabaseData.mission_type,
+      recurringPattern: supabaseData.recurring_pattern,
       isCompleted: supabaseData.is_completed,
       isTransferred: supabaseData.is_transferred
     }
