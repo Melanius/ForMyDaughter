@@ -232,14 +232,7 @@ export const WalletSection = memo(function WalletSection({
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-4 sm:p-8 text-center mb-6 sm:mb-8">
-      <div className="flex justify-between items-center mb-4 sm:mb-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
-          {isParentWithChild ? (
-            <>자녀<span className="hidden sm:inline"> 지갑</span></>
-          ) : (
-            <>내<span className="hidden sm:inline"> 지갑</span></>
-          )}
-        </h2>
+      <div className="flex justify-end items-center mb-4 sm:mb-6">
         
         {/* 월 선택기 */}
         <div className="flex items-center space-x-2 bg-gray-50 rounded-lg px-3 py-2">

@@ -376,21 +376,6 @@ export default function HomePage() {
 
         <div className="mb-12">
           <div className="bg-white rounded-xl shadow-lg p-8">
-            {/* 템플릿 모드일 때만 헤더 표시 */}
-            {activeTab === 'templates' && (
-              <div className="flex justify-center items-center gap-4 mb-8">
-                <div className="bg-gradient-to-r from-orange-500 to-pink-500 text-white px-6 py-3 rounded-2xl font-medium shadow-lg">
-                  <span className="text-xl mr-2">🛠️</span>
-                  <span>템플릿 관리</span>
-                </div>
-                <button
-                  onClick={() => setActiveTab('missions')}
-                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors font-medium text-sm"
-                >
-                  미션으로 돌아가기
-                </button>
-              </div>
-            )}
 
             {activeTab === 'missions' ? (
               <MissionSection

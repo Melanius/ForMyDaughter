@@ -225,16 +225,6 @@ export default function AllowancePage() {
             {/* 내 지갑 섹션 */}
             {displayedStatistics && (
               <div className="mb-8">
-                {/* 내 지갑 헤더 */}
-                <div className="flex items-center justify-center mb-6">
-                  <div className="bg-white rounded-2xl shadow-lg px-6 py-4 border-2 border-blue-100">
-                    <h1 className="text-2xl font-bold text-gray-800 flex items-center space-x-2">
-                      <Wallet className="w-8 h-8 text-blue-600" />
-                      <span>내 지갑</span>
-                      <span className="text-2xl">💎</span>
-                    </h1>
-                  </div>
-                </div>
                 {/* 현재 잔액 - 상단 전체 너비 */}
                 <div className="bg-white rounded-lg shadow p-6 mb-4">
                   <div className="flex items-center justify-between">

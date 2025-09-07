@@ -61,7 +61,7 @@ export const MissionSection = memo(function MissionSection({
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <span className="text-lg">📋</span>
-                <span className="text-sm font-medium text-gray-600">
+                <span className="text-sm font-medium text-gray-800">
                   오늘의 미션 <span className="bg-blue-100 text-blue-600 px-2 py-1 rounded-full text-xs font-bold">{missions.length}</span>개
                 </span>
               </div>

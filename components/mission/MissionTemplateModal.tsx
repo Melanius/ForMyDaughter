@@ -13,7 +13,7 @@ export function MissionTemplateModal({ onClose, onSave, editingTemplate }: Missi
   const [title, setTitle] = useState(editingTemplate?.title || '')
   const [reward, setReward] = useState(editingTemplate?.reward || 500)
   const [category, setCategory] = useState(editingTemplate?.category || '집안일')
-  const [missionType, setMissionType] = useState<'daily' | 'event'>(editingTemplate?.missionType || 'daily')
+  const [missionType] = useState<'daily'>('daily') // 템플릿은 항상 데일리 타입
   const [recurringPattern, setRecurringPattern] = useState<RecurringPattern>(editingTemplate?.recurringPattern || 'daily')
   const [selectedDayOfWeek, setSelectedDayOfWeek] = useState<number>(0) // 0: 일요일, 1: 월요일, ..., 6: 토요일
   const [isActive, setIsActive] = useState(editingTemplate?.isActive !== undefined ? editingTemplate.isActive : true)
@@ -225,8 +225,8 @@ export function MissionTemplateModal({ onClose, onSave, editingTemplate }: Missi
           <div className="flex items-start space-x-2">
             <span className="text-blue-600 text-lg">📅</span>
             <div className="text-sm text-blue-800">
-              <p className="font-medium mb-1">반복 미션 템플릿</p>
-              <p>선택한 패턴에 따라 자동으로 생성되는 미션 템플릿입니다. 아이가 꾸준히 할 수 있는 좋은 습관을 만들어주세요.</p>
+              <p className="font-medium mb-1">데일리 미션 템플릿</p>
+              <p>선택한 패턴에 따라 자동으로 생성되는 데일리 미션 템플릿입니다. 아이가 꾸준히 할 수 있는 좋은 습관을 만들어주세요.</p>
             </div>
           </div>
         </div>
@@ -247,51 +247,6 @@ export function MissionTemplateModal({ onClose, onSave, editingTemplate }: Missi
             />
           </div>
 
-          {/* 미션 타입 선택 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              미션 타입 *
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setMissionType('daily')
-                  setRecurringPattern('daily')
-                }}
-                className={`p-4 rounded-lg border-2 transition-all duration-200 ${
-                  missionType === 'daily'
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300'
-                }`}
-              >
-                <div className="text-center">
-                  <div className="text-2xl mb-2">📅</div>
-                  <div className="font-medium">데일리 미션</div>
-                  <div className="text-sm mt-1">매일 반복되는 미션</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setMissionType('event')
-                  setRecurringPattern('daily') // 이벤트는 패턴 없음
-                }}
-                className={`p-4 rounded-lg border-2 transition-all duration-200 ${
-                  missionType === 'event'
-                    ? 'border-purple-500 bg-purple-50 text-purple-700'
-                    : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300'
-                }`}
-              >
-                <div className="text-center">
-                  <div className="text-2xl mb-2">⭐</div>
-                  <div className="font-medium">이벤트 미션</div>
-                  <div className="text-sm mt-1">특별한 일회성 미션</div>
-                </div>
-              </button>
-            </div>
-          </div>
 
           {/* 보상 금액 */}
           <div>
@@ -312,73 +267,71 @@ export function MissionTemplateModal({ onClose, onSave, editingTemplate }: Missi
             </div>
           </div>
 
-          {/* 반복 패턴 선택 - 데일리 미션일 때만 표시 */}
-          {missionType === 'daily' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                반복 패턴 *
-              </label>
-            
-              {/* 기본 패턴 선택 */}
-              <div className="grid grid-cols-4 gap-2 mb-4">
-                {basePatterns.map((pattern) => {
-                  const isSelected = (pattern.id === 'weekly' && isWeeklyPattern) || 
-                                   (pattern.id !== 'weekly' && recurringPattern === pattern.id)
-                  
-                  return (
+          {/* 반복 패턴 선택 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              반복 패턴 *
+            </label>
+          
+            {/* 기본 패턴 선택 */}
+            <div className="grid grid-cols-4 gap-2 mb-4">
+              {basePatterns.map((pattern) => {
+                const isSelected = (pattern.id === 'weekly' && isWeeklyPattern) || 
+                                 (pattern.id !== 'weekly' && recurringPattern === pattern.id)
+                
+                return (
+                  <button
+                    key={pattern.id}
+                    type="button"
+                    onClick={() => handlePatternChange(pattern.id)}
+                    className={`p-3 rounded-lg border-2 transition-all text-center ${
+                      isSelected
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex flex-col items-center">
+                      <span className="text-xl mb-1">{pattern.icon}</span>
+                      <span className="font-medium text-xs">{pattern.label}</span>
+                      <span className="text-xs text-gray-500 mt-0.5">{pattern.description}</span>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* 매주 선택 시 요일 선택 */}
+            {isWeeklyPattern && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <label className="block text-sm font-medium text-blue-800 mb-2">
+                  요일 선택
+                </label>
+                <div className="grid grid-cols-7 gap-2">
+                  {daysOfWeek.map((day) => (
                     <button
-                      key={pattern.id}
+                      key={day.id}
                       type="button"
-                      onClick={() => handlePatternChange(pattern.id)}
-                      className={`p-3 rounded-lg border-2 transition-all text-center ${
-                        isSelected
-                          ? 'border-blue-500 bg-blue-50 text-blue-700'
-                          : 'border-gray-200 hover:border-gray-300'
+                      onClick={() => handleDayOfWeekChange(day.id)}
+                      className={`p-3 rounded-lg border transition-all text-center ${
+                        selectedDayOfWeek === day.id
+                          ? 'border-blue-500 bg-blue-100 text-blue-700'
+                          : 'border-blue-200 hover:border-blue-300 bg-white'
                       }`}
                     >
-                      <div className="flex flex-col items-center">
-                        <span className="text-xl mb-1">{pattern.icon}</span>
-                        <span className="font-medium text-xs">{pattern.label}</span>
-                        <span className="text-xs text-gray-500 mt-0.5">{pattern.description}</span>
-                      </div>
+                      <div className="text-sm font-medium">{day.label}</div>
                     </button>
-                  )
-                })}
-              </div>
-
-              {/* 매주 선택 시 요일 선택 */}
-              {isWeeklyPattern && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <label className="block text-sm font-medium text-blue-800 mb-2">
-                    요일 선택
-                  </label>
-                  <div className="grid grid-cols-7 gap-2">
-                    {daysOfWeek.map((day) => (
-                      <button
-                        key={day.id}
-                        type="button"
-                        onClick={() => handleDayOfWeekChange(day.id)}
-                        className={`p-3 rounded-lg border transition-all text-center ${
-                          selectedDayOfWeek === day.id
-                            ? 'border-blue-500 bg-blue-100 text-blue-700'
-                            : 'border-blue-200 hover:border-blue-300 bg-white'
-                        }`}
-                      >
-                        <div className="text-sm font-medium">{day.label}</div>
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-blue-600 mt-2">
-                    매주 {daysOfWeek[selectedDayOfWeek].fullLabel}에 미션이 생성됩니다
-                  </p>
+                  ))}
                 </div>
-              )}
-              
-              <p className="text-xs text-gray-500 mt-2">
-                선택한 패턴에 따라 미션이 자동으로 생성됩니다
-              </p>
-            </div>
-          )}
+                <p className="text-xs text-blue-600 mt-2">
+                  매주 {daysOfWeek[selectedDayOfWeek].fullLabel}에 미션이 생성됩니다
+                </p>
+              </div>
+            )}
+            
+            <p className="text-xs text-gray-500 mt-2">
+              선택한 패턴에 따라 미션이 자동으로 생성됩니다
+            </p>
+          </div>
 
           {/* 카테고리 선택 */}
           <div>
@@ -425,20 +378,13 @@ export function MissionTemplateModal({ onClose, onSave, editingTemplate }: Missi
             <div className="p-4 rounded-lg border-2 border-blue-200 bg-blue-50">
               <h4 className="font-medium text-gray-800 mb-2">템플릿 미리보기</h4>
               <div className="flex items-center gap-2 mb-2">
-                {missionType === 'event' ? (
-                  <span className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-purple-500 text-white">
-                    <span>⭐</span>
-                    <span>이벤트</span>
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-blue-500 text-white">
-                    <span>{getPatternEmoji(recurringPattern)}</span>
-                    <span>{recurringPattern === 'daily' ? '매일' :
-                          recurringPattern === 'weekdays' ? '평일만' :
-                          recurringPattern === 'weekends' ? '주말만' :
-                          isWeeklyPattern ? `매주 ${daysOfWeek[selectedDayOfWeek].fullLabel}` : '매일'}</span>
-                  </span>
-                )}
+                <span className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-blue-500 text-white">
+                  <span>{getPatternEmoji(recurringPattern)}</span>
+                  <span>{recurringPattern === 'daily' ? '매일' :
+                        recurringPattern === 'weekdays' ? '평일만' :
+                        recurringPattern === 'weekends' ? '주말만' :
+                        isWeeklyPattern ? `매주 ${daysOfWeek[selectedDayOfWeek].fullLabel}` : '매일'}</span>
+                </span>
                 <span className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full border ${getCategoryStyle(category)}`}>
                   <span>{getCategoryIcon(category)}</span>
                   <span>{category}</span>

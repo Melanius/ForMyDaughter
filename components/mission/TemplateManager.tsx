@@ -1,13 +1,10 @@
 'use client'
 
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { useState, useEffect } from 'react'
 import { MissionTemplate, RecurringPattern } from '../../lib/types/mission'
 import { MissionTemplateModal } from './MissionTemplateModal'
 import missionSupabaseService from '../../lib/services/missionSupabase'
 import { getTodayKST } from '../../lib/utils/dateUtils'
-
-// 즉시 미션 추가 모달을 lazy import
-const AddMissionModal = lazy(() => import('./AddMissionModal').then(module => ({ default: module.AddMissionModal })))
 
 // 반복 패턴을 한국어로 표시하는 함수
 const getRecurringPatternLabel = (pattern?: RecurringPattern): string => {
@@ -92,7 +89,6 @@ export function TemplateManager() {
   const [templates, setTemplates] = useState<MissionTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
-  const [showAddMissionModal, setShowAddMissionModal] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<MissionTemplate | null>(null)
 
   useEffect(() => {
@@ -103,14 +99,11 @@ export function TemplateManager() {
     try {
       setLoading(true)
       const allTemplates = await missionSupabaseService.getFamilyMissionTemplates()
-      // 데일리 템플릿을 먼저, 이벤트 템플릿을 나중에 정렬
-      const sortedTemplates = allTemplates.sort((a, b) => {
-        if (a.missionType !== b.missionType) {
-          return a.missionType === 'daily' ? -1 : 1
-        }
-        return a.title.localeCompare(b.title)
-      })
-      setTemplates(sortedTemplates)
+      // 데일리 템플릿만 필터링하고 제목 순으로 정렬
+      const dailyTemplates = allTemplates
+        .filter(t => t.missionType === 'daily')
+        .sort((a, b) => a.title.localeCompare(b.title))
+      setTemplates(dailyTemplates)
     } catch (error) {
       console.error('Failed to load templates:', error)
     } finally {
@@ -215,62 +208,6 @@ export function TemplateManager() {
     setEditingTemplate(null)
   }
 
-  const handleAddMission = async (missionData: {
-    title: string
-    description: string
-    reward: number
-    category?: string
-    missionType?: string
-    date?: string
-  }) => {
-    try {
-      console.log('📝 TemplateManager - 즉시 미션 추가:', missionData)
-      
-      const isEventMission = missionData.missionType === '이벤트'
-      const instanceData = {
-        templateId: null,
-        date: missionData.date || getTodayKST(),
-        title: missionData.title,
-        description: missionData.description,
-        reward: missionData.reward,
-        category: missionData.category || '기타',
-        missionType: isEventMission ? 'event' : 'daily',
-        isCompleted: false,
-        isTransferred: false
-      } as const
-
-      if (isEventMission) {
-        // 이벤트 미션은 가족 전체에게 생성
-        console.log('⭐ 이벤트 미션 - 가족 전체에게 생성')
-        await missionSupabaseService.addEventMissionToFamily(instanceData)
-      } else {
-        // 일반 미션은 본인에게만 생성  
-        console.log('☀️ 일반 미션 - 본인에게만 생성')
-        await missionSupabaseService.addMissionInstance(instanceData)
-      }
-
-      console.log('✅ 즉시 미션 추가 성공')
-      setShowAddMissionModal(false)
-      
-      // 성공 메시지 표시
-      if (isEventMission) {
-        alert('이벤트 미션이 모든 가족 구성원에게 추가되었습니다!')
-      } else {
-        alert('미션이 추가되었습니다!')
-      }
-    } catch (error) {
-      console.error('❌ 즉시 미션 추가 실패:', error)
-      alert('미션 추가 중 오류가 발생했습니다.')
-    }
-  }
-
-  const handleCloseAddMissionModal = () => {
-    setShowAddMissionModal(false)
-  }
-
-  const dailyTemplates = templates.filter(t => t.missionType === 'daily')
-  const eventTemplates = templates.filter(t => t.missionType === 'event')
-
   if (loading) {
     return (
       <div className="text-center py-8">
@@ -280,101 +217,43 @@ export function TemplateManager() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* 헤더 */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800">미션 템플릿 관리</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            반복 사용할 미션 템플릿을 만들고 관리하세요. 데일리 템플릿은 매일 자동으로 생성됩니다.
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => setShowAddMissionModal(true)}
-            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors font-medium"
-          >
-            ⚡ 즉시 미션 추가
-          </button>
-          <button
-            onClick={() => setShowModal(true)}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors font-medium"
-          >
-            📋 템플릿 추가
-          </button>
-        </div>
-      </div>
-
-      {/* 데일리 템플릿 섹션 */}
-      <div>
-        <div className="flex items-center space-x-2 mb-4">
-          <span className="text-2xl">📅</span>
-          <h3 className="text-xl font-semibold text-gray-800">데일리 미션 템플릿</h3>
+    <div className="space-y-4">
+      {/* 섹션 헤더 */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center space-x-2">
+          <span className="text-lg">📅</span>
+          <span className="text-sm font-medium text-gray-800">데일리 미션 템플릿</span>
           <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
-            {dailyTemplates.filter(t => t.isActive).length}개 활성화
+            {templates.filter(t => t.isActive).length}개 활성화
           </span>
         </div>
-        
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-          <p className="text-sm text-blue-800">
-            💡 활성화된 데일리 템플릿은 매일 자동으로 미션을 생성합니다. 아이가 매일 해야 할 습관을 템플릿으로 만들어보세요.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {dailyTemplates.length === 0 ? (
-            <div className="col-span-full text-center py-8 text-gray-500">
-              <p>데일리 템플릿이 없습니다.</p>
-              <p className="text-sm">첫 번째 데일리 미션 템플릿을 만들어보세요!</p>
-            </div>
-          ) : (
-            dailyTemplates.map(template => (
-              <TemplateCard
-                key={template.id}
-                template={template}
-                onEdit={handleEditTemplate}
-                onDelete={handleDeleteTemplate}
-                onToggleActive={handleToggleActive}
-              />
-            ))
-          )}
-        </div>
+        <button
+          onClick={() => setShowModal(true)}
+          className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+        </button>
       </div>
 
-      {/* 이벤트 템플릿 섹션 */}
-      <div>
-        <div className="flex items-center space-x-2 mb-4">
-          <span className="text-2xl">⭐</span>
-          <h3 className="text-xl font-semibold text-gray-800">이벤트 미션 템플릿</h3>
-          <span className="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded-full">
-            {eventTemplates.length}개
-          </span>
-        </div>
-        
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4">
-          <p className="text-sm text-purple-800">
-            💫 특별한 날이나 이벤트를 위한 템플릿입니다. 수동으로 미션을 생성할 때 빠르게 선택할 수 있습니다.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {eventTemplates.length === 0 ? (
-            <div className="col-span-full text-center py-8 text-gray-500">
-              <p>이벤트 템플릿이 없습니다.</p>
-              <p className="text-sm">특별한 미션 템플릿을 만들어보세요!</p>
-            </div>
-          ) : (
-            eventTemplates.map(template => (
-              <TemplateCard
-                key={template.id}
-                template={template}
-                onEdit={handleEditTemplate}
-                onDelete={handleDeleteTemplate}
-                onToggleActive={handleToggleActive}
-              />
-            ))
-          )}
-        </div>
+      {/* 템플릿 그리드 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {templates.length === 0 ? (
+          <div className="col-span-full text-center py-8 text-gray-500">
+            <p>템플릿이 없습니다.</p>
+          </div>
+        ) : (
+          templates.map(template => (
+            <TemplateCard
+              key={template.id}
+              template={template}
+              onEdit={handleEditTemplate}
+              onDelete={handleDeleteTemplate}
+              onToggleActive={handleToggleActive}
+            />
+          ))
+        )}
       </div>
 
       {/* 템플릿 모달 */}
@@ -384,24 +263,6 @@ export function TemplateManager() {
           onSave={handleSaveTemplate}
           editingTemplate={editingTemplate}
         />
-      )}
-
-      {/* 즉시 미션 추가 모달 */}
-      {showAddMissionModal && (
-        <Suspense fallback={
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 text-center">
-              <div className="animate-spin h-8 w-8 border-b-2 border-blue-600 rounded-full mx-auto mb-4"></div>
-              <p>로딩 중...</p>
-            </div>
-          </div>
-        }>
-          <AddMissionModal
-            onClose={handleCloseAddMissionModal}
-            onAdd={handleAddMission}
-            defaultDate={getTodayKST()}
-          />
-        </Suspense>
       )}
     </div>
   )

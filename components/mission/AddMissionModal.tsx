@@ -17,7 +17,21 @@ export function AddMissionModal({ onClose, onAdd, editingMission, defaultDate }:
   const [date, setDate] = useState(defaultDate || new Date().toISOString().split('T')[0])
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const categories = ['집안일', '공부', '운동', '독서', '기타']
+  const categories = ['집안일', '공부', '운동', '독서', '건강', '예의', '기타']
+
+  // 카테고리 아이콘 함수 (MissionTemplateModal과 동일)
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case '집안일': return '🏠'
+      case '공부': return '📚'
+      case '운동': return '⚽'
+      case '독서': return '📖'
+      case '건강': return '💪'
+      case '예의': return '🙏'
+      case '기타': return '📝'
+      default: return '📝'
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -65,18 +79,28 @@ export function AddMissionModal({ onClose, onAdd, editingMission, defaultDate }:
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              카테고리
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              카테고리 *
             </label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
+            <div className="grid grid-cols-4 gap-2">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setCategory(cat)}
+                  className={`p-3 rounded-lg border transition-all text-center ${
+                    category === cat
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex flex-col items-center space-y-1">
+                    <span className="text-lg">{getCategoryIcon(cat)}</span>
+                    <span className="text-xs font-medium">{cat}</span>
+                  </div>
+                </button>
               ))}
-            </select>
+            </div>
           </div>
           
           <div>
@@ -107,6 +131,7 @@ export function AddMissionModal({ onClose, onAdd, editingMission, defaultDate }:
               <span className="absolute right-3 top-2 text-gray-500">원</span>
             </div>
           </div>
+          
           
           <div className="flex gap-3 pt-4">
             <button
