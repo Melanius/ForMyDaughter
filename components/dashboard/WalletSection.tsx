@@ -5,8 +5,10 @@ import { Mission } from '@/lib/types/mission'
 import { useAuth } from '@/components/auth/AuthProvider'
 import missionSupabaseService from '@/lib/services/missionSupabase'
 import allowanceSupabaseService from '@/lib/services/allowanceSupabase'
+import celebrationService from '@/lib/services/celebrationService'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { getTodayKST, formatDateKST } from '@/lib/utils/dateUtils'
+import settlementService from '@/lib/services/settlementService'
 
 interface WalletSectionProps {
   currentAllowance: number
@@ -14,7 +16,7 @@ interface WalletSectionProps {
   isParentWithChild: boolean
   userType?: string
   connectedChildren?: { id: string; full_name: string; family_code: string }[]
-  onTransferMissions: (allPendingMissions: Mission[]) => Promise<void>
+  onTransferMissions: (allPendingMissions: Mission[], onSuccess?: () => void) => Promise<void>
   refreshTrigger?: number
 }
 
@@ -68,26 +70,24 @@ export const WalletSection = memo(function WalletSection({
           console.log('👶 자녀 계정 - 본인 미션 조회:', targetUserId)
         }
         
-        const pendingMissions = await missionSupabaseService.getAllPendingMissions(targetUserId)
+        // 새로운 통합 정산 서비스 사용 (데일리 + 스페셜 모든 미션 포함)
+        const settlement = await settlementService.getAllPendingSettlements(targetUserId)
         
-        // MissionInstance를 Mission 타입으로 변환
-        const convertedMissions: Mission[] = pendingMissions.map(instance => ({
-          id: instance.id,
-          userId: instance.userId || targetUserId,
-          title: instance.title,
-          description: instance.description,
-          reward: instance.reward,
-          isCompleted: instance.isCompleted,
-          completedAt: instance.completedAt || '',
-          isTransferred: instance.isTransferred || false,
-          category: instance.category,
-          missionType: instance.missionType === 'daily' ? '데일리' : '이벤트',
-          date: instance.date,
-          templateId: instance.templateId
-        }))
+        console.log(`💰 누적 정산 대기: ${settlement.totalAmount}원 (${settlement.totalCount}개 미션)`)
+        console.log('📅 날짜별 정산 내역:', settlement.byDate)
         
-        setAllPendingMissions(convertedMissions)
-        console.log('💰 로드된 대기 미션 수:', convertedMissions.length)
+        // 🔍 WalletSection 디버깅 로깅 추가
+        const dailyMissions = settlement.missions.filter(m => m.missionType === '데일리')
+        const eventMissions = settlement.missions.filter(m => m.missionType === '이벤트')
+        
+        console.log(`🔍 WalletSection 받은 데이터 분석:`)
+        console.log(`   - 전체 미션: ${settlement.missions.length}개`)
+        console.log(`   - 데일리 미션: ${dailyMissions.length}개`)
+        console.log(`   - 이벤트 미션: ${eventMissions.length}개`)
+        console.log(`   - 사용자 타입: ${userType}`)
+        console.log(`   - 대상 사용자 ID: ${targetUserId}`)
+        
+        setAllPendingMissions(settlement.missions)
       } catch (error) {
         console.error('대기 중인 미션 로드 실패:', error)
         // 실패 시 현재 날짜 미션만 사용
@@ -371,7 +371,27 @@ export const WalletSection = memo(function WalletSection({
       {hasPendingMissions && (
         userType === 'parent' ? (
           <button
-            onClick={() => onTransferMissions(allPendingMissions)}
+            onClick={() => {
+              // 축하 알림을 보낼 자녀 ID 찾기
+              const childId = connectedChildren?.[0]?.id
+              const totalAmount = pendingSummary.totalAmount
+              const missionCount = pendingSummary.totalCount
+              
+              onTransferMissions(allPendingMissions, async () => {
+                // 용돈 전달 완료 후 축하 알림 전송
+                if (childId) {
+                  try {
+                    await celebrationService.sendCelebrationNotification(
+                      childId,
+                      totalAmount,
+                      missionCount
+                    )
+                  } catch (error) {
+                    console.error('축하 알림 전송 실패:', error)
+                  }
+                }
+              })
+            }}
             className="bg-green-500 hover:bg-green-600 text-white px-4 sm:px-6 py-3 rounded-lg transition-colors font-medium text-sm sm:text-base"
           >
             용돈 전달 완료

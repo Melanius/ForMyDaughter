@@ -150,6 +150,37 @@ export class MissionSupabaseService {
   }
 
   /**
+   * 📅 특정 사용자의 특정 날짜 미션 조회 (데일리 + 이벤트 모두 포함)
+   */
+  async getMissionsForDate(userId: string, date: string): Promise<MissionInstance[]> {
+    try {
+      const { data: instances, error } = await this.supabase
+        .from('mission_instances')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('date', date)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error(`특정 날짜(${date}) 미션 조회 실패:`, error)
+        return []
+      }
+
+      const missions = (instances || []).map(item => this.convertSupabaseToInstance(item))
+      console.log(`📅 ${date} 날짜 미션 조회: 총 ${missions.length}개 (사용자: ${userId})`)
+      
+      const dailyCount = missions.filter(m => m.missionType === 'daily').length
+      const eventCount = missions.filter(m => m.missionType === 'event').length
+      console.log(`   - 데일리: ${dailyCount}개, 이벤트: ${eventCount}개`)
+
+      return missions
+    } catch (error) {
+      console.error(`특정 날짜(${date}) 미션 조회 중 오류:`, error)
+      return []
+    }
+  }
+
+  /**
    * ➕ 새 미션 생성 (인스턴스)
    */
   async addMissionInstance(mission: Omit<MissionInstance, 'id'>): Promise<string> {
@@ -235,7 +266,27 @@ export class MissionSupabaseService {
       return false
     }
 
-    console.log('✅ 미션 완료 성공:', missionId)
+    // 🔍 완료된 미션 상세 정보 확인
+    const { data: completedMission, error: selectError } = await this.supabase
+      .from('mission_instances')
+      .select('id, title, mission_type, reward, is_completed, is_transferred, user_id')
+      .eq('id', missionId)
+      .single()
+
+    if (!selectError && completedMission) {
+      console.log('✅ 미션 완료 성공:', {
+        id: missionId,
+        title: completedMission.title,
+        missionType: completedMission.mission_type,
+        reward: completedMission.reward,
+        isCompleted: completedMission.is_completed,
+        isTransferred: completedMission.is_transferred,
+        userId: completedMission.user_id
+      })
+    } else {
+      console.log('✅ 미션 완료 성공 (상세 정보 조회 실패):', missionId)
+    }
+    
     return true
   }
 
@@ -664,9 +715,19 @@ export class MissionSupabaseService {
         try {
           // 반복 패턴 확인 - 해당 날짜에 미션을 생성해야 하는지 체크
           const pattern = template.recurringPattern || 'daily'
-          if (!shouldCreateMissionForDate(date, pattern)) {
-            console.log(`반복 패턴으로 스킵: ${template.title} (${pattern}, ${date})`)
+          const shouldCreate = shouldCreateMissionForDate(date, pattern)
+          
+          // 🔍 상세한 패턴 디버깅 로그 추가
+          console.log(`🔍 패턴 체크: ${template.title}`)
+          console.log(`   날짜: ${date} (요일: ${new Date(date + 'T00:00:00').getDay()})`)
+          console.log(`   패턴: ${pattern}`)
+          console.log(`   생성 여부: ${shouldCreate}`)
+          
+          if (!shouldCreate) {
+            console.log(`❌ 반복 패턴으로 스킵: ${template.title} (${pattern}, ${date})`)
             continue
+          } else {
+            console.log(`✅ 패턴 통과: ${template.title} - 미션 생성 진행`)
           }
 
           // 중복 미션 체크
@@ -814,6 +875,31 @@ export class MissionSupabaseService {
    */
   async getAllPendingMissions(userId: string): Promise<MissionInstance[]> {
     try {
+      console.log(`🔍 getAllPendingMissions 호출됨 - 사용자 ID: ${userId}`)
+      
+      // 🔍 전체 미션 상태 확인 (디버깅용)
+      const { data: allMissions, error: debugError } = await this.supabase
+        .from('mission_instances')
+        .select('id, title, mission_type, reward, is_completed, is_transferred, user_id')
+        .eq('user_id', userId)
+
+      if (!debugError && allMissions) {
+        console.log(`🔍 해당 사용자의 모든 미션 (${allMissions.length}개):`)
+        allMissions.forEach(m => {
+          console.log(`   - ${m.title} (${m.mission_type}): 완료=${m.is_completed}, 전송=${m.is_transferred}, 보상=${m.reward}원`)
+        })
+        
+        const completedMissions = allMissions.filter(m => m.is_completed)
+        const transferredMissions = allMissions.filter(m => m.is_transferred)
+        const pendingMissions = allMissions.filter(m => m.is_completed && !m.is_transferred)
+        
+        console.log(`🔍 미션 상태 분석:`)
+        console.log(`   - 전체: ${allMissions.length}개`)
+        console.log(`   - 완료됨: ${completedMissions.length}개`)
+        console.log(`   - 전송됨: ${transferredMissions.length}개`)
+        console.log(`   - 대기중: ${pendingMissions.length}개`)
+      }
+
       const { data, error } = await this.supabase
         .from('mission_instances')
         .select('*')
@@ -829,7 +915,26 @@ export class MissionSupabaseService {
       }
 
       const missions = (data || []).map(item => this.convertSupabaseToInstance(item))
+      
+      // 🔍 상세 디버깅 로깅 추가
       console.log(`📋 ${missions.length}개의 승인 대기 미션 조회됨 (사용자: ${userId})`)
+      console.log('🔍 조회된 미션 상세 정보:', missions.map(m => ({
+        id: m.id,
+        title: m.title,
+        missionType: m.missionType,
+        reward: m.reward,
+        isCompleted: m.isCompleted,
+        isTransferred: m.isTransferred,
+        date: m.date
+      })))
+      
+      const dailyMissions = missions.filter(m => m.missionType === 'daily')
+      const eventMissions = missions.filter(m => m.missionType === 'event')
+      
+      console.log(`📊 미션 유형별 분석:`)
+      console.log(`   - 데일리 미션: ${dailyMissions.length}개`)
+      console.log(`   - 이벤트 미션: ${eventMissions.length}개`)
+      console.log(`   - 총 금액: ${missions.reduce((sum, m) => sum + m.reward, 0)}원`)
       
       return missions
     } catch (error) {

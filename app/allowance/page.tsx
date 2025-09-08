@@ -7,6 +7,7 @@ import allowanceSupabaseService from '../../lib/services/allowanceSupabase'
 import enhancedSyncService from '../../lib/services/enhancedSync'
 import { useAuth } from '../../components/auth/AuthProvider'
 import { getTodayKST } from '@/lib/utils/dateUtils'
+import { allowanceLogger } from '@/lib/utils/logger'
 
 // Lazy loading을 일시적으로 비활성화하고 직접 import
 import AddTransactionModal from '../../components/allowance/AddTransactionModal'
@@ -47,7 +48,7 @@ export default function AllowancePage() {
       const startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
       const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
       
-      console.log('📊 지갑 데이터 로딩 시작:', { userId: profile.id, startDate, endDate })
+      allowanceLogger.log('📊 지갑 데이터 로딩 시작:', { userId: profile.id, startDate, endDate })
 
       // 병렬로 데이터 로딩
       const [transactionsResult, statisticsResult] = await Promise.all([
@@ -55,7 +56,7 @@ export default function AllowancePage() {
         allowanceSupabaseService.getStatistics()
       ])
 
-      console.log('📊 지갑 데이터 로딩 완료:', {
+      allowanceLogger.log('📊 지갑 데이터 로딩 완료:', {
         transactions: transactionsResult.length,
         statistics: statisticsResult
       })
@@ -63,7 +64,7 @@ export default function AllowancePage() {
       setAllTransactions(transactionsResult)
       // 통계는 자동으로 계산됨 (filteredStatistics useMemo로)
     } catch (error) {
-      console.error('❌ 지갑 데이터 로딩 실패:', error)
+      allowanceLogger.error('❌ 지갑 데이터 로딩 실패:', error)
     } finally {
       setLoading(false)
     }
@@ -186,12 +187,12 @@ export default function AllowancePage() {
   useEffect(() => {
     if (!profile?.id) return
 
-    console.log('🔄 지갑 페이지 동기화 구독 시작')
+    allowanceLogger.log('🔄 지갑 페이지 동기화 구독 시작')
 
     const unsubscribe = enhancedSyncService.subscribe({
       onUpdate: (payload) => {
         if (payload.type === 'allowance_update') {
-          console.log('⚡ 용돈 업데이트 수신:', payload)
+          allowanceLogger.log('⚡ 용돈 업데이트 수신:', payload)
           loadData() // 데이터 새로고침
         }
       }

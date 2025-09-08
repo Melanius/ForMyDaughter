@@ -28,8 +28,15 @@ import syncService from '../lib/services/sync'
 import enhancedSyncService from '../lib/services/enhancedSync'
 import { createClient } from '@/lib/supabase/client'
 import { DailyMissionWelcomeModal } from '../components/modals/DailyMissionWelcomeModal'
+import { CelebrationModal } from '../components/modals/CelebrationModal'
 import { useDailyMissionWelcome } from '../hooks/useDailyMissionWelcome'
+import celebrationService from '../lib/services/celebrationService'
+import { CelebrationPayload } from '../lib/types/celebration'
 import { getTodayKST, nowKST } from '../lib/utils/dateUtils'
+import settlementService from '../lib/services/settlementService'
+
+// Lazy load AllowanceRequestButton for child users
+const AllowanceRequestButton = lazy(() => import('../components/allowance/AllowanceRequestButton').then(module => ({ default: module.default })))
 
 export default function HomePage() {
   const { profile } = useAuth()
@@ -50,6 +57,13 @@ export default function HomePage() {
     family_code: string
   }[]>([])
   const [isParentWithChild, setIsParentWithChild] = useState(false)
+  
+  // 축하 모달 상태
+  const [showCelebrationModal, setShowCelebrationModal] = useState(false)
+  const [celebrationData, setCelebrationData] = useState<{
+    amount: number
+    missionCount: number
+  }>({ amount: 0, missionCount: 0 })
 
   // 날짜 변경 핸들러
   const handleDateChange = useCallback((newDate: string) => {
@@ -82,6 +96,25 @@ export default function HomePage() {
     handleCloseWelcome
   } = useDailyMissionWelcome()
 
+  // 자녀 계정일 때 축하 알림 리스너 설정
+  useEffect(() => {
+    if (profile?.user_type !== 'child') return
+
+    const handleCelebration = (payload: CelebrationPayload) => {
+      setCelebrationData({
+        amount: payload.amount,
+        missionCount: payload.missionCount
+      })
+      setShowCelebrationModal(true)
+    }
+
+    const channel = celebrationService.subscribeTocelebrations(profile.id, handleCelebration)
+
+    return () => {
+      celebrationService.unsubscribe(channel)
+    }
+  }, [profile?.id, profile?.user_type])
+
   // 가족 연결 상태 확인
   useEffect(() => {
     const checkFamilyConnection = async () => {
@@ -111,6 +144,35 @@ export default function HomePage() {
 
     checkFamilyConnection()
   }, [profile])
+
+  // 자녀 계정의 미션 완료 시 자동 정산 체크 (부모에게 알림)
+  useEffect(() => {
+    if (profile?.user_type !== 'child' || !profile?.parent_id) return
+
+    const checkAutoSettlement = async () => {
+      try {
+        const settlementCheck = await settlementService.shouldTriggerAutoSettlement(profile.id)
+        
+        if (settlementCheck.shouldTrigger) {
+          console.log('🎉 오늘 모든 미션 완료! 자동 정산 알림 전송')
+          
+          // 부모에게 축하 알림 전송 (용돈 전달 팝업 트리거)
+          await celebrationService.sendCelebrationNotification(
+            profile.parent_id,
+            settlementCheck.pendingSettlement.totalAmount,
+            settlementCheck.pendingSettlement.totalCount
+          )
+          
+          console.log(`💰 부모님께 정산 알림 전송: ${settlementCheck.pendingSettlement.totalAmount}원`)
+        }
+      } catch (error) {
+        console.error('자동 정산 체크 실패:', error)
+      }
+    }
+
+    // 미션 상태가 변경될 때마다 체크
+    checkAutoSettlement()
+  }, [missions, profile?.id, profile?.user_type, profile?.parent_id])
 
   // 🔒 부모 기본 템플릿 생성 (세션당 한 번만, localStorage로 중복 실행 방지)
   useEffect(() => {
@@ -408,6 +470,27 @@ export default function HomePage() {
           </div>
         </div>
 
+        {/* 자녀 계정 용돈 요청 버튼 */}
+        {profile?.user_type === 'child' && (
+          <div className="mb-6">
+            <Suspense fallback={
+              <div className="bg-gray-100 rounded-xl p-4 animate-pulse">
+                <div className="h-24 bg-gray-200 rounded-lg"></div>
+              </div>
+            }>
+              <AllowanceRequestButton 
+                userId={profile.id}
+                parentId={profile.parent_id}
+                onRequestSent={(amount, missions) => {
+                  console.log(`💰 용돈 요청 완료: ${amount}원 (${missions.length}개 미션)`)
+                  // 페이지 새로고침하여 상태 업데이트
+                  window.location.reload()
+                }}
+              />
+            </Suspense>
+          </div>
+        )}
+
         <Suspense fallback={
           <div className="bg-white rounded-xl shadow-lg p-6 text-center mb-6">
             <div className="animate-spin h-8 w-8 border-b-2 border-purple-600 rounded-full mx-auto mb-4"></div>
@@ -460,6 +543,16 @@ export default function HomePage() {
         onSelectAddMission={() => handleActionSelect('mission')}
         onSelectCreateTemplate={() => handleActionSelect('template')}
       />
+
+      {/* 축하 모달 (자녀용) */}
+      {profile?.user_type === 'child' && (
+        <CelebrationModal
+          isOpen={showCelebrationModal}
+          onClose={() => setShowCelebrationModal(false)}
+          amount={celebrationData.amount}
+          missionCount={celebrationData.missionCount}
+        />
+      )}
       </div>
     </div>
   )

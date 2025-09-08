@@ -16,11 +16,22 @@ export interface BaseUser {
 export type UserType = 'parent' | 'child'
 
 // API 응답 타입
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean
   data?: T
   error?: string
   message?: string
+}
+
+// 더 구체적인 API 응답 타입들
+export interface ApiSuccessResponse<T> extends ApiResponse<T> {
+  success: true
+  data: T
+}
+
+export interface ApiErrorResponse extends ApiResponse<never> {
+  success: false
+  error: string
 }
 
 // 페이지네이션

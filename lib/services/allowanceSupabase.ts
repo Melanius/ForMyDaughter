@@ -44,7 +44,7 @@ export class AllowanceSupabaseService {
   /**
    * 🔍 현재 사용자 정보 및 가족 관계 조회 (기존 호환성 유지)
    */
-  async getCurrentUser(): Promise<{ user: any, profile: SupabaseProfile, childrenIds: string[] }> {
+  async getCurrentUser(): Promise<{ user: { id: string; email?: string }, profile: SupabaseProfile, childrenIds: string[] }> {
     const { data: { user }, error: userError } = await this.supabase.auth.getUser()
     if (userError || !user) {
       throw new Error('사용자 정보를 가져올 수 없습니다.')

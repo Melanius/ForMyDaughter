@@ -2,7 +2,7 @@ import './globals.css'
 import { AuthProvider } from '@/components/auth/AuthProvider'
 import { NavigationBar } from '@/components/layout/NavBar'
 import { MobileBottomNav } from '@/components/navigation/MobileBottomNav'
-import { ErrorBoundaryWrapper } from '@/components/ErrorBoundary'
+import { ErrorBoundary } from '@/components/error/ErrorBoundary'
 import { QueryProvider } from '@/components/providers/QueryProvider'
 import { Noto_Sans_KR } from 'next/font/google'
 
@@ -25,7 +25,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body className={notoSansKr.className}>
-        <ErrorBoundaryWrapper>
+        <ErrorBoundary>
           <QueryProvider>
             <AuthProvider>
               <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
@@ -37,7 +37,7 @@ export default function RootLayout({
               </div>
             </AuthProvider>
           </QueryProvider>
-        </ErrorBoundaryWrapper>
+        </ErrorBoundary>
       </body>
     </html>
   )
