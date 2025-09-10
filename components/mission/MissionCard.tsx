@@ -125,8 +125,15 @@ export const MissionCard = memo(function MissionCard({
     }`}>
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          {/* 1. Pattern/Category 태그가 가장 위에 */}
-          <div className="flex items-center gap-2 mb-3">
+          {/* 1. Pattern/Category/Proposal 태그가 가장 위에 */}
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            {/* 🆕 제안 배지 - 가장 먼저 표시 */}
+            {mission.isFromProposal && (
+              <span className="flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-sm">
+                <span>💡</span>
+                <span>자녀 제안</span>
+              </span>
+            )}
             {(mission.recurringPattern || mission.missionType) && (
               <span className={`flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-full ${
                 (mission.recurringPattern || mission.missionType === '데일리')

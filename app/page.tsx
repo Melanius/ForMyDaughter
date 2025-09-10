@@ -30,6 +30,11 @@ import syncService from '../lib/services/sync'
 import enhancedSyncService from '../lib/services/enhancedSync'
 import { createClient } from '@/lib/supabase/client'
 import { DailyMissionWelcomeModal } from '../components/modals/DailyMissionWelcomeModal'
+import { NoMissionModal } from '../components/modals/NoMissionModal'
+import MissionProposalForm from '../components/mission/MissionProposalForm'
+import MissionProposalManager from '../components/mission/MissionProposalManager'
+import { ProposalNotificationModal } from '../components/notifications/ProposalNotificationModal'
+import { usePendingProposals } from '../hooks/useMissionProposals'
 import { CelebrationModal } from '../components/modals/CelebrationModal'
 import { useDailyMissionWelcome } from '../hooks/useDailyMissionWelcome'
 import celebrationService from '../lib/services/celebrationService'
@@ -48,6 +53,9 @@ function MissionPageContent() {
   const [activeTab, setActiveTab] = useState<'missions' | 'templates'>('missions')
   const [showAddModal, setShowAddModal] = useState(false)
   const [showActionModal, setShowActionModal] = useState(false)
+  const [showProposalForm, setShowProposalForm] = useState(false)
+  const [showProposalManager, setShowProposalManager] = useState(false)
+  const [showProposalNotification, setShowProposalNotification] = useState(false)
   const [editingMission, setEditingMission] = useState<Mission | null>(null)
   const [celebrationTrigger, setCelebrationTrigger] = useState<{ 
     streakCount: number
@@ -94,10 +102,18 @@ function MissionPageContent() {
   // 자녀 계정 데일리 미션 웰컴 모달
   const {
     showWelcomeModal,
+    showNoMissionModal,
     isChecking: isCheckingDailyMissions,
     handleConfirmWelcome,
-    handleCloseWelcome
+    handleCloseWelcome,
+    handleCloseNoMissionModal
   } = useDailyMissionWelcome()
+
+  // 부모 계정 미션 제안 확인
+  const { 
+    data: pendingProposals = [], 
+    isLoading: isLoadingProposals 
+  } = usePendingProposals(profile?.user_type === 'parent' ? profile?.id : undefined)
 
   // 자녀 계정일 때 축하 알림 리스너 설정
   useEffect(() => {
@@ -206,6 +222,18 @@ function MissionPageContent() {
 
     initializeParentTemplates()
   }, [profile?.id]) // profile.id가 변경될 때만 실행 (로그인/로그아웃시에만)
+
+  // 부모 로그인 시 대기 중인 제안 알림
+  useEffect(() => {
+    if (profile?.user_type === 'parent' && pendingProposals.length > 0 && !isLoadingProposals) {
+      // 로그인 후 잠시 지연해서 알림 표시 (UX 개선)
+      const timer = setTimeout(() => {
+        setShowProposalNotification(true)
+      }, 1500)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [profile?.user_type, pendingProposals.length, isLoadingProposals])
 
   // 📅 데일리 미션 생성은 오직 useDailyMissionWelcome 훅을 통해서만 수행됨
   // 자녀 계정의 첫 로그인 시에만 웰컴 모달을 통해 생성
@@ -381,17 +409,19 @@ function MissionPageContent() {
     if (profile?.user_type === 'parent') {
       setShowActionModal(true)
     } else {
-      // 자녀는 바로 미션 추가
-      setShowAddModal(true)
+      // 자녀는 미션 제안 폼 열기
+      setShowProposalForm(true)
     }
   }, [profile?.user_type])
 
-  const handleActionSelect = useCallback((action: 'mission' | 'template') => {
+  const handleActionSelect = useCallback((action: 'mission' | 'template' | 'proposals') => {
     setShowActionModal(false)
     if (action === 'mission') {
       setShowAddModal(true)
-    } else {
+    } else if (action === 'template') {
       setActiveTab('templates')
+    } else if (action === 'proposals') {
+      setShowProposalManager(true)
     }
   }, [])
 
@@ -519,15 +549,26 @@ function MissionPageContent() {
       </div>
 
       {/* 자녀 계정 데일리 미션 웰컴 모달 */}
-      <DailyMissionWelcomeModal
-        isOpen={showWelcomeModal}
-        onClose={handleCloseWelcome}
-        onConfirm={async () => {
-          await handleConfirmWelcome()
-          queryClient.invalidateQueries({ queryKey: missionKeys.lists() }) // 모달 확인 후 미션 목록 새로고침
-        }}
-        {...(profile?.full_name && { childName: profile.full_name })}
-      />
+      {profile?.user_type === 'child' && (
+        <DailyMissionWelcomeModal
+          isOpen={showWelcomeModal}
+          onClose={handleCloseWelcome}
+          onConfirm={async () => {
+            await handleConfirmWelcome()
+            queryClient.invalidateQueries({ queryKey: missionKeys.lists() }) // 모달 확인 후 미션 목록 새로고침
+          }}
+          {...(profile?.full_name && { childName: profile.full_name })}
+        />
+      )}
+
+      {/* 미션 없음 모달 (자녀용) */}
+      {profile?.user_type === 'child' && (
+        <NoMissionModal
+          isOpen={showNoMissionModal}
+          onClose={handleCloseNoMissionModal}
+          {...(profile?.full_name && { childName: profile.full_name })}
+        />
+      )}
 
       {/* 부모 계정 미션 완료 알림 */}
       {profile?.user_type === 'parent' && (
@@ -548,6 +589,8 @@ function MissionPageContent() {
         onClose={() => setShowActionModal(false)}
         onSelectAddMission={() => handleActionSelect('mission')}
         onSelectCreateTemplate={() => handleActionSelect('template')}
+        onSelectManageProposals={() => handleActionSelect('proposals')}
+        pendingProposalsCount={pendingProposals?.length || 0}
       />
 
       {/* 축하 모달 (자녀용) */}
@@ -559,6 +602,36 @@ function MissionPageContent() {
           missionCount={celebrationData.missionCount}
         />
       )}
+
+      {/* 미션 제안 폼 (자녀용) */}
+      <MissionProposalForm
+        isOpen={showProposalForm}
+        onClose={() => setShowProposalForm(false)}
+        onSuccess={() => {
+          setShowProposalForm(false)
+          console.log('✅ 미션 제안이 성공적으로 전송되었습니다')
+        }}
+      />
+
+      {/* 제안 알림 모달 (부모용) */}
+      {profile?.user_type === 'parent' && (
+        <ProposalNotificationModal
+          isOpen={showProposalNotification}
+          onClose={() => setShowProposalNotification(false)}
+          onViewProposals={() => {
+            setShowProposalNotification(false)
+            setShowProposalManager(true)
+          }}
+          pendingCount={pendingProposals?.length || 0}
+          latestProposals={pendingProposals?.slice(0, 3) || []}
+        />
+      )}
+
+      {/* 미션 제안 관리 모달 (부모용) */}
+      <MissionProposalManager
+        isOpen={showProposalManager}
+        onClose={() => setShowProposalManager(false)}
+      />
       </div>
     </div>
   )

@@ -8,6 +8,7 @@ import { getTodayKST } from '@/lib/utils/dateUtils'
 export function useDailyMissionWelcome() {
   const { profile } = useAuth()
   const [showWelcomeModal, setShowWelcomeModal] = useState(false)
+  const [showNoMissionModal, setShowNoMissionModal] = useState(false)
   const [isChecking, setIsChecking] = useState(false)
 
   // 오늘 날짜 문자열 반환 (한국 시간 기준)
@@ -68,15 +69,23 @@ export function useDailyMissionWelcome() {
       return
     }
 
+    // 이미 오늘 체크했다면 스킵
+    if (hasCheckedToday()) {
+      return
+    }
+
     try {
       setIsChecking(true)
       
       // 오늘의 데일리 미션이 이미 있는지 확인
       const missionsExist = await checkTodayMissionsExist()
       
-      // 데일리 미션이 없으면 모달 표시
-      if (!missionsExist) {
+      if (missionsExist) {
+        // 미션이 있으면 기존 웰컴 모달 표시
         setShowWelcomeModal(true)
+      } else {
+        // 미션이 없으면 '미션 없음' 모달 표시
+        setShowNoMissionModal(true)
       }
     } catch (error) {
       console.error('데일리 미션 체크 실패:', error)
@@ -88,26 +97,36 @@ export function useDailyMissionWelcome() {
   // 모달에서 확인 버튼 클릭시 실행
   const handleConfirmWelcome = useCallback(async () => {
     await generateTodayMissions()
+    markCheckedToday() // 체크 완료 표시
     setShowWelcomeModal(false)
   }, [generateTodayMissions])
 
   // 모달 닫기
   const handleCloseWelcome = useCallback(() => {
+    markCheckedToday() // 체크 완료 표시
     setShowWelcomeModal(false)
   }, [])
 
-  // 프로필이 로드되면 체크 실행
+  // '미션 없음' 모달 닫기
+  const handleCloseNoMissionModal = useCallback(() => {
+    markCheckedToday() // 체크 완료 표시
+    setShowNoMissionModal(false)
+  }, [])
+
+  // 프로필이 로드되면 체크 실행 (한 번만)
   useEffect(() => {
-    if (profile && !isChecking) {
+    if (profile && profile.user_type === 'child' && !isChecking && !hasCheckedToday()) {
       checkDailyMissionWelcome()
     }
-  }, [profile, isChecking])
+  }, [profile?.id, profile?.user_type]) // 의존성 배열을 profile 전체가 아닌 필요한 속성만으로 제한
 
   return {
     showWelcomeModal,
+    showNoMissionModal,
     isChecking,
     handleConfirmWelcome,
     handleCloseWelcome,
+    handleCloseNoMissionModal,
     generateTodayMissions
   }
 }

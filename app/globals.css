@@ -9,6 +9,43 @@
     @apply bg-gradient-to-br from-blue-50 to-purple-50 text-gray-900;
     font-family: 'Noto Sans KR', 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   }
+  
+  /* 한국어 날짜 입력 필드 스타일링 - YYYY-MM-DD 형식 보장 */
+  input[type="date"] {
+    font-family: 'Noto Sans KR', '맑은 고딕', sans-serif;
+    text-align: center;
+    font-weight: 500;
+  }
+  
+  /* Webkit 브라우저 날짜 입력 개선 */
+  input[type="date"]::-webkit-datetime-edit {
+    padding: 0 4px;
+  }
+  
+  input[type="date"]::-webkit-datetime-edit-year-field,
+  input[type="date"]::-webkit-datetime-edit-month-field,
+  input[type="date"]::-webkit-datetime-edit-day-field {
+    font-weight: 500;
+    text-align: center;
+    min-width: 0;
+  }
+  
+  /* 날짜 구분자 스타일링 */
+  input[type="date"]::-webkit-datetime-edit-text {
+    color: #6b7280;
+    padding: 0 2px;
+  }
+  
+  /* 달력 아이콘 스타일링 */
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    filter: invert(0.5);
+    padding: 0 4px;
+  }
+  
+  input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    filter: invert(0.3);
+  }
 }
 
 @layer components {
@@ -110,6 +147,24 @@
   50% { transform: translateY(-8px); }
 }
 
+/* 미션 제안 성공 모달 애니메이션 */
+@keyframes bounce-in {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 @keyframes glow {
   0%, 100% { box-shadow: 0 0 20px rgba(251, 191, 36, 0.5); }
   50% { box-shadow: 0 0 30px rgba(251, 191, 36, 0.8), 0 0 40px rgba(251, 191, 36, 0.4); }
@@ -123,4 +178,5 @@
   .animate-twinkle-3 { animation: twinkle-3 3s ease-in-out infinite; }
   .animate-bounce-gentle { animation: bounce-gentle 2s ease-in-out infinite; }
   .animate-glow { animation: glow 2s ease-in-out infinite; }
+  .animate-bounce-in { animation: bounce-in 0.6s ease-out; } /* 🆕 미션 제안 성공 모달 애니메이션 */
 }

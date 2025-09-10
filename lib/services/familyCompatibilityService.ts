@@ -62,9 +62,62 @@ class FamilyCompatibilityService {
 
       // 자녀 ID 목록 생성 (부모인 경우)
       if (currentMember?.role === 'father' || currentMember?.role === 'mother') {
-        childrenIds = family.members
+        // family_members 테이블에서 자녀들
+        const familyTableChildren = family.members
           .filter(m => m.role === 'child')
           .map(m => m.user_id)
+
+        // 레거시 profiles 테이블에서도 자녀들을 추가로 조회 (혼재 상황 대응)
+        const { data: profileChildren } = await this.supabase
+          .from('profiles')
+          .select('id')
+          .eq('parent_id', user.id)
+          .eq('user_type', 'child')
+
+        const profileChildrenIds = profileChildren?.map(child => child.id) || []
+        
+        // 중복 제거하여 병합
+        childrenIds = Array.from(new Set([...familyTableChildren, ...profileChildrenIds]))
+        
+        // profiles에서만 있는 자녀들을 family.members에도 추가
+        const missingChildrenIds = profileChildrenIds.filter(id => !familyTableChildren.includes(id))
+        
+        if (missingChildrenIds.length > 0) {
+          const { data: missingChildrenProfiles } = await this.supabase
+            .from('profiles')
+            .select('id, full_name, user_type, avatar_url')
+            .in('id', missingChildrenIds)
+          
+          if (missingChildrenProfiles) {
+            // 누락된 자녀들을 family.members에 추가
+            const additionalMembers = missingChildrenProfiles.map(profile => ({
+              id: `temp_${profile.id}`, // 임시 ID
+              family_id: family.id,
+              user_id: profile.id,
+              role: 'child' as const,
+              nickname: null,
+              joined_at: new Date().toISOString(),
+              is_active: true,
+              profile: {
+                id: profile.id,
+                full_name: profile.full_name,
+                user_type: profile.user_type,
+                avatar_url: profile.avatar_url
+              }
+            }))
+            
+            family.members.push(...additionalMembers)
+          }
+        }
+        
+        console.log('👶 자녀 ID 및 멤버 병합 완료:', {
+          familyTableChildren: familyTableChildren.length,
+          profileChildrenIds: profileChildrenIds.length,
+          missingChildren: missingChildrenIds.length,
+          totalChildren: childrenIds.length,
+          totalMembers: family.members.length,
+          childrenIds
+        })
       }
     } else {
       // 새로운 가족 시스템에 없는 경우, 레거시 방식으로 조회
@@ -119,19 +172,44 @@ class FamilyCompatibilityService {
   async canViewMissions(viewerId: string, targetUserId: string): Promise<boolean> {
     if (viewerId === targetUserId) return true
 
+    // 먼저 레거시 방식으로 부모-자녀 관계 확인
+    const { data: viewerProfile } = await this.supabase
+      .from('profiles')
+      .select('user_type')
+      .eq('id', viewerId)
+      .single()
+
+    const { data: targetProfile } = await this.supabase
+      .from('profiles')
+      .select('user_type, parent_id')
+      .eq('id', targetUserId)
+      .single()
+
+    if (!viewerProfile || !targetProfile) return false
+
+    // 부모가 자신의 자녀를 보는 경우
+    if (viewerProfile.user_type === 'parent' && targetProfile.parent_id === viewerId) {
+      return true
+    }
+
+    // 새로운 가족 시스템으로도 확인
     const family = await familyService.getCurrentUserFamily()
-    if (!family) return false
+    if (!family) return true // 레거시 시스템에서만 동작하는 경우
 
     const viewer = family.members.find(m => m.user_id === viewerId)
     const target = family.members.find(m => m.user_id === targetUserId)
 
-    if (!viewer || !target) return false
+    // family_members에 있는 경우 기존 로직 사용
+    if (viewer && target) {
+      // 부모는 모든 가족 구성원의 미션을 볼 수 있음
+      if (viewer.role === 'father' || viewer.role === 'mother') return true
+      
+      // 자녀는 본인 미션만 볼 수 있음
+      return false
+    }
 
-    // 부모는 모든 가족 구성원의 미션을 볼 수 있음
-    if (viewer.role === 'father' || viewer.role === 'mother') return true
-
-    // 자녀는 본인 미션만 볼 수 있음
-    return false
+    // 하나라도 family_members에 없으면 레거시 결과 사용
+    return viewerProfile.user_type === 'parent' && targetProfile.parent_id === viewerId
   }
 
   /**
@@ -140,32 +218,86 @@ class FamilyCompatibilityService {
   async canManageMissions(managerId: string, targetUserId: string): Promise<boolean> {
     if (managerId === targetUserId) return true
 
+    // 먼저 레거시 방식으로 부모-자녀 관계 확인
+    const { data: managerProfile } = await this.supabase
+      .from('profiles')
+      .select('user_type')
+      .eq('id', managerId)
+      .single()
+
+    const { data: targetProfile } = await this.supabase
+      .from('profiles')
+      .select('user_type, parent_id')
+      .eq('id', targetUserId)
+      .single()
+
+    if (!managerProfile || !targetProfile) return false
+
+    // 부모가 자신의 자녀를 관리하는 경우
+    if (managerProfile.user_type === 'parent' && targetProfile.parent_id === managerId) {
+      return true
+    }
+
+    // 새로운 가족 시스템으로도 확인
     const family = await familyService.getCurrentUserFamily()
-    if (!family) return false
+    if (!family) return true // 레거시 시스템에서만 동작하는 경우
 
     const manager = family.members.find(m => m.user_id === managerId)
     const target = family.members.find(m => m.user_id === targetUserId)
 
-    if (!manager || !target) return false
+    // family_members에 있는 경우 기존 로직 사용
+    if (manager && target) {
+      // 부모만 다른 구성원의 미션을 관리할 수 있음
+      return manager.role === 'father' || manager.role === 'mother'
+    }
 
-    // 부모만 다른 구성원의 미션을 관리할 수 있음
-    return manager.role === 'father' || manager.role === 'mother'
+    // 하나라도 family_members에 없으면 레거시 결과 사용
+    return managerProfile.user_type === 'parent' && targetProfile.parent_id === managerId
   }
 
   /**
    * 💰 용돈 정산 권한 확인
    */
   async canApproveAllowance(approverId: string, childId: string): Promise<boolean> {
+    // 먼저 레거시 방식으로 부모-자녀 관계 확인
+    const { data: approverProfile } = await this.supabase
+      .from('profiles')
+      .select('user_type')
+      .eq('id', approverId)
+      .single()
+
+    const { data: childProfile } = await this.supabase
+      .from('profiles')
+      .select('user_type, parent_id')
+      .eq('id', childId)
+      .single()
+
+    if (!approverProfile || !childProfile) return false
+
+    // 부모가 자신의 자녀의 용돈을 승인하는 경우
+    if (approverProfile.user_type === 'parent' && 
+        childProfile.user_type === 'child' && 
+        childProfile.parent_id === approverId) {
+      return true
+    }
+
+    // 새로운 가족 시스템으로도 확인
     const family = await familyService.getCurrentUserFamily()
-    if (!family) return false
+    if (!family) return true // 레거시 시스템에서만 동작하는 경우
 
     const approver = family.members.find(m => m.user_id === approverId)
     const child = family.members.find(m => m.user_id === childId)
 
-    if (!approver || !child) return false
+    // family_members에 있는 경우 기존 로직 사용
+    if (approver && child) {
+      // 부모만 자녀의 용돈을 승인할 수 있음
+      return (approver.role === 'father' || approver.role === 'mother') && child.role === 'child'
+    }
 
-    // 부모만 자녀의 용돈을 승인할 수 있음
-    return (approver.role === 'father' || approver.role === 'mother') && child.role === 'child'
+    // 하나라도 family_members에 없으면 레거시 결과 사용
+    return approverProfile.user_type === 'parent' && 
+           childProfile.user_type === 'child' && 
+           childProfile.parent_id === approverId
   }
 
   /**
@@ -245,6 +377,44 @@ class FamilyCompatibilityService {
     } catch (error) {
       console.error('자동 마이그레이션 실패:', error)
       return { migrated: false }
+    }
+  }
+
+  /**
+   * 👶 자녀 사용자의 가족 정보 조회 (미션 제안 폼용)
+   */
+  async getChildData(userId: string): Promise<{
+    profile: {
+      id: string
+      full_name: string
+      user_type: 'parent' | 'child'
+      parent_id?: string
+      family_code?: string
+    }
+    family?: FamilyWithMembers
+  }> {
+    const { data: profile, error: profileError } = await this.supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+
+    if (profileError || profile.user_type !== 'child') {
+      throw new Error('자녀 프로필 조회 실패')
+    }
+
+    // 새로운 가족 시스템에서 가족 정보 조회
+    const family = await familyService.getCurrentUserFamily()
+
+    return {
+      profile: {
+        id: profile.id,
+        full_name: profile.full_name,
+        user_type: profile.user_type,
+        parent_id: profile.parent_id,
+        family_code: profile.family_code || family?.family_code
+      },
+      family
     }
   }
 

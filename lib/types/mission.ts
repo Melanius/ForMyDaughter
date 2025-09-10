@@ -14,6 +14,9 @@ export interface Mission {
   // 새로 추가되는 필드들
   date?: string             // YYYY-MM-DD 형식, 기본값: 오늘 날짜
   templateId?: string | null // 템플릿 ID, null이면 일회성 미션
+  // 🆕 제안 관련 필드들
+  isFromProposal?: boolean  // 자녀 제안으로부터 생성된 미션인지
+  proposalId?: string       // 원본 제안의 ID (추적용)
 }
 
 // 반복 패턴 타입 정의
