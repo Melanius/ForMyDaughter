@@ -355,8 +355,9 @@ export class AllowanceSupabaseService {
 
   /**
    * 📊 가족 단위 거래 내역 조회 (family_connection_id 기반)
+   * @param targetUserId - 특정 사용자의 거래만 조회 (선택적, 부모가 특정 자녀 선택 시 사용)
    */
-  async getFamilyTransactions(): Promise<AllowanceTransaction[]> {
+  async getFamilyTransactions(targetUserId?: string): Promise<AllowanceTransaction[]> {
     const familyConnectionId = await this.getApprovedFamilyConnectionId()
     
     if (!familyConnectionId) {

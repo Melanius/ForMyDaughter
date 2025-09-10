@@ -2,14 +2,16 @@
 
 import { useState, useEffect } from 'react'
 import { MissionTemplate, RecurringPattern } from '../../lib/types/mission'
+import { useChildSelection } from '@/lib/contexts/ChildSelectionContext'
 
 interface MissionTemplateModalProps {
   onClose: () => void
   onSave: (template: Omit<MissionTemplate, 'id' | 'createdAt' | 'updatedAt'>) => void
   editingTemplate?: MissionTemplate | null
+  selectedChildId?: string | null
 }
 
-export function MissionTemplateModal({ onClose, onSave, editingTemplate }: MissionTemplateModalProps) {
+export function MissionTemplateModal({ onClose, onSave, editingTemplate, selectedChildId }: MissionTemplateModalProps) {
   const [title, setTitle] = useState(editingTemplate?.title || '')
   const [reward, setReward] = useState(editingTemplate?.reward || 500)
   const [category, setCategory] = useState(editingTemplate?.category || '집안일')
@@ -17,7 +19,10 @@ export function MissionTemplateModal({ onClose, onSave, editingTemplate }: Missi
   const [recurringPattern, setRecurringPattern] = useState<RecurringPattern>(editingTemplate?.recurringPattern || 'daily')
   const [selectedDayOfWeek, setSelectedDayOfWeek] = useState<number>(0) // 0: 일요일, 1: 월요일, ..., 6: 토요일
   const [isActive, setIsActive] = useState(editingTemplate?.isActive !== undefined ? editingTemplate.isActive : true)
+  const [targetChildId, setTargetChildId] = useState<string | null>(editingTemplate?.targetChildId || selectedChildId || null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  const { availableChildren, isParent } = useChildSelection()
 
   const categories = ['집안일', '공부', '운동', '독서', '건강', '예의', '기타']
 
@@ -137,6 +142,7 @@ export function MissionTemplateModal({ onClose, onSave, editingTemplate }: Missi
       }
       
       setIsActive(editingTemplate.isActive)
+      setTargetChildId(editingTemplate.targetChildId || null)
     } else {
       // 새 템플릿 생성시 초기값
       setTitle('')
@@ -145,8 +151,9 @@ export function MissionTemplateModal({ onClose, onSave, editingTemplate }: Missi
       setRecurringPattern('daily')
       setSelectedDayOfWeek(0)
       setIsActive(true)
+      setTargetChildId(selectedChildId || null)
     }
-  }, [editingTemplate])
+  }, [editingTemplate, selectedChildId])
   
   const handleSubmit = async (e: React.FormEvent) => {
     console.log('🔥 MissionTemplateModal - handleSubmit 시작:', {
@@ -193,7 +200,9 @@ export function MissionTemplateModal({ onClose, onSave, editingTemplate }: Missi
         category,
         missionType,
         recurringPattern,
-        isActive
+        isActive,
+        targetChildId,
+        userId: '' // 부모 ID는 서비스에서 자동으로 설정됨
       })
       console.log('✅ MissionTemplateModal - onSave 완료')
     } catch (error) {
@@ -359,6 +368,60 @@ export function MissionTemplateModal({ onClose, onSave, editingTemplate }: Missi
             </div>
           </div>
 
+          {/* 대상 자녀 선택 (부모만 표시) */}
+          {isParent && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                템플릿 대상 *
+              </label>
+              <div className="space-y-2">
+                {/* 공용 템플릿 옵션 */}
+                <button
+                  type="button"
+                  onClick={() => setTargetChildId(null)}
+                  className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
+                    targetChildId === null
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2">
+                    <span className="text-lg">👨‍👩‍👧‍👦</span>
+                    <div>
+                      <div className="font-medium">모든 자녀 (공용)</div>
+                      <div className="text-xs text-gray-500">모든 자녀가 공유하는 템플릿</div>
+                    </div>
+                  </div>
+                </button>
+                
+                {/* 특정 자녀 옵션들 */}
+                {availableChildren.map((child) => (
+                  <button
+                    key={child.id}
+                    type="button"
+                    onClick={() => setTargetChildId(child.id)}
+                    className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
+                      targetChildId === child.id
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <span className="text-lg">👶</span>
+                      <div>
+                        <div className="font-medium">{child.name}</div>
+                        <div className="text-xs text-gray-500">{child.nickname || ''}만을 위한 전용 템플릿</div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                공용 템플릿은 모든 자녀에게 적용되고, 전용 템플릿은 해당 자녀에게만 적용됩니다
+              </p>
+            </div>
+          )}
+
           {/* 활성화 상태 */}
           <div className="flex items-center space-x-3">
             <input
@@ -377,6 +440,21 @@ export function MissionTemplateModal({ onClose, onSave, editingTemplate }: Missi
           {title && category && (
             <div className="p-4 rounded-lg border-2 border-blue-200 bg-blue-50">
               <h4 className="font-medium text-gray-800 mb-2">템플릿 미리보기</h4>
+              
+              {/* 대상 표시 */}
+              {isParent && (
+                <div className="mb-2">
+                  <span className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+                    <span>{targetChildId === null ? '👨‍👩‍👧‍👦' : '👶'}</span>
+                    <span>
+                      {targetChildId === null 
+                        ? '공용 템플릿' 
+                        : availableChildren.find(c => c.id === targetChildId)?.name + ' 전용'}
+                    </span>
+                  </span>
+                </div>
+              )}
+              
               <div className="flex items-center gap-2 mb-2">
                 <span className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-blue-500 text-white">
                   <span>{getPatternEmoji(recurringPattern)}</span>

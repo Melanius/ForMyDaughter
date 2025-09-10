@@ -10,7 +10,7 @@ import { getTodayKST, nowKST, addDaysKST } from '@/lib/utils/dateUtils'
 export const missionKeys = {
   all: ['missions'] as const,
   lists: () => [...missionKeys.all, 'list'] as const,
-  list: (date: string) => [...missionKeys.lists(), date] as const,
+  list: (date: string, targetUserId?: string) => [...missionKeys.lists(), date, targetUserId] as const,
   details: () => [...missionKeys.all, 'detail'] as const,
   detail: (id: string) => [...missionKeys.details(), id] as const,
 }
@@ -23,17 +23,17 @@ interface MissionsQueryResult {
   refetch: () => void
 }
 
-export function useMissionsQuery(selectedDate: string): MissionsQueryResult {
+export function useMissionsQuery(selectedDate: string, targetUserId?: string): MissionsQueryResult {
   const { profile } = useAuth()
   const queryClient = useQueryClient()
 
   const query = useQuery({
-    queryKey: missionKeys.list(selectedDate),
+    queryKey: missionKeys.list(selectedDate, targetUserId),
     queryFn: async (): Promise<Mission[]> => {
-      console.log('🔍 미션 쿼리 실행:', selectedDate)
+      console.log('🔍 미션 쿼리 실행:', selectedDate, 'targetUserId:', targetUserId)
       if (!profile?.id) return []
 
-      const dateMissions = await missionSupabaseService.getFamilyMissionInstances(selectedDate)
+      const dateMissions = await missionSupabaseService.getFamilyMissionInstances(selectedDate, targetUserId)
       console.log('📝 미션 데이터 로드:', dateMissions.length, '개')
       
       // Mission 형태로 변환 (기존 UI 호환성을 위해)
@@ -61,9 +61,9 @@ export function useMissionsQuery(selectedDate: string): MissionsQueryResult {
       // 비동기적으로 prefetch (현재 쿼리 성능에 영향 없음)
       setTimeout(() => {
         queryClient.prefetchQuery({
-          queryKey: missionKeys.list(tomorrow),
+          queryKey: missionKeys.list(tomorrow, targetUserId),
           queryFn: async () => {
-            const missions = await missionSupabaseService.getFamilyMissionInstances(tomorrow)
+            const missions = await missionSupabaseService.getFamilyMissionInstances(tomorrow, targetUserId)
             return missions.filter(instance => instance.userId).map(instance => ({
               id: instance.id,
               userId: instance.userId!,
@@ -83,9 +83,9 @@ export function useMissionsQuery(selectedDate: string): MissionsQueryResult {
         })
 
         queryClient.prefetchQuery({
-          queryKey: missionKeys.list(yesterday),
+          queryKey: missionKeys.list(yesterday, targetUserId),
           queryFn: async () => {
-            const missions = await missionSupabaseService.getFamilyMissionInstances(yesterday)
+            const missions = await missionSupabaseService.getFamilyMissionInstances(yesterday, targetUserId)
             return missions.filter(instance => instance.userId).map(instance => ({
               id: instance.id,
               userId: instance.userId!,
@@ -122,7 +122,7 @@ export function useMissionsQuery(selectedDate: string): MissionsQueryResult {
 }
 
 // 미션 추가 뮤테이션
-export function useAddMissionMutation(selectedDate: string) {
+export function useAddMissionMutation(selectedDate: string, targetUserId?: string) {
   const queryClient = useQueryClient()
   const { profile } = useAuth()
 
@@ -161,7 +161,7 @@ export function useAddMissionMutation(selectedDate: string) {
     onSuccess: (createdId) => {
       // 미션 목록을 다시 로드
       queryClient.invalidateQueries({
-        queryKey: missionKeys.list(selectedDate)
+        queryKey: missionKeys.list(selectedDate, targetUserId)
       })
 
       // 관련된 쿼리들을 무효화
@@ -174,7 +174,7 @@ export function useAddMissionMutation(selectedDate: string) {
 }
 
 // 미션 완료 뮤테이션
-export function useCompleteMissionMutation(selectedDate: string) {
+export function useCompleteMissionMutation(selectedDate: string, targetUserId?: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -185,7 +185,7 @@ export function useCompleteMissionMutation(selectedDate: string) {
     onSuccess: (missionId) => {
       // 옵티미스틱 업데이트
       queryClient.setQueryData<Mission[]>(
-        missionKeys.list(selectedDate),
+        missionKeys.list(selectedDate, targetUserId),
         (oldMissions) => 
           oldMissions?.map(mission =>
             mission.id === missionId
@@ -197,13 +197,13 @@ export function useCompleteMissionMutation(selectedDate: string) {
     onError: (error, missionId) => {
       console.error('미션 완료 실패:', error)
       // 실패 시 캐시 무효화하여 서버 상태와 동기화
-      queryClient.invalidateQueries({ queryKey: missionKeys.list(selectedDate) })
+      queryClient.invalidateQueries({ queryKey: missionKeys.list(selectedDate, targetUserId) })
     },
   })
 }
 
 // 미션 완료 취소 뮤테이션
-export function useUncompleteMissionMutation(selectedDate: string) {
+export function useUncompleteMissionMutation(selectedDate: string, targetUserId?: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -214,7 +214,7 @@ export function useUncompleteMissionMutation(selectedDate: string) {
     onSuccess: (missionId) => {
       // 옵티미스틱 업데이트
       queryClient.setQueryData<Mission[]>(
-        missionKeys.list(selectedDate),
+        missionKeys.list(selectedDate, targetUserId),
         (oldMissions) => 
           oldMissions?.map(mission =>
             mission.id === missionId
@@ -225,13 +225,13 @@ export function useUncompleteMissionMutation(selectedDate: string) {
     },
     onError: (error) => {
       console.error('미션 완료 취소 실패:', error)
-      queryClient.invalidateQueries({ queryKey: missionKeys.list(selectedDate) })
+      queryClient.invalidateQueries({ queryKey: missionKeys.list(selectedDate, targetUserId) })
     },
   })
 }
 
 // 미션 수정 뮤테이션
-export function useUpdateMissionMutation(selectedDate: string) {
+export function useUpdateMissionMutation(selectedDate: string, targetUserId?: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -257,7 +257,7 @@ export function useUpdateMissionMutation(selectedDate: string) {
     onSuccess: ({ missionId, updates }) => {
       // 옵티미스틱 업데이트
       queryClient.setQueryData<Mission[]>(
-        missionKeys.list(selectedDate),
+        missionKeys.list(selectedDate, targetUserId),
         (oldMissions) => 
           oldMissions?.map(mission =>
             mission.id === missionId
@@ -268,13 +268,13 @@ export function useUpdateMissionMutation(selectedDate: string) {
     },
     onError: (error) => {
       console.error('미션 수정 실패:', error)
-      queryClient.invalidateQueries({ queryKey: missionKeys.list(selectedDate) })
+      queryClient.invalidateQueries({ queryKey: missionKeys.list(selectedDate, targetUserId) })
     },
   })
 }
 
 // 미션 삭제 뮤테이션
-export function useDeleteMissionMutation(selectedDate: string) {
+export function useDeleteMissionMutation(selectedDate: string, targetUserId?: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -285,24 +285,24 @@ export function useDeleteMissionMutation(selectedDate: string) {
     onSuccess: (missionId) => {
       // 옵티미스틱 업데이트
       queryClient.setQueryData<Mission[]>(
-        missionKeys.list(selectedDate),
+        missionKeys.list(selectedDate, targetUserId),
         (oldMissions) => oldMissions?.filter(mission => mission.id !== missionId) || []
       )
     },
     onError: (error) => {
       console.error('미션 삭제 실패:', error)
-      queryClient.invalidateQueries({ queryKey: missionKeys.list(selectedDate) })
+      queryClient.invalidateQueries({ queryKey: missionKeys.list(selectedDate, targetUserId) })
     },
   })
 }
 
 // 미션 전달 상태 업데이트 (로컬 캐시만 업데이트)
-export function useUpdateMissionTransferStatus(selectedDate: string) {
+export function useUpdateMissionTransferStatus(selectedDate: string, targetUserId?: string) {
   const queryClient = useQueryClient()
 
   return (missionIds: string[], isTransferred: boolean) => {
     queryClient.setQueryData<Mission[]>(
-      missionKeys.list(selectedDate),
+      missionKeys.list(selectedDate, targetUserId),
       (oldMissions) => 
         oldMissions?.map(mission => 
           missionIds.includes(mission.id) 

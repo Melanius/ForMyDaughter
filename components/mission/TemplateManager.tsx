@@ -5,6 +5,7 @@ import { MissionTemplate, RecurringPattern } from '../../lib/types/mission'
 import { MissionTemplateModal } from './MissionTemplateModal'
 import missionSupabaseService from '../../lib/services/missionSupabase'
 import { getTodayKST } from '../../lib/utils/dateUtils'
+import { useChildSelection } from '@/lib/contexts/ChildSelectionContext'
 
 // 반복 패턴을 한국어로 표시하는 함수
 const getRecurringPatternLabel = (pattern?: RecurringPattern): string => {
@@ -90,19 +91,32 @@ export function TemplateManager() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<MissionTemplate | null>(null)
+  const { selectedChildId, availableChildren, isParent } = useChildSelection()
 
   useEffect(() => {
-    loadTemplates()
-  }, [])
+    if (selectedChildId !== null) {
+      loadTemplates()
+    }
+  }, [selectedChildId])
 
   const loadTemplates = async () => {
     try {
       setLoading(true)
-      const allTemplates = await missionSupabaseService.getFamilyMissionTemplates()
+      console.log(`📋 선택된 자녀: ${selectedChildId}에 대한 템플릿 로드 중...`)
+      
+      // 선택된 자녀의 템플릿만 조회 (공용 템플릿 포함)
+      const allTemplates = await missionSupabaseService.getFamilyMissionTemplates(selectedChildId)
+      
       // 데일리 템플릿만 필터링하고 제목 순으로 정렬
       const dailyTemplates = allTemplates
         .filter(t => t.missionType === 'daily')
         .sort((a, b) => a.title.localeCompare(b.title))
+      
+      console.log(`✅ ${dailyTemplates.length}개 템플릿 로드됨 (자녀: ${selectedChildId})`, {
+        공용템플릿: dailyTemplates.filter(t => t.targetChildId === null).length,
+        전용템플릿: dailyTemplates.filter(t => t.targetChildId === selectedChildId).length
+      })
+      
       setTemplates(dailyTemplates)
     } catch (error) {
       console.error('Failed to load templates:', error)
@@ -115,6 +129,7 @@ export function TemplateManager() {
     console.log('📋 TemplateManager - handleSaveTemplate 시작:', {
       isEditing: !!editingTemplate,
       editingTemplateId: editingTemplate?.id,
+      selectedChildId,
       templateData
     })
     
@@ -124,19 +139,24 @@ export function TemplateManager() {
         // 템플릿 수정
         await missionSupabaseService.updateMissionTemplate(editingTemplate.id, {
           title: templateData.title,
-          description: '',
+          description: templateData.description,
           reward: templateData.reward,
           category: templateData.category,
           missionType: templateData.missionType,
           recurringPattern: templateData.recurringPattern,
-          isActive: templateData.isActive
+          isActive: templateData.isActive,
+          targetChildId: templateData.targetChildId
         })
         console.log('✅ 템플릿 수정 완료')
       } else {
         console.log('➕ 새 템플릿 생성 모드 - addMissionTemplate 호출 예정')
-        // 새 템플릿 생성
-        await missionSupabaseService.addMissionTemplate(templateData)
-        console.log('✅ 새 템플릿 생성 완료')
+        // 새 템플릿 생성: 선택된 자녀에게 할당 (공용으로 만들려면 null로 설정 가능)
+        const newTemplateData = {
+          ...templateData,
+          targetChildId: templateData.targetChildId || selectedChildId // 기본값: 선택된 자녀
+        }
+        await missionSupabaseService.addMissionTemplate(newTemplateData)
+        console.log('✅ 새 템플릿 생성 완료 (대상 자녀:', newTemplateData.targetChildId, ')')
       }
       
       console.log('🔄 템플릿 목록 다시 로드 시작')
@@ -175,18 +195,42 @@ export function TemplateManager() {
   }
 
   const handleDeleteTemplate = async (template: MissionTemplate) => {
-    const confirmed = confirm(
-      `정말로 "${template.title}" 템플릿을 삭제하시겠습니까?\n\n` +
-      `삭제 후에는 이 템플릿으로 새로운 미션이 자동 생성되지 않습니다.`
+    // 삭제 옵션 선택
+    const choice = confirm(
+      `"${template.title}" 템플릿을 어떻게 처리하시겠습니까?\n\n` +
+      `확인: 완전 삭제 (기존 미션은 유지되지만 템플릿 연결 해제)\n` +
+      `취소: 비활성화만 (템플릿은 남겨두지만 새로운 미션 생성 안됨)`
     )
     
-    if (confirmed) {
+    if (choice === true) {
+      // 완전 삭제 선택
+      const finalConfirm = confirm(
+        `⚠️ 주의: 템플릿을 완전히 삭제합니다.\n\n` +
+        `• 기존에 생성된 미션들은 유지됩니다\n` +
+        `• 하지만 해당 미션들의 템플릿 연결이 끊어집니다\n` +
+        `• 이 작업은 되돌릴 수 없습니다\n\n` +
+        `정말로 "${template.title}" 템플릿을 완전 삭제하시겠습니까?`
+      )
+      
+      if (finalConfirm) {
+        try {
+          await missionSupabaseService.hardDeleteMissionTemplate(template.id)
+          await loadTemplates()
+          alert('템플릿이 완전히 삭제되었습니다.')
+        } catch (error) {
+          console.error('Failed to hard delete template:', error)
+          alert('템플릿 완전 삭제 중 오류가 발생했습니다.')
+        }
+      }
+    } else if (choice === false) {
+      // 비활성화 선택
       try {
         await missionSupabaseService.deleteMissionTemplate(template.id)
         await loadTemplates()
+        alert('템플릿이 비활성화되었습니다. (새로운 미션이 자동 생성되지 않습니다)')
       } catch (error) {
-        console.error('Failed to delete template:', error)
-        alert('템플릿 삭제 중 오류가 발생했습니다.')
+        console.error('Failed to deactivate template:', error)
+        alert('템플릿 비활성화 중 오류가 발생했습니다.')
       }
     }
   }
@@ -206,6 +250,14 @@ export function TemplateManager() {
   const handleCloseModal = () => {
     setShowModal(false)
     setEditingTemplate(null)
+  }
+
+  if (selectedChildId === null) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-gray-600">자녀를 선택해주세요.</p>
+      </div>
+    )
   }
 
   if (loading) {
@@ -262,6 +314,7 @@ export function TemplateManager() {
           onClose={handleCloseModal}
           onSave={handleSaveTemplate}
           editingTemplate={editingTemplate}
+          selectedChildId={selectedChildId}
         />
       )}
     </div>
@@ -276,6 +329,23 @@ interface TemplateCardProps {
 }
 
 function TemplateCard({ template, onEdit, onDelete, onToggleActive }: TemplateCardProps) {
+  const { availableChildren } = useChildSelection()
+  
+  // 대상 자녀 정보 가져오기
+  const getTargetChildInfo = () => {
+    if (template.targetChildId === null) {
+      return { name: '공용', icon: '👨‍👩‍👧‍👦', style: 'bg-blue-100 text-blue-800' }
+    }
+    
+    const targetChild = availableChildren.find(child => child.id === template.targetChildId)
+    return {
+      name: targetChild ? `${targetChild.name} 전용` : '알 수 없음',
+      icon: '👶',
+      style: 'bg-purple-100 text-purple-800'
+    }
+  }
+  
+  const targetInfo = getTargetChildInfo()
   return (
     <div className={`p-4 rounded-lg border-2 transition-all ${
       template.isActive 
@@ -284,7 +354,13 @@ function TemplateCard({ template, onEdit, onDelete, onToggleActive }: TemplateCa
     }`}>
       {/* 템플릿 헤더 */}
       <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 flex-wrap gap-2">
+          {/* 대상 자녀 배지 (가장 먼저 표시) */}
+          <span className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${targetInfo.style}`}>
+            <span>{targetInfo.icon}</span>
+            <span>{targetInfo.name}</span>
+          </span>
+          
           <span className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${
             template.missionType === 'daily' 
               ? 'bg-blue-100 text-blue-800' 
@@ -293,6 +369,7 @@ function TemplateCard({ template, onEdit, onDelete, onToggleActive }: TemplateCa
             <span>{getPatternEmoji(template.recurringPattern)}</span>
             <span>{getRecurringPatternLabel(template.recurringPattern)}</span>
           </span>
+          
           <span className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full border ${getCategoryStyle(template.category)}`}>
             <span>{getCategoryIcon(template.category)}</span>
             <span>{template.category}</span>

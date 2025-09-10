@@ -4,7 +4,13 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import familyService from '@/lib/services/familyService'
+// 가족 코드 생성 함수
+function generateFamilyCode(): string {
+  const prefix = 'FAM'
+  const numbers = Math.floor(100 + Math.random() * 900) // 100-999
+  const letters = Math.random().toString(36).substring(2, 5).toUpperCase()
+  return `${prefix}${numbers}${letters}`
+}
 
 export default function SignupPage() {
   const [email, setEmail] = useState('')
@@ -58,12 +64,49 @@ export default function SignupPage() {
         throw new Error('사용자 생성에 실패했습니다.')
       }
 
-      // 2. 프로필 생성
+      // 2. 가족 코드 및 부모 정보 처리 (자녀인 경우)
+      let parentId = null
+      let generatedFamilyCode = null
+
+      if (userType === 'parent') {
+        // 부모: 새로운 가족 코드 생성
+        generatedFamilyCode = generateFamilyCode()
+        
+        // 가족 코드 중복 체크
+        const { data: existingFamily } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('family_code', generatedFamilyCode)
+          .single()
+        
+        if (existingFamily) {
+          // 중복되면 다시 생성
+          generatedFamilyCode = generateFamilyCode() + Math.floor(Math.random() * 100)
+        }
+      } else {
+        // 자녀: 가족 코드로 부모 찾기
+        const { data: parent, error: parentError } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .eq('family_code', familyCode.trim())
+          .eq('user_type', 'parent')
+          .single()
+        
+        if (parentError || !parent) {
+          throw new Error('유효하지 않은 가족 코드입니다')
+        }
+        
+        parentId = parent.id
+      }
+
+      // 3. 프로필 생성
       const profileData = {
         id: authData.user.id,
         email,
         full_name: fullName,
-        user_type: userType
+        user_type: userType,
+        family_code: userType === 'parent' ? generatedFamilyCode : familyCode.trim(),
+        parent_id: parentId
       }
 
       const { error: profileError } = await supabase
@@ -75,25 +118,11 @@ export default function SignupPage() {
         throw new Error('프로필 생성에 실패했습니다.')
       }
 
-      // 3. 가족 시스템 연동
+      // 4. 성공 메시지
       if (userType === 'parent') {
-        // 부모: 새로운 가족 생성
-        const familyData = await familyService.createFamily({
-          family_name: `${fullName}님의 가족`,
-          role: 'father' // 기본값, 나중에 수정 가능
-        })
-        
-        setSuccess('🎉 부모 계정이 만들어졌어요! 가족 코드를 확인해보세요!')
-        setTimeout(() => router.push('/login'), 3000)
-        
+        setSuccess(`🎉 부모 계정이 만들어졌어요! 가족 코드: ${generatedFamilyCode}`)
+        setTimeout(() => router.push('/login'), 5000)
       } else {
-        // 자녀: 기존 가족에 참여
-        await familyService.joinFamily({
-          family_code: familyCode.trim(),
-          role: 'child',
-          nickname: fullName
-        })
-        
         setSuccess('🎉 우리 가족에 참여했어요! 이제 용돈 관리를 시작할 수 있어요!')
         setTimeout(() => router.push('/login'), 3000)
       }

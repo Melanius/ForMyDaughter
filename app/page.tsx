@@ -22,6 +22,8 @@ import {
 } from '../hooks/useMissionsQuery'
 import { Mission } from '../lib/types/mission'
 import { useAuth } from '@/components/auth/AuthProvider'
+import { ChildSelectionProvider, useSelectedChild } from '@/lib/contexts/ChildSelectionContext'
+import ChildSelector from '@/components/child-selection/ChildSelector'
 import missionSupabaseService from '../lib/services/missionSupabase'
 import streakService from '../lib/services/streak'
 import syncService from '../lib/services/sync'
@@ -38,9 +40,10 @@ import settlementService from '../lib/services/settlementService'
 // Lazy load AllowanceRequestButton for child users
 const AllowanceRequestButton = lazy(() => import('../components/allowance/AllowanceRequestButton').then(module => ({ default: module.default })))
 
-export default function HomePage() {
+function MissionPageContent() {
   const { profile } = useAuth()
   const queryClient = useQueryClient()
+  const selectedChildId = useSelectedChild()
   const [selectedDate, setSelectedDate] = useState(() => getTodayKST())
   const [activeTab, setActiveTab] = useState<'missions' | 'templates'>('missions')
   const [showAddModal, setShowAddModal] = useState(false)
@@ -71,21 +74,21 @@ export default function HomePage() {
     setSelectedDate(newDate)
   }, [selectedDate])
 
-  // React Query 훅 사용
+  // React Query 훅 사용 (선택된 자녀 ID 적용)
   const {
     missions,
     loading: missionsLoading,
     error: missionsError,
     refetch: loadMissions
-  } = useMissionsQuery(selectedDate)
+  } = useMissionsQuery(selectedDate, selectedChildId || undefined)
 
-  // Mutation 훅들
-  const addMissionMutation = useAddMissionMutation(selectedDate)
-  const completeMissionMutation = useCompleteMissionMutation(selectedDate)
-  const uncompleteMissionMutation = useUncompleteMissionMutation(selectedDate)
-  const updateMissionMutation = useUpdateMissionMutation(selectedDate)
-  const deleteMissionMutation = useDeleteMissionMutation(selectedDate)
-  const updateMissionTransferStatus = useUpdateMissionTransferStatus(selectedDate)
+  // Mutation 훅들 (선택된 자녀 ID 적용)
+  const addMissionMutation = useAddMissionMutation(selectedDate, selectedChildId || undefined)
+  const completeMissionMutation = useCompleteMissionMutation(selectedDate, selectedChildId || undefined)
+  const uncompleteMissionMutation = useUncompleteMissionMutation(selectedDate, selectedChildId || undefined)
+  const updateMissionMutation = useUpdateMissionMutation(selectedDate, selectedChildId || undefined)
+  const deleteMissionMutation = useDeleteMissionMutation(selectedDate, selectedChildId || undefined)
+  const updateMissionTransferStatus = useUpdateMissionTransferStatus(selectedDate, selectedChildId || undefined)
 
 
   // 자녀 계정 데일리 미션 웰컴 모달
@@ -425,19 +428,22 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50">
-      <div className="p-4 md:p-8 pb-20 md:pb-8">
-        <div className="max-w-4xl mx-auto">
-        
-        {/* 부모 계정 정산 알림 배지 */}
-        {profile?.user_type === 'parent' && (
-          <div className="mb-6 flex justify-center">
-            <RewardNotificationBadge />
-          </div>
-        )}
+      <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50">
+        <div className="p-4 md:p-8 pb-20 md:pb-8">
+          <div className="max-w-4xl mx-auto">
+          
+          {/* 부모 계정 정산 알림 배지 */}
+          {profile?.user_type === 'parent' && (
+            <div className="mb-6 flex justify-center">
+              <RewardNotificationBadge />
+            </div>
+          )}
 
-        <div className="mb-12">
-          <div className="bg-white rounded-xl shadow-lg p-8">
+          {/* 자녀 선택기 (부모 계정이고 자녀가 여러 명인 경우만 표시) */}
+          <ChildSelector />
+
+          <div className="mb-12">
+            <div className="bg-white rounded-xl shadow-lg p-8">
 
             {activeTab === 'missions' ? (
               <MissionSection
@@ -555,5 +561,13 @@ export default function HomePage() {
       )}
       </div>
     </div>
+  )
+}
+
+export default function HomePage() {
+  return (
+    <ChildSelectionProvider>
+      <MissionPageContent />
+    </ChildSelectionProvider>
   )
 }

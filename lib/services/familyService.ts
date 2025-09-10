@@ -27,65 +27,86 @@ class FamilyService {
   private supabase = createClient()
 
   /**
-   * 🏗️ 새 가족 생성
+   * 🏗️ 새 가족 생성 (기존 profiles 시스템 사용)
    */
   async createFamily(request: FamilyCreateRequest): Promise<Family> {
     const { data: { user } } = await this.supabase.auth.getUser()
     if (!user) throw new Error('사용자 인증이 필요합니다')
 
-    // 고유한 가족 코드 생성
-    const family_code = await this.generateUniqueFamilyCode()
+    // 기존 profiles 테이블에서 가족 코드 확인
+    const { data: profile, error: profileError } = await this.supabase
+      .from('profiles')
+      .select('family_code, full_name')
+      .eq('id', user.id)
+      .single()
+
+    if (profileError || !profile) {
+      throw new Error('사용자 프로필을 찾을 수 없습니다')
+    }
+
+    if (!profile.family_code) {
+      throw new Error('가족 코드가 설정되지 않았습니다')
+    }
+
+    console.log(`✅ 기존 가족 사용: ${request.family_name} (${profile.family_code})`)
     
-    const familyData: Omit<SupabaseFamilyTable, 'id'> = {
-      family_code,
+    // 가상의 Family 객체 반환 (기존 시스템 호환용)
+    return {
+      id: user.id, // 임시로 user.id 사용
+      family_code: profile.family_code,
       family_name: request.family_name,
       created_by: user.id,
       created_at: nowKST(),
       updated_at: nowKST()
     }
-
-    const { data: family, error } = await this.supabase
-      .from('families')
-      .insert(familyData)
-      .select()
-      .single()
-
-    if (error) {
-      console.error('가족 생성 실패:', error)
-      throw new Error('가족 생성에 실패했습니다')
-    }
-
-    // 생성자를 가족 구성원으로 추가
-    await this.addFamilyMember(family.id, user.id, request.role)
-
-    console.log(`✅ 새 가족 생성 완료: ${request.family_name} (${family_code})`)
-    return this.convertFromSupabase(family)
   }
 
   /**
-   * 🔗 기존 가족에 가입
+   * 🔗 기존 가족에 가입 (기존 profiles 시스템 사용)
    */
   async joinFamily(request: FamilyJoinRequest): Promise<FamilyWithMembers> {
     const { data: { user } } = await this.supabase.auth.getUser()
     if (!user) throw new Error('사용자 인증이 필요합니다')
 
-    // 가족 코드로 가족 찾기
-    const family = await this.getFamilyByCode(request.family_code)
-    if (!family) {
+    // 가족 코드로 부모 찾기 (기존 profiles 테이블 사용)
+    const { data: parent, error: parentError } = await this.supabase
+      .from('profiles')
+      .select('id, full_name, family_code')
+      .eq('family_code', request.family_code)
+      .eq('user_type', 'parent')
+      .single()
+
+    if (parentError || !parent) {
       throw new Error('유효하지 않은 가족 코드입니다')
     }
 
-    // 이미 가족 구성원인지 확인
-    const existingMember = await this.getFamilyMemberByUserId(family.id, user.id)
-    if (existingMember) {
-      throw new Error('이미 이 가족의 구성원입니다')
+    // 현재 사용자의 프로필 업데이트 (parent_id 및 family_code 설정)
+    const { error: updateError } = await this.supabase
+      .from('profiles')
+      .update({
+        parent_id: parent.id,
+        family_code: request.family_code,
+        updated_at: nowKST()
+      })
+      .eq('id', user.id)
+
+    if (updateError) {
+      console.error('가족 가입 실패:', updateError)
+      throw new Error('가족 가입에 실패했습니다')
     }
 
-    // 가족 구성원으로 추가
-    await this.addFamilyMember(family.id, user.id, request.role, request.nickname)
+    console.log(`✅ 가족 가입 완료: ${user.id} → ${parent.full_name} 가족`)
 
-    console.log(`✅ 가족 가입 완료: ${user.id} → ${family.family_name}`)
-    return await this.getFamilyWithMembers(family.id)
+    // 가상의 FamilyWithMembers 객체 반환 (기존 시스템 호환용)
+    return {
+      id: parent.id,
+      family_code: parent.family_code,
+      family_name: `${parent.full_name}님의 가족`,
+      created_by: parent.id,
+      created_at: nowKST(),
+      updated_at: nowKST(),
+      members: [] // 빈 배열로 반환 (현재는 사용하지 않음)
+    }
   }
 
   /**

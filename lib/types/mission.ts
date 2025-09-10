@@ -32,6 +32,7 @@ export type RecurringPattern =
 // 미션 템플릿 인터페이스
 export interface MissionTemplate {
   id: string
+  userId: string                      // 템플릿 생성자 ID (보통 부모)
   title: string
   description: string
   reward: number
@@ -39,6 +40,7 @@ export interface MissionTemplate {
   missionType: 'daily' | 'event'
   recurringPattern?: RecurringPattern  // 반복 패턴 (daily 타입일 때만 사용)
   isActive: boolean
+  targetChildId?: string | null       // 특정 자녀 대상 템플릿 (null이면 공용 템플릿)
   createdAt: string
   updatedAt: string
 }

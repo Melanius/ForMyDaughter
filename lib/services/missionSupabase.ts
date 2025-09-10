@@ -21,6 +21,7 @@ export interface SupabaseMissionTemplate {
   mission_type: 'daily' | 'event'
   recurring_pattern?: RecurringPattern
   is_active: boolean
+  target_child_id?: string | null   // 특정 자녀 대상 템플릿
   created_at: string
   updated_at: string
 }
@@ -86,28 +87,43 @@ export class MissionSupabaseService {
   }
 
   /**
-   * 🎯 가족 단위 미션 템플릿 조회 (부모가 생성한 것들)
+   * 🎯 가족 단위 미션 템플릿 조회 (자녀별 템플릿 + 공용 템플릿)
    */
-  async getFamilyMissionTemplates(): Promise<MissionTemplate[]> {
+  async getFamilyMissionTemplates(targetChildId?: string | null): Promise<MissionTemplate[]> {
     const { profile, childrenIds } = await this.getCurrentUser()
     
     let creatorIds: string[]
+    let childFilter: string | null = null
     
     if (profile.user_type === 'parent') {
-      // 부모: 본인이 생성한 템플릿
+      // 부모: 본인이 생성한 템플릿만 조회
       creatorIds = [profile.id]
+      
+      // targetChildId가 제공되면 해당 자녀의 템플릿만 필터링
+      if (targetChildId) {
+        childFilter = targetChildId
+      }
     } else if (profile.parent_id) {
-      // 자녀: 부모가 생성한 템플릿 
+      // 자녀: 부모가 생성한 템플릿 중 본인 대상 + 공용 템플릿
       creatorIds = [profile.parent_id]
+      childFilter = profile.id // 자녀는 본인 대상 템플릿만
     } else {
-      // 가족 연결 없음
+      // 가족 연결 없음 - 본인 템플릿만
       creatorIds = [profile.id]
     }
 
-    const { data: templates, error } = await this.supabase
+    // 쿼리 생성: 생성자가 일치하고 (target_child_id가 null이거나 특정 자녀)
+    let query = this.supabase
       .from('mission_templates')
       .select('*')
       .in('user_id', creatorIds)
+
+    if (childFilter) {
+      // 특정 자녀의 템플릿 + 공용 템플릿 (target_child_id가 null)
+      query = query.or(`target_child_id.is.null,target_child_id.eq.${childFilter}`)
+    }
+
+    const { data: templates, error } = await query
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -115,23 +131,52 @@ export class MissionSupabaseService {
       return []
     }
 
+    console.log(`📋 템플릿 조회 결과 (childFilter: ${childFilter}):`, {
+      totalCount: templates?.length || 0,
+      childSpecific: templates?.filter(t => t.target_child_id === childFilter).length || 0,
+      common: templates?.filter(t => t.target_child_id === null).length || 0
+    })
+
     return (templates || []).map(this.convertSupabaseToTemplate)
   }
 
   /**
    * 📅 가족 단위 미션 인스턴스 조회 (특정 날짜)
+   * @param date - 조회할 날짜
+   * @param targetUserId - 특정 사용자의 미션만 조회 (선택적, 부모가 특정 자녀 선택 시 사용)
    */
-  async getFamilyMissionInstances(date: string): Promise<MissionInstance[]> {
+  async getFamilyMissionInstances(date: string, targetUserId?: string): Promise<MissionInstance[]> {
     const { profile, childrenIds } = await this.getCurrentUser()
     
     let targetUserIds: string[]
     
-    if (profile.user_type === 'parent') {
-      // 부모: 본인 + 모든 자녀의 미션
-      targetUserIds = [profile.id, ...childrenIds]
+    if (targetUserId) {
+      // 특정 사용자 지정된 경우: 권한 검증 후 해당 사용자만
+      if (profile.user_type === 'parent') {
+        // 부모는 자녀들과 본인의 미션 볼 수 있음
+        const allowedUserIds = [profile.id, ...childrenIds]
+        if (allowedUserIds.includes(targetUserId)) {
+          targetUserIds = [targetUserId]
+        } else {
+          console.warn('⚠️ 권한 없는 사용자 ID 접근 시도:', targetUserId)
+          return []
+        }
+      } else if (profile.id === targetUserId) {
+        // 자녀는 본인 미션만
+        targetUserIds = [profile.id]
+      } else {
+        console.warn('⚠️ 자녀는 다른 사용자 미션 조회 불가:', targetUserId)
+        return []
+      }
     } else {
-      // 자녀: 본인 미션만
-      targetUserIds = [profile.id]
+      // targetUserId가 없는 경우: 기존 로직 (가족 전체)
+      if (profile.user_type === 'parent') {
+        // 부모: 본인 + 모든 자녀의 미션
+        targetUserIds = [profile.id, ...childrenIds]
+      } else {
+        // 자녀: 본인 미션만
+        targetUserIds = [profile.id]
+      }
     }
 
     const { data: instances, error } = await this.supabase
@@ -146,7 +191,15 @@ export class MissionSupabaseService {
       return []
     }
 
-    return (instances || []).map(this.convertSupabaseToInstance)
+    const missions = (instances || []).map(this.convertSupabaseToInstance)
+    
+    if (targetUserId) {
+      console.log(`📅 ${date} 특정 사용자(${targetUserId}) 미션 조회: ${missions.length}개`)
+    } else {
+      console.log(`📅 ${date} 가족 전체 미션 조회: ${missions.length}개`)
+    }
+
+    return missions
   }
 
   /**
@@ -215,9 +268,14 @@ export class MissionSupabaseService {
   }
 
   /**
-   * ➕ 이벤트 미션을 가족 구성원 모두에게 생성 (부모 전용)
+   * ➕ 이벤트 미션을 가족 구성원에게 생성 (부모 전용)
+   * @param mission - 생성할 미션 정보
+   * @param targetUserIds - 미션을 받을 사용자 ID 배열 (비어있으면 모든 자녀)
    */
-  async addEventMissionToFamily(mission: Omit<MissionInstance, 'id' | 'userId'>): Promise<string[]> {
+  async addEventMissionToFamily(
+    mission: Omit<MissionInstance, 'id' | 'userId'>, 
+    targetUserIds?: string[]
+  ): Promise<string[]> {
     const { profile, childrenIds } = await this.getCurrentUser()
 
     // 부모만 가족 이벤트 미션 생성 가능
@@ -225,10 +283,32 @@ export class MissionSupabaseService {
       throw new Error('가족 이벤트 미션은 부모만 생성할 수 있습니다.')
     }
 
+    // 대상 사용자 결정
+    let recipientIds: string[]
+    
+    if (targetUserIds && targetUserIds.length > 0) {
+      // 특정 자녀들에게만 미션 생성
+      recipientIds = targetUserIds.filter(id => childrenIds.includes(id))
+      
+      if (recipientIds.length === 0) {
+        throw new Error('유효한 자녀 ID가 없습니다.')
+      }
+      
+      console.log(`🎯 특정 자녀 ${recipientIds.length}명에게 미션 생성`)
+    } else {
+      // 모든 자녀에게 미션 생성 (기존 동작)
+      recipientIds = childrenIds
+      console.log(`👨‍👩‍👧‍👦 모든 자녀 ${recipientIds.length}명에게 미션 생성`)
+    }
+
+    if (recipientIds.length === 0) {
+      throw new Error('미션을 받을 자녀가 없습니다.')
+    }
+
     const createdIds: string[] = []
     
-    // 모든 자녀에게 미션 생성
-    for (const childId of childrenIds) {
+    // 대상 자녀들에게 미션 생성
+    for (const childId of recipientIds) {
       try {
         const missionId = await this.addMissionInstance({
           ...mission,
@@ -507,7 +587,8 @@ export class MissionSupabaseService {
         category: template.category,
         mission_type: template.missionType,
         recurring_pattern: template.recurringPattern,
-        is_active: template.isActive
+        is_active: template.isActive,
+        target_child_id: template.targetChildId || null
       })
       .select('id')
       .single()
@@ -532,6 +613,7 @@ export class MissionSupabaseService {
     missionType?: 'daily' | 'event'
     recurringPattern?: RecurringPattern
     isActive?: boolean
+    targetChildId?: string | null
   }): Promise<boolean> {
     console.log('🔧 템플릿 수정 요청:', templateId, updates)
     
@@ -552,6 +634,7 @@ export class MissionSupabaseService {
     if (updates.missionType !== undefined) updateData['mission_type'] = updates.missionType
     if (updates.recurringPattern !== undefined) updateData['recurring_pattern'] = updates.recurringPattern
     if (updates.isActive !== undefined) updateData['is_active'] = updates.isActive
+    if (updates.targetChildId !== undefined) updateData['target_child_id'] = updates.targetChildId
 
     // 수정 시간 업데이트
     updateData['updated_at'] = nowKST()
@@ -582,7 +665,7 @@ export class MissionSupabaseService {
   }
 
   /**
-   * 🗑️ 미션 템플릿 삭제 (부모만 가능)
+   * 🗑️ 미션 템플릿 삭제 (부모만 가능) - 소프트 삭제
    */
   async deleteMissionTemplate(templateId: string): Promise<boolean> {
     const { user, profile } = await this.getCurrentUser()
@@ -603,12 +686,58 @@ export class MissionSupabaseService {
       .eq('user_id', (user as { id: string }).id) // 본인이 생성한 템플릿만 삭제 가능
 
     if (error) {
-      console.error('미션 템플릿 삭제 실패:', error)
-      throw new Error('미션 템플릿을 삭제할 수 없습니다.')
+      console.error('미션 템플릿 비활성화 실패:', error)
+      throw new Error('미션 템플릿을 비활성화할 수 없습니다.')
     }
 
-    console.log('✅ 미션 템플릿 삭제 성공 (비활성화):', templateId)
+    console.log('✅ 미션 템플릿 비활성화 성공:', templateId)
     return true
+  }
+
+  /**
+   * 🗑️ 미션 템플릿 완전 삭제 (부모만 가능) - 하드 삭제
+   */
+  async hardDeleteMissionTemplate(templateId: string): Promise<boolean> {
+    const { user, profile } = await this.getCurrentUser()
+
+    // 부모만 템플릿 삭제 가능
+    if (profile.user_type !== 'parent') {
+      throw new Error('미션 템플릿은 부모만 삭제할 수 있습니다.')
+    }
+
+    console.log('🗑️ 템플릿 완전 삭제 시작:', templateId)
+
+    try {
+      // 1단계: 관련된 미션 인스턴스들의 template_id를 NULL로 설정
+      const { error: updateError } = await this.supabase
+        .from('mission_instances')
+        .update({ template_id: null })
+        .eq('template_id', templateId)
+
+      if (updateError) {
+        console.error('기존 미션 인스턴스 업데이트 실패:', updateError)
+        throw new Error('기존 미션 업데이트에 실패했습니다.')
+      }
+
+      // 2단계: 템플릿 완전 삭제
+      const { error: deleteError } = await this.supabase
+        .from('mission_templates')
+        .delete()
+        .eq('id', templateId)
+        .eq('user_id', (user as { id: string }).id) // 본인이 생성한 템플릿만 삭제 가능
+
+      if (deleteError) {
+        console.error('미션 템플릿 완전 삭제 실패:', deleteError)
+        throw new Error('미션 템플릿을 완전 삭제할 수 없습니다.')
+      }
+
+      console.log('✅ 미션 템플릿 완전 삭제 성공:', templateId)
+      return true
+
+    } catch (error) {
+      console.error('미션 템플릿 완전 삭제 중 오류:', error)
+      throw error
+    }
   }
 
   /**
@@ -681,96 +810,113 @@ export class MissionSupabaseService {
    * 📊 오늘의 미션 생성 (템플릿 기반)
    */
   async generateDailyMissions(date: string): Promise<number> {
-    const { profile, childrenIds } = await this.getCurrentUser()
+    const { profile, childrenIds } = await this.getCurrentUser();
     
-    // 템플릿 조회 및 개수 제한
-    const templates = await this.getFamilyMissionTemplates()
-    const dailyTemplates = templates.filter(t => t.missionType === 'daily' && t.isActive)
-    
-    if (dailyTemplates.length === 0) {
-      console.log('생성할 데일리 템플릿이 없습니다.')
-      return 0
-    }
-    
-    // 🚨 안전장치: 데일리 템플릿이 너무 많으면 최대 5개로 제한
-    const limitedTemplates = dailyTemplates.slice(0, 5)
-    if (dailyTemplates.length > 5) {
-      console.log(`⚠️ 데일리 템플릿 개수 제한: ${dailyTemplates.length}개 → 5개로 제한`)
-    }
-
-    let createdCount = 0
-    let targetUserIds: string[]
+    let createdCount = 0;
+    let targetUserIds: string[];
 
     if (profile.user_type === 'parent') {
-      // 부모: 모든 자녀에게 미션 생성
-      targetUserIds = childrenIds
+      // 부모: 모든 자녀에게 개별적으로 미션 생성
+      targetUserIds = childrenIds;
     } else {
       // 자녀: 본인에게만 미션 생성
-      targetUserIds = [profile.id]
+      targetUserIds = [profile.id];
     }
 
-    // 각 대상 사용자에 대해 미션 생성 (제한된 템플릿 사용)
+    console.log(`🎯 데일리 미션 생성 시작 - 날짜: ${date}, 대상 사용자: ${targetUserIds.length}명`);
+
+    // 각 대상 사용자별로 개별 템플릿 조회 및 미션 생성
     for (const userId of targetUserIds) {
-      for (const template of limitedTemplates) {
-        try {
-          // 반복 패턴 확인 - 해당 날짜에 미션을 생성해야 하는지 체크
-          const pattern = template.recurringPattern || 'daily'
-          const shouldCreate = shouldCreateMissionForDate(date, pattern)
-          
-          // 🔍 상세한 패턴 디버깅 로그 추가
-          console.log(`🔍 패턴 체크: ${template.title}`)
-          console.log(`   날짜: ${date} (요일: ${new Date(date + 'T00:00:00').getDay()})`)
-          console.log(`   패턴: ${pattern}`)
-          console.log(`   생성 여부: ${shouldCreate}`)
-          
-          if (!shouldCreate) {
-            console.log(`❌ 반복 패턴으로 스킵: ${template.title} (${pattern}, ${date})`)
-            continue
-          } else {
-            console.log(`✅ 패턴 통과: ${template.title} - 미션 생성 진행`)
-          }
-
-          // 중복 미션 체크
-          const { data: existingMission } = await this.supabase
-            .from('mission_instances')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('template_id', template.id)
-            .eq('date', date)
-            .single()
-
-          if (existingMission) {
-            console.log(`이미 존재하는 미션 스킵: ${template.title} (${userId})`)
-            continue
-          }
-
-          const { error } = await this.supabase
-            .from('mission_instances')
-            .insert({
-              user_id: userId,
-              template_id: template.id,
-              date,
-              title: template.title,
-              description: template.description,
-              reward: template.reward,
-              category: template.category,
-              mission_type: 'daily',
-              recurring_pattern: template.recurringPattern,
-              is_completed: false,
-              is_transferred: false
-            })
-
-          if (!error) {
-            createdCount++
-          }
-        } catch (error) {
-          console.warn('미션 생성 실패:', template.title, error)
+      try {
+        // 🔑 핵심: 각 자녀별로 개별 템플릿 조회
+        const userTemplates = await this.getFamilyMissionTemplates(userId);
+        const dailyTemplates = userTemplates.filter(t => t.missionType === 'daily' && t.isActive);
+        
+        console.log(`👤 사용자 ${userId}의 템플릿 조회:`, {
+          전체템플릿: userTemplates.length,
+          데일리템플릿: dailyTemplates.length,
+          공용템플릿: dailyTemplates.filter(t => t.targetChildId === null).length,
+          전용템플릿: dailyTemplates.filter(t => t.targetChildId === userId).length
+        });
+        
+        if (dailyTemplates.length === 0) {
+          console.log(`❌ 사용자 ${userId}의 활성 데일리 템플릿이 없습니다.`);
+          continue;
         }
+        
+        // 🚨 안전장치: 데일리 템플릿이 너무 많으면 최대 5개로 제한
+        const limitedTemplates = dailyTemplates.slice(0, 5);
+        if (dailyTemplates.length > 5) {
+          console.log(`⚠️ 사용자 ${userId} 템플릿 개수 제한: ${dailyTemplates.length}개 → 5개로 제한`);
+        }
+
+        // 해당 사용자의 템플릿으로만 미션 생성
+        for (const template of limitedTemplates) {
+          try {
+            // 반복 패턴 확인 - 해당 날짜에 미션을 생성해야 하는지 체크
+            const pattern = template.recurringPattern || 'daily';
+            const shouldCreate = shouldCreateMissionForDate(date, pattern);
+            
+            // 🔍 상세한 패턴 디버깅 로그 추가
+            console.log(`🔍 패턴 체크: ${template.title}`);
+            console.log(`   날짜: ${date} (요일: ${new Date(date + 'T00:00:00').getDay()})`);
+            console.log(`   패턴: ${pattern}`);
+            console.log(`   생성 여부: ${shouldCreate}`);
+            
+            if (!shouldCreate) {
+              console.log(`❌ 반복 패턴으로 스킵: ${template.title} (${pattern}, ${date})`);
+              continue;
+            } else {
+              console.log(`✅ 패턴 통과: ${template.title} - 미션 생성 진행`);
+            }
+
+            // 중복 미션 체크
+            const { data: existingMission } = await this.supabase
+              .from('mission_instances')
+              .select('id')
+              .eq('user_id', userId)
+              .eq('template_id', template.id)
+              .eq('date', date)
+              .single();
+
+            if (existingMission) {
+              console.log(`이미 존재하는 미션 스킵: ${template.title} (${userId})`);
+              continue;
+            }
+
+            const { error } = await this.supabase
+              .from('mission_instances')
+              .insert({
+                user_id: userId,
+                template_id: template.id,
+                date,
+                title: template.title,
+                description: template.description,
+                reward: template.reward,
+                category: template.category,
+                mission_type: 'daily',
+                recurring_pattern: template.recurringPattern,
+                is_completed: false,
+                is_transferred: false
+              });
+
+            if (!error) {
+              createdCount++;
+              console.log(`✅ 미션 생성 성공: ${template.title} (사용자: ${userId})`);
+            } else {
+              console.error(`❌ 미션 생성 DB 오류: ${template.title}`, error);
+            }
+          } catch (error) {
+            console.warn(`⚠️ 미션 생성 실패: ${template.title} (사용자: ${userId})`, error);
+          }
+        }
+      } catch (userError) {
+        console.error(`❌ 사용자 ${userId}의 미션 생성 중 오류:`, userError);
       }
     }
 
-    console.log(`✨ ${createdCount}개의 데일리 미션 생성됨`)
-    return createdCount
+    console.log(`✨ ${createdCount}개의 데일리 미션 생성됨`);
+    return createdCount;
   }
 
   /**
@@ -779,6 +925,7 @@ export class MissionSupabaseService {
   private convertSupabaseToTemplate(supabaseData: SupabaseMissionTemplate): MissionTemplate {
     return {
       id: supabaseData.id,
+      userId: supabaseData.user_id,
       title: supabaseData.title,
       description: supabaseData.description || '',
       reward: supabaseData.reward,
@@ -786,6 +933,7 @@ export class MissionSupabaseService {
       missionType: supabaseData.mission_type,
       recurringPattern: supabaseData.recurring_pattern,
       isActive: supabaseData.is_active,
+      targetChildId: supabaseData.target_child_id || null,
       createdAt: supabaseData.created_at,
       updatedAt: supabaseData.updated_at
     }
