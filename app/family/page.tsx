@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/components/auth/AuthProvider'
 import familyService from '@/lib/services/familyService'
 import { FamilyWithMembers } from '@/lib/types/family'
-import { Copy, Users, Settings, RefreshCw, Crown, Heart } from 'lucide-react'
+import { Copy, Users, Settings, Crown, Heart } from 'lucide-react'
 import { ProfileImageUpload } from '@/components/family/ProfileImageUpload'
 import { SwipeableProfileCard } from '@/components/family/SwipeableProfileCard'
 import { EventDayCounter } from '@/components/family/EventDayCounter'
@@ -48,21 +48,6 @@ export default function FamilyPage() {
     }
   }
 
-  const regenerateFamilyCode = async () => {
-    if (!family) return
-    
-    const confirmed = confirm('🔄 정말 가족 코드를 새로 만들까요?\n기존 코드는 사용할 수 없게 됩니다.')
-    if (!confirmed) return
-
-    try {
-      const newCode = await familyService.regenerateFamilyCode(family.id)
-      setFamily({ ...family, family_code: newCode })
-      alert('🎉 새로운 가족 코드가 만들어졌어요!')
-    } catch (error) {
-      console.error('가족 코드 재생성 오류:', error)
-      alert('😅 가족 코드 재생성에 실패했어요. 다시 시도해주세요.')
-    }
-  }
 
   // 역할별 이모지 반환
   const getRoleEmoji = (role: string) => {
@@ -84,10 +69,6 @@ export default function FamilyPage() {
     }
   }
 
-  // 현재 사용자가 부모인지 확인
-  const isParent = family?.members.find(member => 
-    member.user_id === user?.id && ['father', 'mother'].includes(member.role)
-  )
 
   if (!user || !profile) {
     return (
@@ -184,15 +165,6 @@ export default function FamilyPage() {
                   </button>
                 </div>
                 
-                {isParent && (
-                  <button
-                    onClick={regenerateFamilyCode}
-                    className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-all mx-auto"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                    새 코드 만들기
-                  </button>
-                )}
               </div>
             </div>
           </div>
