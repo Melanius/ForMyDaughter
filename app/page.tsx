@@ -223,6 +223,17 @@ function MissionPageContent() {
     initializeParentTemplates()
   }, [profile?.id]) // profile.id가 변경될 때만 실행 (로그인/로그아웃시에만)
 
+  // 사용자 타입 변경 시 모든 모달 상태 초기화
+  useEffect(() => {
+    // 모든 모달 상태 초기화
+    setShowAddModal(false)
+    setShowActionModal(false)
+    setShowProposalForm(false)
+    setShowProposalManager(false)
+    setShowProposalNotification(false)
+    setEditingMission(null)
+  }, [profile?.user_type])
+
   // 부모 로그인 시 대기 중인 제안 알림
   useEffect(() => {
     if (profile?.user_type === 'parent' && pendingProposals.length > 0 && !isLoadingProposals) {
@@ -409,7 +420,10 @@ function MissionPageContent() {
     if (profile?.user_type === 'parent') {
       setShowActionModal(true)
     } else {
-      // 자녀는 미션 제안 폼 열기
+      // 자녀는 미션 제안 폼 열기 - 다른 모달들 상태 초기화
+      setShowAddModal(false)
+      setShowActionModal(false)
+      setEditingMission(null)
       setShowProposalForm(true)
     }
   }, [profile?.user_type])
@@ -584,14 +598,16 @@ function MissionPageContent() {
       
       
       {/* Action Selection Modal (부모용) */}
-      <ActionSelectionModal
-        isOpen={showActionModal}
-        onClose={() => setShowActionModal(false)}
-        onSelectAddMission={() => handleActionSelect('mission')}
-        onSelectCreateTemplate={() => handleActionSelect('template')}
-        onSelectManageProposals={() => handleActionSelect('proposals')}
-        pendingProposalsCount={pendingProposals?.length || 0}
-      />
+      {profile?.user_type === 'parent' && (
+        <ActionSelectionModal
+          isOpen={showActionModal}
+          onClose={() => setShowActionModal(false)}
+          onSelectAddMission={() => handleActionSelect('mission')}
+          onSelectCreateTemplate={() => handleActionSelect('template')}
+          onSelectManageProposals={() => handleActionSelect('proposals')}
+          pendingProposalsCount={pendingProposals?.length || 0}
+        />
+      )}
 
       {/* 축하 모달 (자녀용) */}
       {profile?.user_type === 'child' && (
