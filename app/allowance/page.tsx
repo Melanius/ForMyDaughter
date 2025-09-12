@@ -10,6 +10,7 @@ import { useSelectedChild } from '@/lib/contexts/ChildSelectionContext'
 import ChildSelector from '@/components/child-selection/ChildSelector'
 import { getTodayKST } from '@/lib/utils/dateUtils'
 import { allowanceLogger } from '@/lib/utils/logger'
+import AllowanceRequestButton from '../../components/allowance/AllowanceRequestButton'
 
 // Lazy loading을 일시적으로 비활성화하고 직접 import
 import AddTransactionModal from '../../components/allowance/AddTransactionModal'
@@ -286,6 +287,18 @@ export default function AllowancePage() {
             
             {/* 자녀 선택 섹션 (부모용) */}
             <ChildSelector />
+            
+            {/* 받을 수 있는 용돈 섹션 (자녀용 - 최상단) */}
+            {profile?.user_type === 'child' && selectedChildId && (
+              <AllowanceRequestButton 
+                userId={selectedChildId}
+                onRequestSent={(amount, missions) => {
+                  console.log('용돈 요청 완료:', { amount, missions })
+                  // 데이터 새로고침
+                  loadData()
+                }}
+              />
+            )}
             
             {/* 내 지갑 섹션 */}
             {displayedStatistics && (

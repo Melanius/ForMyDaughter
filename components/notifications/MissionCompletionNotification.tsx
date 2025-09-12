@@ -75,10 +75,10 @@ export default function MissionCompletionNotification({
           const childTodayMissions = todayMissions.filter(m => m.userId === child.id)
           const todayDailyMissions = childTodayMissions.filter(m => m.missionType === 'daily')
           
-          // 오늘의 모든 데일리 미션이 완료되었는지 확인
+          // 오늘의 모든 데일리 미션이 완료되었는지 확인 (이벤트 미션은 별도로 정산 가능하므로 데일리만 체크)
           const todayAllCompleted = todayDailyMissions.length > 0 && 
             todayDailyMissions.every(m => m.isCompleted) &&
-            todayDailyMissions.some(m => !m.isTransferred) // 아직 전달되지 않은 미션이 있음
+            childTodayMissions.some(m => !m.isTransferred) // 데일리든 이벤트든 아직 전달되지 않은 미션이 있음
           
           if (todayAllCompleted) {
             // 🎯 당일 미션 완료 시: 모든 대기 중인 미션 함께 정산
@@ -140,7 +140,7 @@ export default function MissionCompletionNotification({
         const dayMissions = await missionSupabaseService.getFamilyMissionInstances(dateStr)
         
         const pendingMissions = dayMissions
-          .filter(m => m.userId === userId && m.isCompleted && !m.isTransferred && m.missionType === 'daily')
+          .filter(m => m.userId === userId && m.isCompleted && !m.isTransferred)
           .map(mission => ({
             id: mission.id,
             userId: mission.userId || userId,
