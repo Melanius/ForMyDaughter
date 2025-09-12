@@ -1,5 +1,6 @@
 import './globals.css'
 import { AuthProvider } from '@/components/auth/AuthProvider'
+import { ChildSelectionProvider } from '@/lib/contexts/ChildSelectionContext'
 import { NavigationBar } from '@/components/layout/NavBar'
 import { MobileBottomNav } from '@/components/navigation/MobileBottomNav'
 import { ErrorBoundary } from '@/components/error/ErrorBoundary'
@@ -28,13 +29,15 @@ export default function RootLayout({
         <ErrorBoundary>
           <QueryProvider>
             <AuthProvider>
-              <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
-                <NavigationBar />
-                <main>
-                  {children}
-                </main>
-                <MobileBottomNav />
-              </div>
+              <ChildSelectionProvider>
+                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+                  <NavigationBar />
+                  <main>
+                    {children}
+                  </main>
+                  <MobileBottomNav />
+                </div>
+              </ChildSelectionProvider>
             </AuthProvider>
           </QueryProvider>
         </ErrorBoundary>

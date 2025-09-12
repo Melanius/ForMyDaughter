@@ -54,11 +54,18 @@ class SyncService {
       window.addEventListener('storage', (event) => {
         if (event.key === this.storageKey && event.newValue) {
           try {
-            const payload: MissionSyncPayload = JSON.parse(event.newValue)
+            // 빈 문자열이나 공백 문자열 체크
+            const cleanValue = event.newValue.trim()
+            if (!cleanValue) {
+              console.warn('⚠️ localStorage에서 빈 값 감지, 무시함')
+              return
+            }
+            
+            const payload: MissionSyncPayload = JSON.parse(cleanValue)
             console.log('📦 localStorage 동기화 이벤트 수신:', payload)
             this.notifyListeners(payload)
           } catch (error) {
-            console.error('❌ localStorage 이벤트 파싱 실패:', error)
+            console.error('❌ localStorage 이벤트 파싱 실패:', error, 'Raw value:', event.newValue)
           }
         }
       })

@@ -6,6 +6,8 @@ import { AllowanceTransaction, AllowanceStatistics, INCOME_CATEGORIES, EXPENSE_C
 import allowanceSupabaseService from '../../lib/services/allowanceSupabase'
 import enhancedSyncService from '../../lib/services/enhancedSync'
 import { useAuth } from '../../components/auth/AuthProvider'
+import { useSelectedChild } from '@/lib/contexts/ChildSelectionContext'
+import ChildSelector from '@/components/child-selection/ChildSelector'
 import { getTodayKST } from '@/lib/utils/dateUtils'
 import { allowanceLogger } from '@/lib/utils/logger'
 
@@ -17,6 +19,7 @@ import { FloatingActionButton } from '../../components/ui/FloatingActionButton'
 
 export default function AllowancePage() {
   const { profile } = useAuth()
+  const selectedChildId = useSelectedChild()
   const [transactions, setTransactions] = useState<AllowanceTransaction[]>([])
   const [statistics, setStatistics] = useState<AllowanceStatistics | null>(null)
   const [loading, setLoading] = useState(true)
@@ -38,7 +41,18 @@ export default function AllowancePage() {
 
   // 데이터 로딩
   const loadData = useCallback(async () => {
-    if (!profile?.id) return
+    console.log('🚀 [DEBUG] loadData 호출됨:', { 
+      hasProfile: !!profile?.id, 
+      hasSelectedChildId: !!selectedChildId,
+      profileId: profile?.id?.substring(0, 8),
+      selectedChildId: selectedChildId?.substring(0, 8),
+      profileUserType: profile?.user_type
+    })
+
+    if (!profile?.id || !selectedChildId) {
+      console.log('❌ [DEBUG] loadData 조기 종료 - 필수 값 부재')
+      return
+    }
 
     try {
       setLoading(true)
@@ -48,18 +62,65 @@ export default function AllowancePage() {
       const startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
       const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
       
-      allowanceLogger.log('📊 지갑 데이터 로딩 시작:', { userId: profile.id, startDate, endDate })
+      allowanceLogger.log('📊 지갑 데이터 로딩 시작:', { userId: profile.id, selectedChildId, startDate, endDate })
+      console.log('🔍 [DEBUG] allowanceSupabaseService 호출 직전:', {
+        targetUserId: selectedChildId.substring(0, 8),
+        method: 'getFamilyTransactions'
+      })
 
-      // 병렬로 데이터 로딩
+      // 자녀 지갑 초기화 (필요시)
+      try {
+        await allowanceSupabaseService.initializeChildWallet(selectedChildId, 0)
+      } catch (initError) {
+        console.warn('⚠️ 자녀 지갑 초기화 실패 (계속 진행):', initError)
+      }
+
+      // 병렬로 데이터 로딩 (선택된 자녀 ID로)
       const [transactionsResult, statisticsResult] = await Promise.all([
-        allowanceSupabaseService.getFamilyTransactions(),
-        allowanceSupabaseService.getStatistics()
+        allowanceSupabaseService.getFamilyTransactions(selectedChildId),
+        allowanceSupabaseService.getStatistics(selectedChildId)
       ])
 
       allowanceLogger.log('📊 지갑 데이터 로딩 완료:', {
+        selectedChildId: selectedChildId?.substring(0, 8),
         transactions: transactionsResult.length,
         statistics: statisticsResult
       })
+
+      console.log('✅ [DEBUG] 데이터 로딩 결과:', {
+        selectedChildId: selectedChildId?.substring(0, 8),
+        transactionCount: transactionsResult.length,
+        hasStatistics: !!statisticsResult,
+        firstTransaction: transactionsResult[0] ? {
+          id: transactionsResult[0].id.substring(0, 8),
+          date: transactionsResult[0].date,
+          amount: transactionsResult[0].amount,
+          type: transactionsResult[0].type,
+          category: transactionsResult[0].category
+        } : null
+      })
+
+      // 🔧 임시 테스트: 거래가 없는 자녀에게 테스트 데이터 추가
+      if (transactionsResult.length === 0 && selectedChildId) {
+        console.log('🧪 [TEST] 거래내역이 없으므로 테스트 데이터 추가 시도...')
+        try {
+          await allowanceSupabaseService.addMissionIncomeForUser(
+            selectedChildId, 
+            'test-mission', 
+            1000, 
+            '테스트 미션', 
+            new Date().toISOString().split('T')[0]
+          )
+          console.log('✅ [TEST] 테스트 데이터 추가 성공, 데이터 재로딩...')
+          // 데이터 재로딩
+          const [reloadTransactions] = await Promise.all([
+            allowanceSupabaseService.getFamilyTransactions(selectedChildId)
+          ])
+          console.log('📊 [TEST] 재로딩 결과:', reloadTransactions.length)
+        } catch (testError) {
+          console.log('⚠️ [TEST] 테스트 데이터 추가 실패:', testError)
+        }
+      }
 
       setAllTransactions(transactionsResult)
       // 통계는 자동으로 계산됨 (filteredStatistics useMemo로)
@@ -68,7 +129,7 @@ export default function AllowancePage() {
     } finally {
       setLoading(false)
     }
-  }, [profile?.id])
+  }, [profile?.id, selectedChildId])
 
   // 필터링된 거래 내역 계산 (Memoized for performance)
   const filteredTransactions = useMemo(() => {
@@ -222,6 +283,9 @@ export default function AllowancePage() {
       <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50">
         <div className="p-4 sm:p-8 pb-20 md:pb-8">
           <div className="max-w-4xl mx-auto">
+            
+            {/* 자녀 선택 섹션 (부모용) */}
+            <ChildSelector />
             
             {/* 내 지갑 섹션 */}
             {displayedStatistics && (
@@ -408,6 +472,7 @@ export default function AllowancePage() {
           isOpen={showAnalytics}
           onClose={() => setShowAnalytics(false)}
           statistics={displayedStatistics}
+          targetUserId={selectedChildId}
         />
       )}
 

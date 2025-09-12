@@ -9,6 +9,7 @@ interface AnalyticsModalProps {
   isOpen: boolean
   onClose: () => void
   statistics: AllowanceStatistics
+  targetUserId?: string | null
 }
 
 type PeriodType = 'current_month' | 'last_3months' | 'this_year' | 'last_year' | 'custom'
@@ -18,7 +19,7 @@ interface PeriodOption {
   label: string
 }
 
-export default function AnalyticsModal({ isOpen, onClose, statistics: initialStatistics }: AnalyticsModalProps) {
+export default function AnalyticsModal({ isOpen, onClose, statistics: initialStatistics, targetUserId }: AnalyticsModalProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>('current_month')
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false)
   const [showCustomRange, setShowCustomRange] = useState(false)
@@ -81,7 +82,7 @@ export default function AnalyticsModal({ isOpen, onClose, statistics: initialSta
         }
       }
       
-      const newStats = await allowanceSupabaseService.getStatistics(params)
+      const newStats = await allowanceSupabaseService.getStatistics(params, targetUserId || undefined)
       setStatistics(newStats)
     } catch (error) {
       console.error('통계 로드 실패:', error)

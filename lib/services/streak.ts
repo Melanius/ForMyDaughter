@@ -259,7 +259,12 @@ class StreakService {
       if (error && error.code !== 'PGRST116') {
         // 테이블이 없거나 접근 권한이 없는 경우 기본값 반환
         if (error.code === 'PGRST205' || error.message?.includes('Could not find the table')) {
-          console.warn('⚠️ reward_settings 테이블을 찾을 수 없음 - 기본값 사용')
+          // 세션 당 한 번만 경고 메시지 표시
+          if (!window.sessionStorage?.getItem('reward_settings_warning_shown')) {
+            console.info('ℹ️ 보상 시스템이 아직 설정되지 않았습니다. 기본 설정을 사용합니다.')
+            console.info('💡 관리자: supabase/migrations/create_reward_system.sql 마이그레이션을 실행하세요.')
+            window.sessionStorage?.setItem('reward_settings_warning_shown', 'true')
+          }
           return {
             user_id: userId,
             streak_target: 7,

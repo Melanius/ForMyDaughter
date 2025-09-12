@@ -361,13 +361,79 @@ export class AllowanceSupabaseService {
     const familyConnectionId = await this.getApprovedFamilyConnectionId()
     
     if (!familyConnectionId) {
-      console.log('⚠️ 승인된 가족 연결이 없습니다. 개인 거래만 조회합니다.')
+      console.log('⚠️ 승인된 가족 연결이 없습니다. profiles.parent_id 관계로 조회합니다.')
       const { profile } = await this.getCurrentUserWithParent()
       
+      // targetUserId가 있으면 권한 검증 후 해당 사용자의 거래 조회
+      if (targetUserId) {
+        console.log('🔍 [DEBUG] 권한 검증 시작:', {
+          currentUserId: profile.id.substring(0, 8),
+          currentUserType: profile.user_type,
+          targetUserId: targetUserId.substring(0, 8)
+        })
+        
+        // 부모인 경우: 자녀의 거래를 조회할 권한 검증
+        if (profile.user_type === 'parent') {
+          const { data: targetProfile, error: profileError } = await this.supabase
+            .from('profiles')
+            .select('id, parent_id, user_type, full_name')
+            .eq('id', targetUserId)
+            .single()
+            
+          console.log('🔍 [DEBUG] 대상 프로필 조회 결과:', {
+            targetProfile,
+            profileError,
+            hasTargetProfile: !!targetProfile
+          })
+            
+          if (profileError) {
+            console.error('❌ 대상 프로필 조회 실패:', profileError)
+            return []
+          }
+            
+          if (!targetProfile) {
+            console.warn('⚠️ 대상 프로필을 찾을 수 없음:', targetUserId.substring(0, 8))
+            return []
+          }
+          
+          console.log('🔍 [DEBUG] 부모-자녀 관계 검증:', {
+            targetParentId: targetProfile.parent_id?.substring(0, 8),
+            currentParentId: profile.id.substring(0, 8),
+            isMatch: targetProfile.parent_id === profile.id
+          })
+          
+          if (targetProfile.parent_id !== profile.id) {
+            console.warn('⚠️ 부모가 권한 없는 자녀의 거래 조회 시도:', {
+              targetUserId: targetUserId.substring(0, 8),
+              targetParentId: targetProfile.parent_id?.substring(0, 8),
+              currentParentId: profile.id.substring(0, 8)
+            })
+            return []
+          }
+          
+          console.log('✅ [FALLBACK] profiles.parent_id로 자녀 거래 조회 승인:', {
+            parentId: profile.id.substring(0, 8),
+            childId: targetUserId.substring(0, 8),
+            childName: targetProfile.full_name
+          })
+        }
+        // 자녀인 경우: 본인 거래만 조회 가능
+        else if (targetUserId !== profile.id) {
+          console.warn('⚠️ 자녀가 다른 사용자의 거래 조회 시도:', {
+            currentUserId: profile.id.substring(0, 8),
+            targetUserId: targetUserId.substring(0, 8)
+          })
+          return []
+        }
+      }
+      
+      const userId = targetUserId || profile.id
+      
+      // NULL family_connection_id 거래들도 포함해서 조회
       const { data: transactions, error } = await this.supabase
         .from('allowance_transactions')
         .select('*')
-        .eq('user_id', profile.id)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
         
       if (error) {
@@ -375,18 +441,37 @@ export class AllowanceSupabaseService {
         return []
       }
       
+      console.log('📊 [FALLBACK] 조회된 거래 수:', transactions?.length || 0, {
+        userId: userId.substring(0, 8),
+        targetUserId: targetUserId?.substring(0, 8) || 'all',
+        transactions: transactions?.slice(0, 2).map(t => ({
+          id: t.id.substring(0, 8),
+          user_id: t.user_id.substring(0, 8),
+          amount: t.amount,
+          type: t.type,
+          date: t.date
+        })) || []
+      })
       return (transactions || []).map(this.convertSupabaseToTransaction)
     }
 
     console.log('🔗 [DEBUG] 가족 거래 조회:', {
-      familyConnectionId: familyConnectionId.substring(0, 8)
+      familyConnectionId: familyConnectionId.substring(0, 8),
+      targetUserId: targetUserId?.substring(0, 8) || 'all'
     })
 
-    const { data: transactions, error } = await this.supabase
+    // 쿼리 빌더 시작
+    let query = this.supabase
       .from('allowance_transactions')
       .select('*')
       .eq('family_connection_id', familyConnectionId)
-      .order('created_at', { ascending: false })
+
+    // targetUserId가 지정된 경우 해당 사용자의 거래만 필터링
+    if (targetUserId) {
+      query = query.eq('user_id', targetUserId)
+    }
+
+    const { data: transactions, error } = await query.order('created_at', { ascending: false })
 
     console.log('🔗 [DEBUG] 가족 거래 쿼리 결과:', {
       hasError: !!error,
@@ -466,46 +551,9 @@ export class AllowanceSupabaseService {
       description: transaction.description
     })
 
-    // 💰 allowance_balances 테이블 업데이트
-    try {
-      const userId = (user as { id: string }).id
-      const { data: currentBalance } = await this.supabase
-        .from('allowance_balances')
-        .select('current_balance')
-        .eq('user_id', userId)
-        .single()
-
-      const currentAmount = currentBalance?.current_balance || 0
-      const newBalance = transaction.type === 'income' 
-        ? currentAmount + transaction.amount 
-        : currentAmount - transaction.amount
-
-      console.log('💰 [DEBUG] 잔액 업데이트:', {
-        userId,
-        currentAmount,
-        transactionAmount: transaction.amount,
-        transactionType: transaction.type,
-        newBalance
-      })
-
-      const { error: balanceError } = await this.supabase
-        .from('allowance_balances')
-        .upsert({
-          user_id: userId,
-          current_balance: newBalance,
-          updated_at: nowKST()
-        }, {
-          onConflict: 'user_id'
-        })
-
-      if (balanceError) {
-        console.error('❌ 잔액 업데이트 실패:', balanceError)
-      } else {
-        console.log('✅ 잔액 업데이트 성공:', newBalance)
-      }
-    } catch (balanceUpdateError) {
-      console.error('❌ 잔액 업데이트 중 오류:', balanceUpdateError)
-    }
+    // 🔧 [임시] allowance_balances 테이블 업데이트 제거 (스키마 오류 방지)
+    // 잔액은 getCurrentBalance()에서 거래내역 기반으로 실시간 계산됨
+    console.log('💰 [임시] 잔액 테이블 업데이트 건너뜀 - 거래내역 기반 계산 사용')
 
     // 🔄 실시간 동기화 알림 (family_connection_id 기반)
     try {
@@ -715,8 +763,8 @@ export class AllowanceSupabaseService {
   /**
    * 📊 기간별 거래 내역 조회
    */
-  async getTransactionsInRange(startDate: string, endDate: string): Promise<AllowanceTransaction[]> {
-    const transactions = await this.getFamilyTransactions()
+  async getTransactionsInRange(startDate: string, endDate: string, targetUserId?: string): Promise<AllowanceTransaction[]> {
+    const transactions = await this.getFamilyTransactions(targetUserId)
     return transactions.filter(t => t.date >= startDate && t.date <= endDate)
   }
 
@@ -727,26 +775,9 @@ export class AllowanceSupabaseService {
     const { user } = await this.getCurrentUser()
     const userId = (user as { id: string }).id
     
-    // allowance_balances 테이블에서 직접 조회 (빠르고 정확)
-    const { data: balanceData, error: balanceError } = await this.supabase
-      .from('allowance_balances')
-      .select('current_balance')
-      .eq('user_id', userId)
-      .single()
+    console.log('💰 [임시] getCurrentBalance - 거래 내역 기반 계산 시작')
 
-    console.log('💰 [DEBUG] getCurrentBalance 조회:', {
-      userId,
-      hasBalanceData: !!balanceData,
-      balance: balanceData?.current_balance,
-      error: balanceError?.message
-    })
-
-    if (!balanceError && balanceData) {
-      return balanceData.current_balance || 0
-    }
-
-    // allowance_balances에 데이터가 없으면 거래내역으로 계산 후 저장
-    console.log('💰 [DEBUG] allowance_balances에 데이터 없음, 거래내역으로 계산 중...')
+    // 🔧 임시 해결책: allowance_balances 의존성 제거, 직접 거래내역으로 계산
     const transactions = await this.getFamilyTransactions()
     const today = getTodayKST()
 
@@ -760,43 +791,23 @@ export class AllowanceSupabaseService {
 
     const calculatedBalance = totalIncome - totalExpense
 
-    // 계산된 잔액을 allowance_balances에 저장
-    try {
-      await this.supabase
-        .from('allowance_balances')
-        .upsert({
-          user_id: userId,
-          current_balance: calculatedBalance,
-          updated_at: nowKST()
-        }, {
-          onConflict: 'user_id'
-        })
-      
-      console.log('💰 [DEBUG] 초기 잔액 저장 완료:', calculatedBalance)
-    } catch (upsertError) {
-      console.error('❌ 초기 잔액 저장 실패:', upsertError)
-    }
+    console.log('💰 [임시] 잔액 계산 완료:', {
+      userId: userId.substring(0, 8),
+      totalIncome,
+      totalExpense,
+      calculatedBalance,
+      transactionCount: transactions.length
+    })
 
     return calculatedBalance
   }
 
   /**
    * 💰 특정 사용자의 현재 잔액 조회 (부모-자녀 동기화용)
+   * 🔧 임시 해결책: allowance_balances 테이블 완전 우회, 거래내역 기반 계산만 사용
    */
   async getCurrentBalanceForUser(userId: string): Promise<number> {
-    // allowance_balances 테이블에서 직접 조회
-    const { data: balanceData, error: balanceError } = await this.supabase
-      .from('allowance_balances')
-      .select('current_balance')
-      .eq('user_id', userId)
-      .single()
-
-    if (!balanceError && balanceData) {
-      return balanceData.current_balance || 0
-    }
-
-    // 잔액 테이블에 데이터가 없으면 거래내역으로 계산
-    console.log('잔액 테이블에 데이터 없음, 거래내역으로 계산...')
+    console.log('💰 [임시] getCurrentBalanceForUser - 거래내역 기반 계산 시작')
     
     const { data: transactions, error } = await this.supabase
       .from('allowance_transactions')
@@ -821,20 +832,12 @@ export class AllowanceSupabaseService {
 
     const calculatedBalance = totalIncome - totalExpense
 
-    // 계산된 잔액을 allowance_balances 테이블에 저장
-    try {
-      await this.supabase
-        .from('allowance_balances')
-        .upsert({
-          user_id: userId,
-          current_balance: calculatedBalance,
-          updated_at: nowKST()
-        }, {
-          onConflict: 'user_id'
-        })
-    } catch (upsertError) {
-      console.error('잔액 테이블 업데이트 실패:', upsertError)
-    }
+    console.log('💰 [임시] getCurrentBalanceForUser 계산 완료:', {
+      userId: userId.substring(0, 8),
+      totalIncome,
+      totalExpense,
+      calculatedBalance
+    })
 
     return calculatedBalance
   }
@@ -846,10 +849,13 @@ export class AllowanceSupabaseService {
     type?: 'preset' | 'custom'
     preset?: 'current_month' | 'last_3months' | 'this_year' | 'last_year'
     custom?: { startMonth: string, endMonth: string } // 'YYYY-MM' format
-  }): Promise<AllowanceStatistics> {
+  }, targetUserId?: string): Promise<AllowanceStatistics> {
     try {
       const now = new Date()
-      const currentBalance = await this.getCurrentBalance()
+      // targetUserId가 있으면 해당 사용자의 잔액, 없으면 현재 사용자 잔액
+      const currentBalance = targetUserId 
+        ? await this.getCurrentBalanceForUser(targetUserId)
+        : await this.getCurrentBalance()
       
       // 기본값: 이번 달
       const defaultParams = { type: 'preset' as const, preset: 'current_month' as const }
@@ -869,7 +875,7 @@ export class AllowanceSupabaseService {
         const lastDay = new Date(endYear, endMonthNum, 0).getDate()
         const endDate = `${endMonth}-${lastDay.toString().padStart(2, '0')}`
         
-        transactions = await this.getTransactionsInRange(startDate, endDate)
+        transactions = await this.getTransactionsInRange(startDate, endDate, targetUserId)
         periodLabel = `${startMonth} ~ ${endMonth}`
       } else {
         // 프리셋 기간
@@ -910,7 +916,7 @@ export class AllowanceSupabaseService {
             periodLabel = '이번 달'
         }
         
-        transactions = await this.getTransactionsInRange(startDate, endDate)
+        transactions = await this.getTransactionsInRange(startDate, endDate, targetUserId)
       }
 
       const income = transactions.filter(t => t.type === 'income')
@@ -1049,38 +1055,9 @@ export class AllowanceSupabaseService {
       throw new Error('거래를 추가할 수 없습니다.')
     }
 
-    // 🔥 핵심 수정: 자녀의 실제 잔액 업데이트
-    try {
-      // 해당 사용자의 현재 잔액 조회
-      const { data: currentBalance, error: balanceError } = await this.supabase
-        .from('allowance_balances')
-        .select('current_balance')
-        .eq('user_id', userId)
-        .single()
-
-      const newBalance = (currentBalance?.current_balance || 0) + amount
-
-      // 잔액 테이블 업데이트 (upsert 사용)
-      const { error: updateError } = await this.supabase
-        .from('allowance_balances')
-        .upsert({
-          user_id: userId,
-          current_balance: newBalance,
-          updated_at: nowKST()
-        }, {
-          onConflict: 'user_id'
-        })
-
-      if (updateError) {
-        console.error('잔액 업데이트 실패:', updateError)
-        throw new Error('잔액 업데이트에 실패했습니다.')
-      }
-
-      console.log(`💰 사용자 ${userId} 잔액 업데이트: ${currentBalance?.current_balance || 0} → ${newBalance}`)
-    } catch (balanceUpdateError) {
-      console.error('잔액 업데이트 중 오류:', balanceUpdateError)
-      // 트랜잭션은 성공했으므로 계속 진행 (잔액 업데이트 실패는 나중에 sync로 해결)
-    }
+    // 🔧 [임시] allowance_balances 테이블 업데이트 제거 (스키마 오류 방지)
+    // 잔액은 getCurrentBalanceForUser()에서 거래내역 기반으로 실시간 계산됨
+    console.log('💰 [임시] 잔액 테이블 업데이트 건너뜀 - 거래내역 기반 계산 사용')
 
     console.log('✅ 자녀 계정에 미션 수입 추가 성공:', data.id)
     return data.id
@@ -1234,6 +1211,42 @@ export class AllowanceSupabaseService {
           callback
         )
         .subscribe()
+    }
+  }
+
+  /**
+   * 🏦 자녀 초기 지갑 설정 - 임시 버전 (테이블 의존성 없음)
+   * 
+   * @param childId 자녀 사용자 ID
+   * @param initialBalance 초기 잔액 (기본: 0원)
+   */
+  async initializeChildWallet(childId: string, initialBalance: number = 0): Promise<void> {
+    console.log('🏦 [임시] 자녀 지갑 초기화 시작 (테이블 우회):', {
+      childId: childId.substring(0, 8),
+      initialBalance
+    })
+
+    try {
+      // 💡 임시 해결책: allowance_balances 테이블 생성을 건너뛰고
+      // 필요 시에만 초기 거래 내역으로 지갑 시작
+      
+      if (initialBalance > 0) {
+        console.log('💰 초기 거래 내역 생성 시도...')
+        await this.addTransaction({
+          date: getTodayKST(),
+          amount: initialBalance,
+          type: 'income',
+          category: '초기지급',
+          description: '지갑 개설 축하금'
+        })
+        console.log('✅ 초기 거래 내역 생성 완료')
+      }
+
+      console.log('✅ [임시] 자녀 지갑 초기화 완료 (거래 내역 기반)')
+
+    } catch (error) {
+      console.warn('⚠️ [임시] 자녀 지갑 초기화 실패 (정상 동작):', error instanceof Error ? error.message : error)
+      // 에러를 던지지 않고 로그만 남김 (정상 진행)
     }
   }
 

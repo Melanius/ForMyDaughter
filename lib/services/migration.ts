@@ -87,7 +87,22 @@ export class MigrationService {
         return true
       }
 
-      const missions: Mission[] = JSON.parse(missionsJson)
+      let missions: Mission[] = []
+      try {
+        const cleanMissionsJson = missionsJson.trim()
+        if (!cleanMissionsJson) {
+          console.warn('⚠️ 빈 missions 데이터, 기본 설정 생성')
+          await this.createDefaultSetup()
+          localStorage.setItem(this.MIGRATION_KEY, 'true')
+          return true
+        }
+        missions = JSON.parse(cleanMissionsJson)
+      } catch (error) {
+        console.error('❌ missions JSON 파싱 실패:', error, 'Raw data:', missionsJson)
+        await this.createDefaultSetup()
+        localStorage.setItem(this.MIGRATION_KEY, 'true')
+        return true
+      }
       const currentAllowance = currentAllowanceJson ? parseInt(currentAllowanceJson) : 7500
       
       console.log(`📊 Found ${missions.length} missions to migrate`)
@@ -216,9 +231,18 @@ export class MigrationService {
   private static async restoreFromBackup(): Promise<void> {
     const backupData = localStorage.getItem(this.BACKUP_KEY)
     if (backupData) {
-      const backup = JSON.parse(backupData)
-      if (backup.missions) localStorage.setItem('missions', backup.missions)
-      if (backup.currentAllowance) localStorage.setItem('currentAllowance', backup.currentAllowance)
+      try {
+        const cleanBackupData = backupData.trim()
+        if (!cleanBackupData) {
+          console.warn('⚠️ 빈 백업 데이터, 복원 건너뜀')
+          return
+        }
+        const backup = JSON.parse(cleanBackupData)
+        if (backup.missions) localStorage.setItem('missions', backup.missions)
+        if (backup.currentAllowance) localStorage.setItem('currentAllowance', backup.currentAllowance)
+      } catch (error) {
+        console.error('❌ 백업 데이터 파싱 실패:', error, 'Raw data:', backupData)
+      }
     }
   }
 
@@ -236,7 +260,19 @@ export class MigrationService {
   // 백업 데이터 확인
   static getBackupData(): unknown {
     const backup = localStorage.getItem(this.BACKUP_KEY)
-    return backup ? JSON.parse(backup) : null
+    if (!backup) return null
+    
+    try {
+      const cleanBackup = backup.trim()
+      if (!cleanBackup) {
+        console.warn('⚠️ 빈 백업 데이터')
+        return null
+      }
+      return JSON.parse(cleanBackup)
+    } catch (error) {
+      console.error('❌ 백업 데이터 파싱 실패:', error, 'Raw data:', backup)
+      return null
+    }
   }
 }
 
