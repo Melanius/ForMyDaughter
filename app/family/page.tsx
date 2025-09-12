@@ -5,12 +5,17 @@ import { useAuth } from '@/components/auth/AuthProvider'
 import familyService from '@/lib/services/familyService'
 import { FamilyWithMembers } from '@/lib/types/family'
 import { Copy, Users, Settings, RefreshCw, Crown, Heart } from 'lucide-react'
+import { ProfileImageUpload } from '@/components/family/ProfileImageUpload'
+import { SwipeableProfileCard } from '@/components/family/SwipeableProfileCard'
+import { EventDayCounter } from '@/components/family/EventDayCounter'
+import { EventManageModal } from '@/components/family/EventManageModal'
 
 export default function FamilyPage() {
   const { user, profile } = useAuth()
   const [family, setFamily] = useState<FamilyWithMembers | null>(null)
   const [loading, setLoading] = useState(true)
   const [copySuccess, setCopySuccess] = useState(false)
+  const [showEventModal, setShowEventModal] = useState(false)
 
   useEffect(() => {
     if (user && profile) {
@@ -155,19 +160,23 @@ export default function FamilyPage() {
             
             <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6">
               <div className="text-center">
-                <p className="text-gray-600 mb-2">친구나 형제가 우리 가족에 참여할 때 사용해요</p>
-                <div className="flex items-center justify-center gap-4 mb-4">
+                <p className="text-gray-600 mb-4">친구나 형제가 우리 가족에 참여할 때 사용해요</p>
+                <div className="flex justify-center mb-6">
                   <div className="bg-white rounded-lg px-6 py-3 border-2 border-dashed border-gray-300">
                     <span className="text-2xl font-mono font-bold text-blue-600">
                       {family.family_code}
                     </span>
                   </div>
+                </div>
+                
+                {/* 복사 버튼을 하단 중앙으로 이동 */}
+                <div className="flex justify-center mb-4">
                   <button
                     onClick={copyFamilyCode}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                    className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all transform hover:scale-105 ${
                       copySuccess 
-                        ? 'bg-green-500 text-white' 
-                        : 'bg-blue-500 hover:bg-blue-600 text-white'
+                        ? 'bg-green-500 text-white shadow-lg' 
+                        : 'bg-blue-500 hover:bg-blue-600 text-white shadow-lg hover:shadow-xl'
                     }`}
                   >
                     <Copy className="w-4 h-4" />
@@ -197,40 +206,25 @@ export default function FamilyPage() {
               </h2>
             </div>
             
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {family.members.map((member) => (
-                <div
-                  key={member.id}
-                  className={`bg-gradient-to-br rounded-xl p-4 border-2 transition-all ${
-                    member.user_id === user?.id
-                      ? 'from-yellow-100 to-orange-100 border-orange-300 shadow-lg' 
-                      : 'from-gray-50 to-gray-100 border-gray-200'
-                  }`}
-                >
-                  <div className="text-center">
-                    <div className="text-4xl mb-2">
-                      {getRoleEmoji(member.role)}
-                    </div>
-                    <h3 className="font-bold text-lg text-gray-800 mb-1">
-                      {member.profile.full_name}
-                      {member.nickname && ` (${member.nickname})`}
-                    </h3>
-                    <div className="flex items-center justify-center gap-1 mb-2">
-                      {['father', 'mother'].includes(member.role) && (
-                        <Crown className="w-4 h-4 text-yellow-500" />
-                      )}
-                      <span className="text-sm font-medium text-gray-600">
-                        {getRoleText(member.role)}
-                      </span>
-                    </div>
-                    {member.user_id === user?.id && (
-                      <div className="inline-block bg-orange-200 text-orange-800 text-xs px-2 py-1 rounded-full font-medium">
-                        ✨ 나
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
+            <div className="relative">
+              <SwipeableProfileCard
+                members={family.members}
+                currentUserId={user?.id}
+                onImageUpdate={(userId, newUrl) => {
+                  // 이미지 업데이트 시 상태 갱신
+                  setFamily(prev => {
+                    if (!prev) return prev
+                    return {
+                      ...prev,
+                      members: prev.members.map(m => 
+                        m.user_id === userId 
+                          ? { ...m, profile: { ...m.profile, avatar_url: newUrl } }
+                          : m
+                      )
+                    }
+                  })
+                }}
+              />
             </div>
           </div>
 
@@ -241,36 +235,33 @@ export default function FamilyPage() {
               <h2 className="text-xl font-bold text-gray-800">가족 현황</h2>
             </div>
             
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="bg-blue-50 rounded-xl p-4 text-center">
-                <div className="text-2xl mb-2">👨‍👩‍👧‍👦</div>
-                <div className="text-2xl font-bold text-blue-600">{family.members.length}</div>
-                <div className="text-sm text-gray-600">전체 구성원</div>
+            <div className="grid grid-cols-4 gap-2 sm:gap-4">
+              <div className="bg-blue-50 rounded-lg sm:rounded-xl p-2 sm:p-4 text-center">
+                <div className="text-lg sm:text-2xl mb-1 sm:mb-2">👨‍👩‍👧‍👦</div>
+                <div className="text-lg sm:text-2xl font-bold text-blue-600">{family.members.length}</div>
+                <div className="text-xs sm:text-sm text-gray-600">전체 구성원</div>
               </div>
               
-              <div className="bg-green-50 rounded-xl p-4 text-center">
-                <div className="text-2xl mb-2">👑</div>
-                <div className="text-2xl font-bold text-green-600">
+              <div className="bg-green-50 rounded-lg sm:rounded-xl p-2 sm:p-4 text-center">
+                <div className="text-lg sm:text-2xl mb-1 sm:mb-2">👑</div>
+                <div className="text-lg sm:text-2xl font-bold text-green-600">
                   {family.members.filter(m => ['father', 'mother'].includes(m.role)).length}
                 </div>
-                <div className="text-sm text-gray-600">부모님</div>
+                <div className="text-xs sm:text-sm text-gray-600">부모님</div>
               </div>
               
-              <div className="bg-purple-50 rounded-xl p-4 text-center">
-                <div className="text-2xl mb-2">🧒</div>
-                <div className="text-2xl font-bold text-purple-600">
+              <div className="bg-purple-50 rounded-lg sm:rounded-xl p-2 sm:p-4 text-center">
+                <div className="text-lg sm:text-2xl mb-1 sm:mb-2">🧒</div>
+                <div className="text-lg sm:text-2xl font-bold text-purple-600">
                   {family.members.filter(m => m.role === 'child').length}
                 </div>
-                <div className="text-sm text-gray-600">자녀</div>
+                <div className="text-xs sm:text-sm text-gray-600">자녀</div>
               </div>
               
-              <div className="bg-yellow-50 rounded-xl p-4 text-center">
-                <div className="text-2xl mb-2">⏰</div>
-                <div className="text-2xl font-bold text-yellow-600">
-                  {new Date(family.created_at).toLocaleDateString().slice(2)}
-                </div>
-                <div className="text-sm text-gray-600">가족 시작일</div>
-              </div>
+              <EventDayCounter
+                familyId={family.id}
+                onClick={() => setShowEventModal(true)}
+              />
             </div>
           </div>
 
@@ -288,6 +279,15 @@ export default function FamilyPage() {
           </div>
         </div>
       </div>
+
+      {/* 이벤트 관리 모달 */}
+      {family && (
+        <EventManageModal
+          isOpen={showEventModal}
+          onClose={() => setShowEventModal(false)}
+          familyId={family.id}
+        />
+      )}
     </div>
   )
 }

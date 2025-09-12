@@ -24,14 +24,24 @@ export function useDailyMissionWelcome() {
   const hasCheckedToday = () => {
     const key = getStorageKey()
     if (!key) return false
-    return localStorage.getItem(key) === 'checked'
+    
+    try {
+      return localStorage.getItem(key) === 'checked'
+    } catch (error) {
+      console.warn('Failed to check daily mission status:', error)
+      return false
+    }
   }
 
   // 오늘 체크 완료 표시
   const markCheckedToday = () => {
     const key = getStorageKey()
     if (key) {
-      localStorage.setItem(key, 'checked')
+      try {
+        localStorage.setItem(key, 'checked')
+      } catch (error) {
+        console.warn('Failed to mark daily mission as checked:', error)
+      }
     }
   }
 

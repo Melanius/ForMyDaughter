@@ -51,13 +51,13 @@ export function AddMissionModal({ onClose, onAdd, editingMission, defaultDate }:
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl max-w-md w-full p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-bold text-gray-800">{editingMission ? '미션 수정' : '이벤트 미션 추가'}</h3>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
+      <div className="bg-white rounded-lg sm:rounded-xl max-w-sm sm:max-w-md w-full p-4 sm:p-6 max-h-[95vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4 sm:mb-6">
+          <h3 className="text-lg sm:text-xl font-bold text-gray-800">{editingMission ? '미션 수정' : '이벤트 미션 추가'}</h3>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-2xl"
+            className="text-gray-500 hover:text-gray-700 text-2xl min-h-[44px] min-w-[44px] flex items-center justify-center"
           >
             ×
           </button>
@@ -82,20 +82,20 @@ export function AddMissionModal({ onClose, onAdd, editingMission, defaultDate }:
             <label className="block text-sm font-medium text-gray-700 mb-3">
               카테고리 *
             </label>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
               {categories.map((cat) => (
                 <button
                   key={cat}
                   type="button"
                   onClick={() => setCategory(cat)}
-                  className={`p-3 rounded-lg border transition-all text-center ${
+                  className={`p-2 sm:p-3 rounded-lg border transition-all text-center min-h-[60px] sm:min-h-[auto] ${
                     category === cat
                       ? 'border-blue-500 bg-blue-50 text-blue-700'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
                   <div className="flex flex-col items-center space-y-1">
-                    <span className="text-lg">{getCategoryIcon(cat)}</span>
+                    <span className="text-base sm:text-lg">{getCategoryIcon(cat)}</span>
                     <span className="text-xs font-medium">{cat}</span>
                   </div>
                 </button>
@@ -133,18 +133,18 @@ export function AddMissionModal({ onClose, onAdd, editingMission, defaultDate }:
           </div>
           
           
-          <div className="flex gap-3 pt-4">
+          <div className="flex gap-2 sm:gap-3 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex-1 px-3 sm:px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors min-h-[44px] font-medium"
             >
               취소
             </button>
             <button
               type="submit"
               disabled={!title.trim() || isSubmitting}
-              className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white rounded-lg transition-colors"
+              className="flex-1 px-3 sm:px-4 py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white rounded-lg transition-colors min-h-[44px] font-medium text-sm sm:text-base"
             >
 {isSubmitting ? (editingMission ? '수정 중...' : '추가 중...') : (editingMission ? '미션 수정' : '이벤트 미션 추가')}
             </button>

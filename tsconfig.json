@@ -14,15 +14,15 @@
     "jsx": "preserve",
     "incremental": true,
     
-    // 강화된 타입 체크 옵션들 (배포를 위해 일시적으로 완화)
-    "noImplicitAny": false,
+    // 강화된 타입 체크 옵션들 (점진적 개선 - 단계별 적용)
+    "noImplicitAny": false, // 점진적 개선: 추후 true로 변경
     "noImplicitThis": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": false,
-    "exactOptionalPropertyTypes": false,
+    "noUncheckedIndexedAccess": false, // 점진적 개선: 추후 true로 변경
+    "exactOptionalPropertyTypes": false, // 점진적 개선: 추후 true로 변경
     "noImplicitOverride": true,
-    "noPropertyAccessFromIndexSignature": false,
+    "noPropertyAccessFromIndexSignature": false, // 점진적 개선: 추후 true로 변경
     
     // 추가 엄격한 체크
     "strictNullChecks": true,

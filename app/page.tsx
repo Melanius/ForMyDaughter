@@ -274,11 +274,24 @@ function MissionPageContent() {
       }
     })
 
-    // 주기적 데이터 새로고침 (Supabase 실시간 구독 대체)
+    // 주기적 데이터 새로고침 (상황별 동적 간격)
+    const getRefreshInterval = () => {
+      // 모바일 감지
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+      
+      if (profile?.user_type === 'parent') {
+        // 부모 계정: 미션 완료 알림을 빨리 받아야 함
+        return isMobile ? 60000 : 120000 // 모바일: 1분, 데스크톱: 2분
+      } else {
+        // 자녀 계정: 덜 빈번한 업데이트로 충분
+        return isMobile ? 180000 : 300000 // 모바일: 3분, 데스크톱: 5분
+      }
+    }
+    
     const refreshInterval = setInterval(() => {
       console.log('🔄 주기적 데이터 새로고침')
       queryClient.invalidateQueries({ queryKey: missionKeys.lists() })
-    }, 30000) // 30초마다 새로고침
+    }, getRefreshInterval())
 
     return () => {
       console.log('🔇 동기화 구독 해제')

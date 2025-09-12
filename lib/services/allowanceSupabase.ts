@@ -354,179 +354,100 @@ export class AllowanceSupabaseService {
   }
 
   /**
-   * 📊 가족 단위 거래 내역 조회 (family_connection_id 기반)
+   * 📊 가족 단위 거래 내역 조회 (profiles.parent_id 기반, 미션 시스템과 동일)
    * @param targetUserId - 특정 사용자의 거래만 조회 (선택적, 부모가 특정 자녀 선택 시 사용)
    */
   async getFamilyTransactions(targetUserId?: string): Promise<AllowanceTransaction[]> {
-    const familyConnectionId = await this.getApprovedFamilyConnectionId()
+    const { profile, childrenIds } = await this.getCurrentUser()
     
-    if (!familyConnectionId) {
-      console.log('⚠️ 승인된 가족 연결이 없습니다. profiles.parent_id 관계로 조회합니다.')
-      const { profile } = await this.getCurrentUserWithParent()
-      
-      // targetUserId가 있으면 권한 검증 후 해당 사용자의 거래 조회
-      if (targetUserId) {
-        console.log('🔍 [DEBUG] 권한 검증 시작:', {
-          currentUserId: profile.id.substring(0, 8),
-          currentUserType: profile.user_type,
-          targetUserId: targetUserId.substring(0, 8)
-        })
-        
-        // 부모인 경우: 자녀의 거래를 조회할 권한 검증
-        if (profile.user_type === 'parent') {
-          const { data: targetProfile, error: profileError } = await this.supabase
-            .from('profiles')
-            .select('id, parent_id, user_type, full_name')
-            .eq('id', targetUserId)
-            .single()
-            
-          console.log('🔍 [DEBUG] 대상 프로필 조회 결과:', {
-            targetProfile,
-            profileError,
-            hasTargetProfile: !!targetProfile
-          })
-            
-          if (profileError) {
-            console.error('❌ 대상 프로필 조회 실패:', profileError)
-            return []
-          }
-            
-          if (!targetProfile) {
-            console.warn('⚠️ 대상 프로필을 찾을 수 없음:', targetUserId.substring(0, 8))
-            return []
-          }
-          
-          console.log('🔍 [DEBUG] 부모-자녀 관계 검증:', {
-            targetParentId: targetProfile.parent_id?.substring(0, 8),
-            currentParentId: profile.id.substring(0, 8),
-            isMatch: targetProfile.parent_id === profile.id
-          })
-          
-          if (targetProfile.parent_id !== profile.id) {
-            console.warn('⚠️ 부모가 권한 없는 자녀의 거래 조회 시도:', {
-              targetUserId: targetUserId.substring(0, 8),
-              targetParentId: targetProfile.parent_id?.substring(0, 8),
-              currentParentId: profile.id.substring(0, 8)
-            })
-            return []
-          }
-          
-          console.log('✅ [FALLBACK] profiles.parent_id로 자녀 거래 조회 승인:', {
+    let targetUserIds: string[]
+    
+    if (targetUserId) {
+      // 특정 사용자 지정된 경우: 권한 검증 후 해당 사용자만
+      if (profile.user_type === 'parent') {
+        // 부모는 자녀들과 본인의 거래 볼 수 있음
+        const allowedUserIds = [profile.id, ...childrenIds]
+        if (allowedUserIds.includes(targetUserId)) {
+          targetUserIds = [targetUserId]
+          console.log('✅ 부모가 자녀 거래 조회:', {
             parentId: profile.id.substring(0, 8),
-            childId: targetUserId.substring(0, 8),
-            childName: targetProfile.full_name
-          })
-        }
-        // 자녀인 경우: 본인 거래만 조회 가능
-        else if (targetUserId !== profile.id) {
-          console.warn('⚠️ 자녀가 다른 사용자의 거래 조회 시도:', {
-            currentUserId: profile.id.substring(0, 8),
             targetUserId: targetUserId.substring(0, 8)
           })
+        } else {
+          console.warn('⚠️ 권한 없는 사용자 ID 접근 시도:', targetUserId.substring(0, 8))
           return []
         }
-      }
-      
-      const userId = targetUserId || profile.id
-      
-      // NULL family_connection_id 거래들도 포함해서 조회
-      const { data: transactions, error } = await this.supabase
-        .from('allowance_transactions')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        
-      if (error) {
-        console.error('❌ 개인 거래 내역 조회 실패:', error)
+      } else if (profile.id === targetUserId) {
+        // 자녀는 본인 거래만
+        targetUserIds = [profile.id]
+        console.log('✅ 자녀가 본인 거래 조회:', profile.id.substring(0, 8))
+      } else {
+        console.warn('⚠️ 자녀는 다른 사용자 거래 조회 불가:', targetUserId.substring(0, 8))
         return []
       }
-      
-      console.log('📊 [FALLBACK] 조회된 거래 수:', transactions?.length || 0, {
-        userId: userId.substring(0, 8),
-        targetUserId: targetUserId?.substring(0, 8) || 'all',
-        transactions: transactions?.slice(0, 2).map(t => ({
-          id: t.id.substring(0, 8),
-          user_id: t.user_id.substring(0, 8),
-          amount: t.amount,
-          type: t.type,
-          date: t.date
-        })) || []
-      })
-      return (transactions || []).map(this.convertSupabaseToTransaction)
+    } else {
+      // targetUserId가 없는 경우: 기존 로직 (가족 전체)
+      if (profile.user_type === 'parent') {
+        // 부모: 본인 + 모든 자녀의 거래
+        targetUserIds = [profile.id, ...childrenIds]
+        console.log('📊 부모가 가족 전체 거래 조회:', {
+          parentId: profile.id.substring(0, 8),
+          childrenCount: childrenIds.length
+        })
+      } else {
+        // 자녀: 본인 거래만
+        targetUserIds = [profile.id]
+        console.log('📊 자녀가 본인 거래만 조회:', profile.id.substring(0, 8))
+      }
     }
 
-    console.log('🔗 [DEBUG] 가족 거래 조회:', {
-      familyConnectionId: familyConnectionId.substring(0, 8),
-      targetUserId: targetUserId?.substring(0, 8) || 'all'
-    })
-
-    // 쿼리 빌더 시작
-    let query = this.supabase
+    const { data: transactions, error } = await this.supabase
       .from('allowance_transactions')
       .select('*')
-      .eq('family_connection_id', familyConnectionId)
-
-    // targetUserId가 지정된 경우 해당 사용자의 거래만 필터링
-    if (targetUserId) {
-      query = query.eq('user_id', targetUserId)
-    }
-
-    const { data: transactions, error } = await query.order('created_at', { ascending: false })
-
-    console.log('🔗 [DEBUG] 가족 거래 쿼리 결과:', {
-      hasError: !!error,
-      errorMessage: error?.message,
-      errorCode: error?.code,
-      familyConnectionId: familyConnectionId.substring(0, 8),
-      totalTransactions: transactions?.length || 0,
-      transactions: transactions?.slice(0, 3).map(t => ({
-        id: t.id.substring(0, 8),
-        user_id: t.user_id.substring(0, 8),
-        family_connection_id: t.family_connection_id?.substring(0, 8),
-        type: t.type,
-        amount: t.amount,
-        description: t.description,
-        date: t.date
-      })) || []
-    })
+      .in('user_id', targetUserIds)
+      .order('created_at', { ascending: false })
 
     if (error) {
       console.error('❌ 거래 내역 조회 실패:', error)
       return []
     }
 
+    console.log('💰 거래 조회 결과:', {
+      targetUserIds: targetUserIds.map(id => id.substring(0, 8)),
+      specificTarget: targetUserId?.substring(0, 8) || '전체',
+      totalTransactions: transactions?.length || 0,
+      transactions: transactions?.slice(0, 2).map(t => ({
+        id: t.id.substring(0, 8),
+        user_id: t.user_id.substring(0, 8),
+        amount: t.amount,
+        type: t.type,
+        date: t.date
+      })) || []
+    })
 
-    // AllowanceTransaction 형식으로 변환
     return (transactions || []).map(this.convertSupabaseToTransaction)
   }
 
   /**
-   * 💳 새 거래 추가 (family_connection_id 기반)
+   * 💳 새 거래 추가 (단순화됨, 미션 시스템과 동일)
    */
   async addTransaction(transaction: Omit<AllowanceTransaction, 'id' | 'createdAt'>): Promise<string> {
     const { user } = await this.getCurrentUser()
     const userId = (user as { id: string }).id
     
-    console.log('🔍 [DEBUG] 거래 추가 시도:', {
+    console.log('💰 거래 추가 시도:', {
       userId: userId.substring(0, 8),
-      userEmail: (user as { email: string }).email,
-      transaction: transaction
-    })
-    
-    // 가족 연결 ID 조회
-    const familyConnectionId = await this.getApprovedFamilyConnectionId()
-    
-    console.log('🔗 [DEBUG] 거래 추가용 가족 연결:', {
-      userId: userId.substring(0, 8),
-      familyConnectionId: familyConnectionId?.substring(0, 8),
-      hasConnection: !!familyConnectionId
+      amount: transaction.amount,
+      type: transaction.type,
+      category: transaction.category,
+      description: transaction.description
     })
 
     const { data, error } = await this.supabase
       .from('allowance_transactions')
       .insert({
         user_id: userId,
-        family_connection_id: familyConnectionId,
+        family_connection_id: null, // 단순화: NULL로 통일
         date: transaction.date,
         amount: transaction.amount,
         type: transaction.type,
@@ -544,60 +465,44 @@ export class AllowanceSupabaseService {
     console.log('✅ 거래 추가 성공:', {
       transactionId: data.id,
       userId: userId.substring(0, 8),
-      familyConnectionId: familyConnectionId?.substring(0, 8),
       date: transaction.date,
       amount: transaction.amount,
       type: transaction.type,
       description: transaction.description
     })
 
-    // 🔧 [임시] allowance_balances 테이블 업데이트 제거 (스키마 오류 방지)
-    // 잔액은 getCurrentBalance()에서 거래내역 기반으로 실시간 계산됨
-    console.log('💰 [임시] 잔액 테이블 업데이트 건너뜀 - 거래내역 기반 계산 사용')
-
-    // 🔄 실시간 동기화 알림 (family_connection_id 기반)
+    // 🔄 단순화된 실시간 동기화 (profiles.parent_id 기반)
     try {
-      if (familyConnectionId) {
-        // 가족 연결이 있는 경우: 같은 연결 ID를 가진 모든 사용자에게 알림
-        const { data: connections } = await this.supabase
-          .from('family_connection_requests')
-          .select('parent_id, child_id')
-          .eq('id', familyConnectionId)
-          .eq('status', 'approved')
-          .single()
-        
-        if (connections) {
-          const allFamilyMembers = [connections.parent_id, connections.child_id]
-          const notifyTargets = allFamilyMembers.filter(memberId => memberId !== userId)
-          
-          console.log('🔄 [DEBUG] 가족 실시간 동기화:', {
-            familyConnectionId: familyConnectionId.substring(0, 8),
-            allMembers: allFamilyMembers.map(id => id.substring(0, 8)),
-            notifyTargets: notifyTargets.map(id => id.substring(0, 8)),
-            transactionBy: userId.substring(0, 8)
-          })
+      const { profile, childrenIds } = await this.getCurrentUser()
+      const notifyTargets: string[] = []
+      
+      if (profile.user_type === 'parent') {
+        // 부모의 거래: 모든 자녀에게 알림
+        notifyTargets.push(...childrenIds)
+      } else if (profile.parent_id) {
+        // 자녀의 거래: 부모에게 알림
+        notifyTargets.push(profile.parent_id)
+      }
+      
+      console.log('🔄 실시간 동기화 알림:', {
+        from: userId.substring(0, 8),
+        targets: notifyTargets.map(id => id.substring(0, 8))
+      })
 
-          for (const targetUserId of notifyTargets) {
-            enhancedSyncService.notify({
-              type: 'allowance_update',
-              entityId: data.id,
-              data: {
-                transaction_id: data.id,
-                user_id: userId,
-                family_connection_id: familyConnectionId,
-                type: transaction.type,
-                amount: transaction.amount,
-                description: transaction.description,
-                date: transaction.date
-              },
-              userId: targetUserId
-            })
-            
-            console.log(`🔄 가족 실시간 알림 전송: ${targetUserId.substring(0, 8)}에게 거래 추가 알림`)
-          }
-        }
-      } else {
-        console.log('⚠️ 가족 연결이 없어 실시간 알림을 전송하지 않습니다.')
+      for (const targetUserId of notifyTargets) {
+        enhancedSyncService.notify({
+          type: 'allowance_update',
+          entityId: data.id,
+          data: {
+            transaction_id: data.id,
+            user_id: userId,
+            type: transaction.type,
+            amount: transaction.amount,
+            description: transaction.description,
+            date: transaction.date
+          },
+          userId: targetUserId
+        })
       }
     } catch (syncError) {
       console.error('❌ 실시간 동기화 알림 실패:', syncError)
@@ -985,81 +890,41 @@ export class AllowanceSupabaseService {
   }
 
   /**
-   * 💸 미션 승인 시 자녀 계정에 수입 추가 (특정 사용자 ID 지정)
+   * 💸 미션 승인 시 자녀 계정에 수입 추가 (단순화됨)
    */
   async addMissionIncomeForUser(userId: string, missionId: string, amount: number, missionTitle: string, date: string): Promise<string> {
-    // 🔗 해당 사용자의 가족 연결 ID 조회
-    console.log('🎯 [DEBUG] 미션 수입 추가:', {
+    console.log('🎯 미션 수입 추가:', {
       userId: userId.substring(0, 8),
       missionTitle,
       amount
-    })
-    
-    // 임시로 현재 인증된 사용자 정보를 저장하고 대상 사용자로 변경
-    const originalProfile = await this.getCurrentUserWithParent()
-    
-    // 대상 사용자의 가족 연결 ID 조회를 위해 임시로 프로필 설정
-    const { data: targetProfile } = await this.supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-      
-    if (!targetProfile) {
-      throw new Error('대상 사용자 프로필을 찾을 수 없습니다.')
-    }
-    
-    let familyConnectionId: string | null = null
-    
-    // 대상 사용자의 가족 연결 조회
-    if (targetProfile.user_type === 'child') {
-      const { data: connection } = await this.supabase
-        .from('family_connection_requests')
-        .select('id')
-        .eq('child_id', userId)
-        .eq('status', 'approved')
-        .single()
-      familyConnectionId = connection?.id || null
-    } else if (targetProfile.user_type === 'parent') {
-      const { data: connection } = await this.supabase
-        .from('family_connection_requests')
-        .select('id')
-        .eq('parent_id', userId)
-        .eq('status', 'approved')
-        .single()
-      familyConnectionId = connection?.id || null
-    }
-    
-    console.log('🔗 [DEBUG] 미션 수입용 가족 연결:', {
-      userId: userId.substring(0, 8),
-      userType: targetProfile.user_type,
-      familyConnectionId: familyConnectionId?.substring(0, 8)
     })
 
     const { data, error } = await this.supabase
       .from('allowance_transactions')
       .insert({
         user_id: userId,
-        family_connection_id: familyConnectionId,
+        family_connection_id: null, // 단순화: NULL로 통일
         date: date,
         amount: amount,
         type: 'income',
         category: INCOME_CATEGORIES.MISSION,
-        description: `🎯 미션 완료 - ${missionTitle}` // 초등학생 친화적 형태로 변경
+        description: `🎯 미션 완료 - ${missionTitle}`
       })
       .select('id')
       .single()
 
     if (error) {
-      console.error('거래 추가 실패:', error)
+      console.error('❌ 미션 수입 추가 실패:', error)
       throw new Error('거래를 추가할 수 없습니다.')
     }
 
-    // 🔧 [임시] allowance_balances 테이블 업데이트 제거 (스키마 오류 방지)
-    // 잔액은 getCurrentBalanceForUser()에서 거래내역 기반으로 실시간 계산됨
-    console.log('💰 [임시] 잔액 테이블 업데이트 건너뜀 - 거래내역 기반 계산 사용')
-
-    console.log('✅ 자녀 계정에 미션 수입 추가 성공:', data.id)
+    console.log('✅ 자녀 계정에 미션 수입 추가 성공:', {
+      transactionId: data.id,
+      userId: userId.substring(0, 8),
+      amount: amount,
+      missionTitle
+    })
+    
     return data.id
   }
 

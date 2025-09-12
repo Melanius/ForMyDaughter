@@ -17,18 +17,18 @@ export const NavigationBar = memo(function NavigationBar() {
 
   return (
     <nav className="bg-white border-b border-orange-100 shadow-sm">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* 로고 */}
+      <div className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-14 sm:h-16">
+          {/* 로고 - 모바일 최적화 */}
           <div className="flex items-center">
-            <Link href="/" className="flex items-center space-x-3 group">
-              <div className="flex items-center space-x-2">
-                <span className="text-2xl">🌱</span>
+            <Link href="/" className="flex items-center space-x-2 sm:space-x-3 group">
+              <div className="flex items-center space-x-1 sm:space-x-2">
+                <span className="text-lg sm:text-2xl">🌱</span>
                 <div>
-                  <span className="text-xl font-bold bg-gradient-to-r from-orange-500 to-pink-500 bg-clip-text text-transparent">
+                  <span className="text-base sm:text-xl font-bold bg-gradient-to-r from-orange-500 to-pink-500 bg-clip-text text-transparent">
                     MoneySeed
                   </span>
-                  <div className="text-xs text-gray-500 -mt-1">스마트 용돈 관리</div>
+                  <div className="text-xs text-gray-500 -mt-1 hidden sm:block">스마트 용돈 관리</div>
                 </div>
               </div>
             </Link>
@@ -101,39 +101,37 @@ export const NavigationBar = memo(function NavigationBar() {
                   </div>
                 </div>
                 
-                {/* 사용자 프로필 */}
-                <div className="flex items-center space-x-3 bg-gradient-to-r from-orange-50 to-pink-50 rounded-2xl px-4 py-2 border border-orange-100">
+                {/* 사용자 프로필 - 모바일 최적화 */}
+                <div className="flex items-center space-x-2 sm:space-x-3 bg-gradient-to-r from-orange-50 to-pink-50 rounded-2xl px-2 sm:px-4 py-2 border border-orange-100">
                   <div className="flex items-center space-x-2">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shadow-sm ${
+                    <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold shadow-sm ${
                       profile.user_type === 'parent' 
                         ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white' 
                         : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'
                     }`}>
                       {profile.full_name?.charAt(0) || 'U'}
                     </div>
+                    {/* 모바일에서는 사용자 타입 숨김, 이름만 표시 */}
                     <div className="block lg:hidden">
                       <p className="text-sm font-semibold text-gray-800">{profile.full_name || '사용자'}</p>
-                      <p className="text-xs text-gray-500">
-                        {profile.user_type === 'parent' ? '부모님' : '자녀'}
-                      </p>
                     </div>
                   </div>
-                  <div className="border-l border-orange-200 pl-3">
+                  <div className="border-l border-orange-200 pl-2 sm:pl-3">
                     <LogoutButton />
                   </div>
                 </div>
               </div>
             ) : !loading && !user ? (
-              <div className="flex space-x-3">
+              <div className="flex space-x-2 sm:space-x-3">
                 <Link 
                   href="/login" 
-                  className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors"
+                  className="px-3 sm:px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors"
                 >
                   로그인
                 </Link>
                 <Link 
                   href="/signup" 
-                  className="bg-gradient-to-r from-orange-500 to-pink-500 text-white hover:from-orange-600 hover:to-pink-600 px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
+                  className="bg-gradient-to-r from-orange-500 to-pink-500 text-white hover:from-orange-600 hover:to-pink-600 px-3 sm:px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
                 >
                   시작하기
                 </Link>

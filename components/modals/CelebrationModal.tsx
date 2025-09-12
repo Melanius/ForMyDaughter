@@ -45,15 +45,15 @@ export function CelebrationModal({ isOpen, onClose, amount, missionCount }: Cele
   }
 
   const modalContent = (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4">
       {/* 배경 오버레이 */}
       <div 
         className="fixed inset-0 bg-black bg-opacity-50 animate-fade-in"
         onClick={onClose}
       />
       
-      {/* 모달 컨테이너 */}
-      <div className="relative bg-gradient-to-br from-yellow-100 via-orange-100 to-pink-100 rounded-3xl shadow-2xl max-w-sm w-full p-8 animate-celebration-entrance">
+      {/* 모달 컨테이너 - 모바일 최적화 */}
+      <div className="relative bg-gradient-to-br from-yellow-100 via-orange-100 to-pink-100 rounded-2xl sm:rounded-3xl shadow-2xl max-w-xs sm:max-w-sm w-full p-4 sm:p-8 animate-celebration-entrance max-h-[90vh] overflow-y-auto">
         {/* 반짝이는 별들 */}
         <div className="absolute inset-0 overflow-hidden rounded-3xl">
           <div className="absolute top-4 left-4 text-yellow-400 animate-twinkle-1">✨</div>
@@ -64,26 +64,26 @@ export function CelebrationModal({ isOpen, onClose, amount, missionCount }: Cele
           <div className="absolute top-1/3 right-2 text-red-400 animate-twinkle-3">🌟</div>
         </div>
 
-        {/* 메인 아이콘 */}
-        <div className="text-center mb-6">
-          <div className="inline-block p-4 bg-gradient-to-br from-yellow-300 to-orange-400 rounded-full shadow-lg animate-glow">
-            <div className="text-4xl animate-bounce-gentle">🎁</div>
+        {/* 메인 아이콘 - 모바일 최적화 */}
+        <div className="text-center mb-4 sm:mb-6">
+          <div className="inline-block p-3 sm:p-4 bg-gradient-to-br from-yellow-300 to-orange-400 rounded-full shadow-lg animate-glow">
+            <div className="text-3xl sm:text-4xl animate-bounce-gentle">🎁</div>
           </div>
         </div>
 
-        {/* 제목 */}
-        <h2 className="text-xl font-bold text-center text-gray-800 mb-4">
+        {/* 제목 - 모바일 최적화 */}
+        <h2 className="text-lg sm:text-xl font-bold text-center text-gray-800 mb-3 sm:mb-4">
           용돈 전달 완료! 🎉
         </h2>
 
-        {/* 축하 메시지 */}
-        <p className="text-center text-gray-700 leading-relaxed mb-6 text-sm">
+        {/* 축하 메시지 - 모바일 최적화 */}
+        <p className="text-center text-gray-700 leading-relaxed mb-4 sm:mb-6 text-sm sm:text-sm px-2">
           {message}
         </p>
 
-        {/* 금액 및 미션 정보 */}
-        <div className="bg-white bg-opacity-70 rounded-2xl p-4 mb-6 text-center">
-          <div className="text-2xl font-bold text-green-600 mb-1">
+        {/* 금액 및 미션 정보 - 모바일 최적화 */}
+        <div className="bg-white bg-opacity-70 rounded-2xl p-3 sm:p-4 mb-4 sm:mb-6 text-center">
+          <div className="text-xl sm:text-2xl font-bold text-green-600 mb-1">
             {amount.toLocaleString()}원
           </div>
           <div className="text-sm text-gray-600">
@@ -91,10 +91,10 @@ export function CelebrationModal({ isOpen, onClose, amount, missionCount }: Cele
           </div>
         </div>
 
-        {/* 닫기 버튼 */}
+        {/* 닫기 버튼 - 모바일 최적화 */}
         <button
           onClick={onClose}
-          className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-semibold py-3 px-6 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105"
+          className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-semibold py-3 px-4 sm:px-6 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105 text-sm sm:text-base min-h-[44px]"
         >
           고마워요! 😊
         </button>

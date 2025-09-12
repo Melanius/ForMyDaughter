@@ -61,11 +61,25 @@ class SyncService {
               return
             }
             
-            const payload: MissionSyncPayload = JSON.parse(cleanValue)
+            // 안전한 JSON 파싱 시도
+            let payload: MissionSyncPayload
+            try {
+              payload = JSON.parse(cleanValue) as MissionSyncPayload
+            } catch (parseError) {
+              console.error('❌ JSON 파싱 실패:', parseError, 'Raw value:', cleanValue.substring(0, 100))
+              return
+            }
+            
+            // 페이로드 유효성 검사
+            if (!payload || typeof payload !== 'object' || !payload.type) {
+              console.warn('⚠️ 잘못된 페이로드 형식, 무시함:', payload)
+              return
+            }
+            
             console.log('📦 localStorage 동기화 이벤트 수신:', payload)
             this.notifyListeners(payload)
           } catch (error) {
-            console.error('❌ localStorage 이벤트 파싱 실패:', error, 'Raw value:', event.newValue)
+            console.error('❌ localStorage 이벤트 처리 실패:', error, 'Raw value:', event.newValue?.substring(0, 100))
           }
         }
       })

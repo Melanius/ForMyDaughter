@@ -49,6 +49,12 @@ export const MissionSection = memo(function MissionSection({
   onUndoTransfer,
   onCloseModal
 }: MissionSectionProps) {
+  // 자녀 계정에서 받을 수 있는 총 용돈 계산
+  const totalReceivableAmount = userType !== 'parent' ? 
+    missions
+      .filter(mission => mission.isCompleted && !mission.isTransferred)
+      .reduce((total, mission) => total + mission.reward, 0) : 0
+
   return (
     <div>
       <div className="space-y-4">
@@ -58,18 +64,36 @@ export const MissionSection = memo(function MissionSection({
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between mb-4">
+            {/* 미션 카운트 섹션 */}
+            <div className="flex items-center justify-center mb-3">
               <div className="flex items-center gap-2">
                 <span className="text-lg">📋</span>
                 <span className="text-sm font-medium text-gray-800">
                   오늘의 미션 <span className="bg-blue-100 text-blue-600 px-2 py-1 rounded-full text-xs font-bold">{missions.length}</span>개
                 </span>
               </div>
+            </div>
+            
+            {/* 날짜 선택기 섹션 - 중앙 배치 */}
+            <div className="flex justify-center mb-4">
               <CompactDateNavigator 
                 selectedDate={selectedDate}
                 onDateChange={onDateChange}
               />
             </div>
+
+            {/* 자녀 계정 - 받을 수 있는 용돈 표시 */}
+            {userType !== 'parent' && totalReceivableAmount > 0 && (
+              <div className="flex justify-center mb-6">
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl p-4 shadow-lg">
+                  <div className="text-center">
+                    <div className="text-xs text-green-600 font-medium mb-1">받을 수 있는 용돈</div>
+                    <div className="text-2xl font-bold text-green-700">{totalReceivableAmount.toLocaleString()}원</div>
+                    <div className="text-xs text-green-600 mt-1">완료한 미션의 보상</div>
+                  </div>
+                </div>
+              </div>
+            )}
             
             {missions.map(mission => (
               <MissionCard

@@ -116,7 +116,7 @@ export const MissionCard = memo(function MissionCard({
   }
 
   return (
-    <div className={`p-6 rounded-2xl transition-all duration-200 shadow-lg hover:shadow-xl ${
+    <div className={`p-3 sm:p-6 rounded-lg sm:rounded-2xl transition-all duration-200 shadow-md sm:shadow-lg hover:shadow-lg sm:hover:shadow-xl ${
       mission.isCompleted 
         ? 'bg-gradient-to-r from-green-100 to-emerald-100 border-2 border-green-200' 
         : mission.isTransferred
@@ -126,65 +126,60 @@ export const MissionCard = memo(function MissionCard({
       <div className="flex items-start justify-between">
         <div className="flex-1">
           {/* 1. Pattern/Category/Proposal 태그가 가장 위에 */}
-          <div className="flex items-center gap-2 mb-3 flex-wrap">
+          <div className="flex items-center gap-1 sm:gap-2 mb-2 sm:mb-3 flex-wrap">
             {/* 🆕 제안 배지 - 가장 먼저 표시 */}
             {mission.isFromProposal && (
-              <span className="flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-sm">
-                <span>💡</span>
-                <span>자녀 제안</span>
+              <span className="flex items-center gap-0.5 sm:gap-1 px-2 py-0.5 sm:px-3 sm:py-1 text-xs font-medium rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-sm">
+                <span className="text-xs">💡</span>
+                <span className="hidden sm:inline">자녀 제안</span>
+                <span className="sm:hidden">제안</span>
               </span>
             )}
             {(mission.recurringPattern || mission.missionType) && (
-              <span className={`flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-full ${
+              <span className={`flex items-center gap-0.5 sm:gap-1 px-2 py-0.5 sm:px-3 sm:py-1 text-xs font-medium rounded-full ${
                 (mission.recurringPattern || mission.missionType === '데일리')
                   ? 'bg-blue-500 text-white' 
                   : 'bg-purple-500 text-white'
               }`}>
-                <span>{getPatternEmoji(mission.recurringPattern)}</span>
+                <span className="text-xs">{getPatternEmoji(mission.recurringPattern)}</span>
                 <span>{getPatternLabel(mission.recurringPattern, mission.missionType)}</span>
               </span>
             )}
             {mission.category && (
-              <span className={`flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-full border ${getCategoryStyle(mission.category)}`}>
-                <span>{getCategoryIcon(mission.category)}</span>
+              <span className={`flex items-center gap-0.5 sm:gap-1 px-2 py-0.5 sm:px-3 sm:py-1 text-xs font-medium rounded-full border ${getCategoryStyle(mission.category)}`}>
+                <span className="text-xs">{getCategoryIcon(mission.category)}</span>
                 <span>{mission.category}</span>
               </span>
             )}
           </div>
           
           {/* 2. 제목이 그 다음에 */}
-          <div className="flex items-center gap-2 mb-3">
-            {mission.isCompleted && <span className="text-3xl animate-pulse">🎉</span>}
-            {mission.isTransferred && !mission.isCompleted && <span className="text-2xl">💰</span>}
-            {!mission.isCompleted && !mission.isTransferred && <span className="text-2xl">🎯</span>}
-            <h3 className={`text-lg font-bold ${
+          <div className="flex items-center gap-1 sm:gap-2 mb-2 sm:mb-3">
+            <h3 className={`text-base sm:text-lg font-bold ${
               mission.isCompleted ? 'text-green-800' : 'text-gray-800'
             }`}>
               {mission.title}
             </h3>
           </div>
           
-          {/* 부모 계정에서만 금액/상태를 여기에 표시 */}
-          {userType === 'parent' && (
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-1">
-                <span className="text-xl">💰</span>
-                <span className="text-xl font-bold text-green-600">{mission.reward.toLocaleString()}원</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className={`text-sm font-medium ${
-                  mission.isCompleted ? 'text-green-600' : 
-                  mission.isTransferred ? 'text-blue-600' : 'text-orange-600'
-                }`}>
-                  {mission.isCompleted ? '✅ 완료' : 
-                   mission.isTransferred ? '💰 전달됨' : '⏳ 대기중'}
-                </span>
-              </div>
+          {/* 금액/상태 정보 표시 */}
+          <div className="flex items-center gap-2 sm:gap-4">
+            <div className="flex items-center gap-1">
+              <span className="text-base sm:text-xl font-bold text-green-600">{mission.reward.toLocaleString()}원</span>
             </div>
-          )}
+            <div className="flex items-center gap-1">
+              <span className={`text-xs sm:text-sm font-medium ${
+                mission.isCompleted ? 'text-green-600' : 
+                mission.isTransferred ? 'text-blue-600' : 'text-orange-600'
+              }`}>
+                {mission.isCompleted ? '✅ 완료' : 
+                 mission.isTransferred ? '💰 전달됨' : '⏳ 대기중'}
+              </span>
+            </div>
+          </div>
         </div>
         
-        <div className="flex flex-col gap-2 ml-4">
+        <div className="flex flex-col gap-1 sm:gap-2 ml-2 sm:ml-4">
           {!mission.isCompleted ? (
             <>
               {/* 자녀만 완료 버튼 표시 */}
@@ -193,44 +188,29 @@ export const MissionCard = memo(function MissionCard({
                   <button
                     onClick={() => handleAction(onComplete)}
                     disabled={isProcessing || mission.isTransferred}
-                    className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-4 py-2 rounded-2xl transition-all duration-200 text-sm font-bold disabled:from-gray-300 disabled:to-gray-300 shadow-lg hover:shadow-xl mb-3"
+                    className="flex items-center gap-1 sm:gap-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-2 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-2xl transition-all duration-200 text-xs sm:text-sm font-bold disabled:from-gray-300 disabled:to-gray-300 shadow-md sm:shadow-lg hover:shadow-lg sm:hover:shadow-xl mb-2 sm:mb-3"
                   >
                     <span>{isProcessing ? '⏳' : '✅'}</span>
-                    <span>{isProcessing ? '처리중' : '완료!'}</span>
+                    <span className="hidden sm:inline">{isProcessing ? '처리중' : '완료!'}</span>
+                    <span className="sm:hidden">{isProcessing ? '...' : '완료'}</span>
                   </button>
                   
-                  {/* 3. 자녀 계정에서 완료 버튼 아래에 금액/상태 표시 */}
-                  <div className="text-center space-y-2">
-                    <div className="flex items-center justify-center gap-1">
-                      <span className="text-lg">💰</span>
-                      <span className="text-lg font-bold text-green-600">{mission.reward.toLocaleString()}원</span>
-                    </div>
-                    <div className="flex items-center justify-center gap-1">
-                      <span className={`text-sm font-medium ${
-                        mission.isCompleted ? 'text-green-600' : 
-                        mission.isTransferred ? 'text-blue-600' : 'text-orange-600'
-                      }`}>
-                        {mission.isCompleted ? '✅ 완료' : 
-                         mission.isTransferred ? '💰 전달됨' : '⏳ 대기중'}
-                      </span>
-                    </div>
-                  </div>
                 </>
               )}
               {/* 부모 관리 버튼들 */}
               {userType === 'parent' && (
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-1 sm:gap-2">
                   <button
                     onClick={() => handleAction(onEdit)}
                     disabled={isProcessing || mission.isTransferred}
-                    className="w-full bg-white hover:bg-blue-50 text-blue-600 hover:text-blue-700 px-4 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium border-2 border-blue-200 hover:border-blue-300 disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200"
+                    className="w-full bg-white hover:bg-blue-50 text-blue-600 hover:text-blue-700 px-2 py-1.5 sm:px-4 sm:py-2.5 rounded-md sm:rounded-lg transition-all duration-200 text-xs sm:text-sm font-medium border border-blue-200 hover:border-blue-300 disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200"
                   >
                     수정
                   </button>
                   <button
                     onClick={() => handleAction(onDelete)}
                     disabled={isProcessing || mission.isTransferred}
-                    className="w-full bg-white hover:bg-red-50 text-red-600 hover:text-red-700 px-4 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium border-2 border-red-200 hover:border-red-300 disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200"
+                    className="w-full bg-white hover:bg-red-50 text-red-600 hover:text-red-700 px-2 py-1.5 sm:px-4 sm:py-2.5 rounded-md sm:rounded-lg transition-all duration-200 text-xs sm:text-sm font-medium border border-red-200 hover:border-red-300 disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200"
                   >
                     삭제
                   </button>
@@ -239,16 +219,16 @@ export const MissionCard = memo(function MissionCard({
             </>
           ) : mission.isTransferred ? (
             <div className="text-center">
-              <div className="flex items-center justify-center text-sm text-blue-700 bg-blue-100 px-4 py-2.5 rounded-lg mb-3 font-medium">
-                전달 완료
+              <div className="flex items-center justify-center text-xs sm:text-sm text-blue-700 bg-blue-100 px-2 py-1.5 sm:px-4 sm:py-2.5 rounded-md sm:rounded-lg mb-2 sm:mb-3 font-medium">
+                전달완료
               </div>
               {userType === 'parent' && (
                 <button
                   onClick={() => handleAction(onUndoTransfer)}
                   disabled={isProcessing}
-                  className="w-full bg-white hover:bg-gray-50 text-gray-600 hover:text-gray-700 px-4 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium border-2 border-gray-200 hover:border-gray-300 disabled:bg-gray-50 disabled:text-gray-400"
+                  className="w-full bg-white hover:bg-gray-50 text-gray-600 hover:text-gray-700 px-2 py-1.5 sm:px-4 sm:py-2.5 rounded-md sm:rounded-lg transition-all duration-200 text-xs sm:text-sm font-medium border border-gray-200 hover:border-gray-300 disabled:bg-gray-50 disabled:text-gray-400"
                 >
-                  전달 되돌리기
+                  되돌리기
                 </button>
               )}
             </div>
@@ -260,27 +240,11 @@ export const MissionCard = memo(function MissionCard({
                   <button
                     onClick={() => handleAction(onUndoComplete)}
                     disabled={isProcessing}
-                    className="bg-orange-100 hover:bg-orange-200 text-orange-700 hover:text-orange-800 px-4 py-2.5 rounded-lg transition-colors text-sm font-medium disabled:bg-gray-100 disabled:text-gray-400 border-2 border-orange-200 hover:border-orange-300 mb-3"
+                    className="bg-orange-100 hover:bg-orange-200 text-orange-700 hover:text-orange-800 px-2 py-1.5 sm:px-4 sm:py-2.5 rounded-md sm:rounded-lg transition-colors text-xs sm:text-sm font-medium disabled:bg-gray-100 disabled:text-gray-400 border border-orange-200 hover:border-orange-300 mb-2 sm:mb-3"
                   >
-                    완료 취소
+                    취소
                   </button>
                   
-                  {/* 자녀 계정에서 완료 취소 버튼 아래에 금액/상태 표시 */}
-                  <div className="text-center space-y-2">
-                    <div className="flex items-center justify-center gap-1">
-                      <span className="text-lg">💰</span>
-                      <span className="text-lg font-bold text-green-600">{mission.reward.toLocaleString()}원</span>
-                    </div>
-                    <div className="flex items-center justify-center gap-1">
-                      <span className={`text-sm font-medium ${
-                        mission.isCompleted ? 'text-green-600' : 
-                        mission.isTransferred ? 'text-blue-600' : 'text-orange-600'
-                      }`}>
-                        {mission.isCompleted ? '✅ 완료' : 
-                         mission.isTransferred ? '💰 전달됨' : '⏳ 대기중'}
-                      </span>
-                    </div>
-                  </div>
                 </>
               )}
               {/* 부모 관리 버튼들 */}
