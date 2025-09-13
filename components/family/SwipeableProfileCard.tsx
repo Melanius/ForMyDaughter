@@ -5,7 +5,7 @@ import { Navigation, Pagination } from 'swiper/modules'
 import 'swiper/css'
 import 'swiper/css/navigation'
 import 'swiper/css/pagination'
-import { Crown } from 'lucide-react'
+import { Crown, Settings } from 'lucide-react'
 import { ProfileImageUpload } from './ProfileImageUpload'
 import { FamilyMemberWithProfile } from '@/lib/types/family'
 
@@ -13,12 +13,14 @@ interface SwipeableProfileCardProps {
   members: FamilyMemberWithProfile[]
   currentUserId?: string
   onImageUpdate: (userId: string, newUrl: string) => void
+  onProfileEdit?: (userId: string) => void
 }
 
 export function SwipeableProfileCard({ 
   members, 
   currentUserId, 
-  onImageUpdate 
+  onImageUpdate,
+  onProfileEdit 
 }: SwipeableProfileCardProps) {
   // 현재 사용자를 첫 번째로 정렬
   const sortedMembers = [...members].sort((a, b) => {
@@ -37,13 +39,28 @@ export function SwipeableProfileCard({
     }
   }
 
-  // 프로필 정보 (확장 예정)
+  // 프로필 정보
   const getProfileInfo = (member: FamilyMemberWithProfile) => {
-    return [
+    const info = [
       { label: '역할', value: getRoleText(member.role) },
-      { label: '가입일', value: new Date(member.joined_at).toLocaleDateString('ko-KR') },
-      // TODO: 생일, 메시지 등 추가 정보
+      { label: '가입일', value: new Date(member.joined_at).toLocaleDateString('ko-KR') }
     ]
+
+    // 추가 개인정보가 있으면 표시
+    if (member.profile.nickname) {
+      info.push({ label: '닉네임', value: member.profile.nickname })
+    }
+    if (member.profile.birthday) {
+      const birthday = new Date(member.profile.birthday)
+      const month = birthday.getMonth() + 1
+      const day = birthday.getDate()
+      info.push({ label: '생일', value: `${month}월 ${day}일` })
+    }
+    if (member.profile.phone) {
+      info.push({ label: '전화번호', value: member.profile.phone })
+    }
+
+    return info
   }
 
   return (
@@ -65,7 +82,18 @@ export function SwipeableProfileCard({
       >
         {sortedMembers.map((member) => (
           <SwiperSlide key={member.id}>
-            <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
+            <div className="bg-white rounded-2xl shadow-lg p-8 text-center relative">
+              {/* 설정 아이콘 (본인만) */}
+              {member.user_id === currentUserId && onProfileEdit && (
+                <button
+                  onClick={() => onProfileEdit(member.user_id)}
+                  className="absolute top-4 right-4 p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  title="개인정보 수정"
+                >
+                  <Settings className="w-5 h-5" />
+                </button>
+              )}
+
               {/* 프로필 사진 */}
               <div className="relative flex justify-center mb-6">
                 <ProfileImageUpload
@@ -112,15 +140,17 @@ export function SwipeableProfileCard({
                 ))}
               </div>
 
-              {/* 추가 정보 영역 (향후 확장) */}
-              <div className="mt-6 p-4 bg-gray-50 rounded-xl">
-                <p className="text-sm text-gray-600">
-                  💭 가족에게 하고 싶은 말
-                </p>
-                <p className="text-gray-800 mt-2 italic">
-                  "아직 메시지가 없어요 ✨"
-                </p>
-              </div>
+              {/* 가족에게 하고 싶은 말 */}
+              {member.profile.bio && (
+                <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl">
+                  <p className="text-sm text-gray-600 mb-2">
+                    💭 가족에게 하고 싶은 말
+                  </p>
+                  <p className="text-gray-800 italic leading-relaxed">
+                    "{member.profile.bio}"
+                  </p>
+                </div>
+              )}
             </div>
           </SwiperSlide>
         ))}

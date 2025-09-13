@@ -9,6 +9,9 @@ import { ProfileImageUpload } from '@/components/family/ProfileImageUpload'
 import { SwipeableProfileCard } from '@/components/family/SwipeableProfileCard'
 import { EventDayCounter } from '@/components/family/EventDayCounter'
 import { EventManageModal } from '@/components/family/EventManageModal'
+import { FamilyJoinOptions } from '@/components/family/FamilyJoinOptions'
+import { ProfileEditModal } from '@/components/profile/ProfileEditModal'
+import { Profile } from '@/lib/types/supabase'
 
 export default function FamilyPage() {
   const { user, profile } = useAuth()
@@ -16,6 +19,8 @@ export default function FamilyPage() {
   const [loading, setLoading] = useState(true)
   const [copySuccess, setCopySuccess] = useState(false)
   const [showEventModal, setShowEventModal] = useState(false)
+  const [showProfileModal, setShowProfileModal] = useState(false)
+  const [currentProfile, setCurrentProfile] = useState<Profile | null>(null)
 
   useEffect(() => {
     if (user && profile) {
@@ -45,6 +50,102 @@ export default function FamilyPage() {
         // 클립보드 API 실패 시 알림으로 대체
         alert(`가족 코드: ${family.family_code}`)
       }
+    }
+  }
+
+  const handleProfileEdit = (userId: string) => {
+    if (!family) return
+    
+    // 해당 사용자의 프로필 정보 찾기
+    const member = family.members.find(m => m.user_id === userId)
+    if (member) {
+      const profileData: Profile = {
+        id: member.profile.id,
+        email: '', // 이메일은 편집하지 않으므로 빈 값
+        full_name: member.profile.full_name,
+        user_type: member.profile.user_type,
+        family_code: null,
+        parent_id: null,
+        avatar_url: member.profile.avatar_url || null,
+        birthday: (member.profile as any).birthday || null,
+        phone: (member.profile as any).phone || null,
+        nickname: (member.profile as any).nickname || null,
+        bio: (member.profile as any).bio || null,
+        created_at: '',
+        updated_at: ''
+      }
+      setCurrentProfile(profileData)
+      setShowProfileModal(true)
+    }
+  }
+
+  const handleProfileUpdate = async (updatedData: Partial<Profile>) => {
+    try {
+      const response = await fetch('/api/profile/update', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedData),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || '프로필 업데이트에 실패했습니다')
+      }
+
+      // 가족 데이터 새로고침
+      await loadFamilyData()
+      
+      console.log('✅ 프로필이 성공적으로 업데이트되었습니다')
+    } catch (error) {
+      console.error('❌ 프로필 업데이트 실패:', error)
+      throw error
+    }
+  }
+
+  const handleCreateFamily = async (familyName: string) => {
+    try {
+      const response = await fetch('/api/family/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ familyName })
+      })
+
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || '가족 생성에 실패했습니다.')
+      }
+
+      alert(data.message)
+      await loadFamilyData() // 가족 정보 다시 로드
+    } catch (error) {
+      console.error('가족 생성 오류:', error)
+      alert(error instanceof Error ? error.message : '가족 생성 중 오류가 발생했습니다.')
+    }
+  }
+
+  const handleJoinFamily = async (familyCode: string) => {
+    try {
+      const response = await fetch('/api/family/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ familyCode })
+      })
+
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || '가족 참여에 실패했습니다.')
+      }
+
+      alert(data.message)
+      await loadFamilyData() // 가족 정보 다시 로드
+    } catch (error) {
+      console.error('가족 참여 오류:', error)
+      alert(error instanceof Error ? error.message : '가족 참여 중 오류가 발생했습니다.')
     }
   }
 
@@ -95,20 +196,12 @@ export default function FamilyPage() {
   if (!family) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50 p-4">
-        <div className="text-center max-w-md">
-          <div className="text-8xl mb-6">😢</div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">
-            가족이 없어요!
-          </h2>
-          <p className="text-lg text-gray-600 mb-6">
-            회원가입할 때 가족을 만들거나 참여했어야 해요.
-          </p>
-          <button
-            onClick={loadFamilyData}
-            className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-bold py-3 px-6 rounded-xl text-lg transition-all transform hover:scale-105"
-          >
-            🔄 다시 확인하기
-          </button>
+        <div className="w-full">
+          <FamilyJoinOptions
+            onCreateFamily={handleCreateFamily}
+            onJoinFamily={handleJoinFamily}
+            loading={loading}
+          />
         </div>
       </div>
     )
@@ -132,74 +225,6 @@ export default function FamilyPage() {
         </div>
 
         <div className="space-y-6">
-          {/* 가족 코드 섹션 */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-2xl">🔑</span>
-              <h2 className="text-xl font-bold text-gray-800">가족 코드</h2>
-            </div>
-            
-            <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6">
-              <div className="text-center">
-                <p className="text-gray-600 mb-4">친구나 형제가 우리 가족에 참여할 때 사용해요</p>
-                <div className="flex justify-center mb-6">
-                  <div className="bg-white rounded-lg px-6 py-3 border-2 border-dashed border-gray-300">
-                    <span className="text-2xl font-mono font-bold text-blue-600">
-                      {family.family_code}
-                    </span>
-                  </div>
-                </div>
-                
-                {/* 복사 버튼을 하단 중앙으로 이동 */}
-                <div className="flex justify-center mb-4">
-                  <button
-                    onClick={copyFamilyCode}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all transform hover:scale-105 ${
-                      copySuccess 
-                        ? 'bg-green-500 text-white shadow-lg' 
-                        : 'bg-blue-500 hover:bg-blue-600 text-white shadow-lg hover:shadow-xl'
-                    }`}
-                  >
-                    <Copy className="w-4 h-4" />
-                    {copySuccess ? '복사됨!' : '복사하기'}
-                  </button>
-                </div>
-                
-              </div>
-            </div>
-          </div>
-
-          {/* 가족 구성원 섹션 */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <div className="flex items-center gap-2 mb-6">
-              <span className="text-2xl">👨‍👩‍👧‍👦</span>
-              <h2 className="text-xl font-bold text-gray-800">
-                우리 가족 구성원 ({family.members.length}명)
-              </h2>
-            </div>
-            
-            <div className="relative">
-              <SwipeableProfileCard
-                members={family.members}
-                currentUserId={user?.id}
-                onImageUpdate={(userId, newUrl) => {
-                  // 이미지 업데이트 시 상태 갱신
-                  setFamily(prev => {
-                    if (!prev) return prev
-                    return {
-                      ...prev,
-                      members: prev.members.map(m => 
-                        m.user_id === userId 
-                          ? { ...m, profile: { ...m.profile, avatar_url: newUrl } }
-                          : m
-                      )
-                    }
-                  })
-                }}
-              />
-            </div>
-          </div>
-
           {/* 가족 통계 섹션 */}
           <div className="bg-white rounded-2xl shadow-lg p-6">
             <div className="flex items-center gap-2 mb-4">
@@ -237,6 +262,75 @@ export default function FamilyPage() {
             </div>
           </div>
 
+          {/* 가족 구성원 섹션 */}
+          <div className="bg-white rounded-2xl shadow-lg p-6">
+            <div className="flex items-center gap-2 mb-6">
+              <span className="text-2xl">👨‍👩‍👧‍👦</span>
+              <h2 className="text-xl font-bold text-gray-800">
+                우리 가족 구성원 ({family.members.length}명)
+              </h2>
+            </div>
+            
+            <div className="relative">
+              <SwipeableProfileCard
+                members={family.members}
+                currentUserId={user?.id}
+                onImageUpdate={(userId, newUrl) => {
+                  // 이미지 업데이트 시 상태 갱신
+                  setFamily(prev => {
+                    if (!prev) return prev
+                    return {
+                      ...prev,
+                      members: prev.members.map(m => 
+                        m.user_id === userId 
+                          ? { ...m, profile: { ...m.profile, avatar_url: newUrl } }
+                          : m
+                      )
+                    }
+                  })
+                }}
+                onProfileEdit={handleProfileEdit}
+              />
+            </div>
+          </div>
+
+          {/* 가족 코드 섹션 */}
+          <div className="bg-white rounded-2xl shadow-lg p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-2xl">🔑</span>
+              <h2 className="text-xl font-bold text-gray-800">가족 코드</h2>
+            </div>
+            
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6">
+              <div className="text-center">
+                <p className="text-gray-600 mb-4">친구나 형제가 우리 가족에 참여할 때 사용해요</p>
+                <div className="flex justify-center mb-6">
+                  <div className="bg-white rounded-lg px-6 py-3 border-2 border-dashed border-gray-300">
+                    <span className="text-2xl font-mono font-bold text-blue-600">
+                      {family.family_code}
+                    </span>
+                  </div>
+                </div>
+                
+                {/* 복사 버튼을 하단 중앙으로 이동 */}
+                <div className="flex justify-center mb-4">
+                  <button
+                    onClick={copyFamilyCode}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all transform hover:scale-105 ${
+                      copySuccess 
+                        ? 'bg-green-500 text-white shadow-lg' 
+                        : 'bg-blue-500 hover:bg-blue-600 text-white shadow-lg hover:shadow-xl'
+                    }`}
+                  >
+                    <Copy className="w-4 h-4" />
+                    {copySuccess ? '복사됨!' : '복사하기'}
+                  </button>
+                </div>
+                
+              </div>
+            </div>
+          </div>
+
           {/* 도움말 섹션 */}
           <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-6 border-2 border-dashed border-blue-200">
             <div className="text-center">
@@ -258,6 +352,19 @@ export default function FamilyPage() {
           isOpen={showEventModal}
           onClose={() => setShowEventModal(false)}
           familyId={family.id}
+        />
+      )}
+
+      {/* 개인정보 수정 모달 */}
+      {currentProfile && (
+        <ProfileEditModal
+          isOpen={showProfileModal}
+          onClose={() => {
+            setShowProfileModal(false)
+            setCurrentProfile(null)
+          }}
+          currentProfile={currentProfile}
+          onUpdate={handleProfileUpdate}
         />
       )}
     </div>

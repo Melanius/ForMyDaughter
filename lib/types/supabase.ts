@@ -10,6 +10,10 @@ export interface Database {
           family_code: string | null
           parent_id: string | null
           avatar_url: string | null
+          birthday: string | null
+          phone: string | null
+          nickname: string | null
+          bio: string | null
           created_at: string
           updated_at: string
         }
@@ -21,6 +25,10 @@ export interface Database {
           family_code?: string | null
           parent_id?: string | null
           avatar_url?: string | null
+          birthday?: string | null
+          phone?: string | null
+          nickname?: string | null
+          bio?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -32,6 +40,10 @@ export interface Database {
           family_code?: string | null
           parent_id?: string | null
           avatar_url?: string | null
+          birthday?: string | null
+          phone?: string | null
+          nickname?: string | null
+          bio?: string | null
           created_at?: string
           updated_at?: string
         }

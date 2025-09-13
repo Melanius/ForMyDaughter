@@ -23,6 +23,8 @@ import {
 import { Mission } from '../lib/types/mission'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { ChildSelectionProvider, useSelectedChild } from '@/lib/contexts/ChildSelectionContext'
+import { ParentWelcomeModal } from '@/components/family/ParentWelcomeModal'
+import { useFirstLoginGuide } from '@/hooks/useFirstLoginGuide'
 import ChildSelector from '@/components/child-selection/ChildSelector'
 import missionSupabaseService from '../lib/services/missionSupabase'
 import streakService from '../lib/services/streak'
@@ -50,6 +52,9 @@ function MissionPageContent() {
   const queryClient = useQueryClient()
   const selectedChildId = useSelectedChild()
   const [selectedDate, setSelectedDate] = useState(() => getTodayKST())
+  
+  // 부모용 첫 로그인 가이드
+  const { showGuide, markGuideAsShown, userName } = useFirstLoginGuide()
   const [activeTab, setActiveTab] = useState<'missions' | 'templates'>('missions')
   const [showAddModal, setShowAddModal] = useState(false)
   const [showActionModal, setShowActionModal] = useState(false)
@@ -660,6 +665,13 @@ function MissionPageContent() {
       <MissionProposalManager
         isOpen={showProposalManager}
         onClose={() => setShowProposalManager(false)}
+      />
+
+      {/* 부모용 첫 로그인 가이드 모달 */}
+      <ParentWelcomeModal
+        isOpen={showGuide}
+        onClose={markGuideAsShown}
+        userName={userName}
       />
       </div>
     </div>

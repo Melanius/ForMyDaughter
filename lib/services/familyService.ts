@@ -160,6 +160,23 @@ class FamilyService {
   }
 
   /**
+   * 🔍 현재 사용자가 가족이 없는지 확인
+   */
+  async hasNoFamily(): Promise<boolean> {
+    const { data: { user } } = await this.supabase.auth.getUser()
+    if (!user) return true
+
+    const { data: profile, error } = await this.supabase
+      .from('profiles')
+      .select('family_code')
+      .eq('id', user.id)
+      .single()
+
+    if (error || !profile) return true
+    return !profile.family_code
+  }
+
+  /**
    * 👤 현재 사용자의 가족 정보 조회
    */
   async getCurrentUserFamily(): Promise<FamilyWithMembers | null> {
@@ -279,7 +296,7 @@ class FamilyService {
   /**
    * ✏️ 가족 정보 업데이트
    */
-  async updateFamily(familyId: string, updates: Partial<Pick<Family, 'family_name'>>): Promise<void> {
+  async updateFamily(familyId: string, updates: Partial<Pick<Family, 'family_name' | 'family_message'>>): Promise<void> {
     const { error } = await this.supabase
       .from('families')
       .update({
@@ -396,6 +413,7 @@ class FamilyService {
       id: data.id,
       family_code: data.family_code,
       family_name: data.family_name,
+      family_message: data.family_message,
       created_by: data.created_by,
       created_at: data.created_at,
       updated_at: data.updated_at

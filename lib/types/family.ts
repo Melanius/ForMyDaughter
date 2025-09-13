@@ -10,6 +10,7 @@ export interface Family {
   id: string
   family_code: string
   family_name: string
+  family_message?: string
   created_by: string
   created_at: string
   updated_at: string
@@ -48,6 +49,7 @@ export interface FamilyWithMembers {
   id: string
   family_code: string
   family_name: string
+  family_message?: string
   created_by: string
   created_at: string
   updated_at: string
@@ -90,6 +92,7 @@ export interface SupabaseFamilyTable {
   id: string
   family_code: string
   family_name: string
+  family_message?: string
   created_by: string
   created_at: string
   updated_at: string
