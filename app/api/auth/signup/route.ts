@@ -49,6 +49,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: profileError.message }, { status: 500 })
     }
 
+    // 🔒 부모 계정의 경우 family_code가 자동 생성되지 않도록 추가 보안
+    if (userType === 'parent') {
+      await supabase
+        .from('profiles')
+        .update({ family_code: null })
+        .eq('id', authData.user.id)
+    }
+
     // 3. 자녀 계정인 경우 가족 연결 요청 생성
     if (userType === 'child' && familyCode) {
       // 부모 찾기
