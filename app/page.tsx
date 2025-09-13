@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { logger } from '@/lib/utils/logger'
 import { MissionSection } from '../components/dashboard/MissionSection'
 import { FloatingActionButton } from '../components/ui/FloatingActionButton'
 import { ActionSelectionModal } from '../components/ui/ActionSelectionModal'
@@ -83,7 +84,7 @@ function MissionPageContent() {
 
   // 날짜 변경 핸들러
   const handleDateChange = useCallback((newDate: string) => {
-    console.log('🗓️ 날짜 변경:', selectedDate, '->', newDate)
+    logger.log('날짜 변경', { from: selectedDate, to: newDate })
     setSelectedDate(newDate)
   }, [selectedDate])
 
@@ -155,7 +156,7 @@ function MissionPageContent() {
         if (!error && children && children.length > 0) {
           setConnectedChildren(children)
           setIsParentWithChild(true)
-          console.log('👨‍👩‍👧‍👦 연결된 자녀:', children.length, '명')
+          logger.log('연결된 자녀 조회 완료', { count: children.length })
         } else {
           setConnectedChildren([])
           setIsParentWithChild(false)
@@ -178,16 +179,16 @@ function MissionPageContent() {
         const settlementCheck = await settlementService.shouldTriggerAutoSettlement(profile.id)
         
         if (settlementCheck.shouldTrigger) {
-          console.log('🎉 오늘 모든 미션 완료! 자동 정산 알림 전송')
+          logger.log('모든 미션 완료 - 자동 정산 알림 전송')
           
           // 부모에게 축하 알림 전송 (용돈 전달 팝업 트리거)
           await celebrationService.sendCelebrationNotification(
-            profile.parent_id,
+            profile.parent_id || '',
             settlementCheck.pendingSettlement.totalAmount,
             settlementCheck.pendingSettlement.totalCount
           )
           
-          console.log(`💰 부모님께 정산 알림 전송: ${settlementCheck.pendingSettlement.totalAmount}원`)
+          logger.log('부모에게 정산 알림 전송 완료', { amount: settlementCheck.pendingSettlement.totalAmount })
         }
       } catch (error) {
         console.error('자동 정산 체크 실패:', error)
@@ -206,12 +207,12 @@ function MissionPageContent() {
       // 🔒 이미 이 세션에서 템플릿 체크를 했는지 확인
       const sessionKey = `template_check_${profile.id}_session`
       if (localStorage.getItem(sessionKey)) {
-        console.log('🚫 이 세션에서 이미 템플릿 체크 완료됨 - 건너뜀')
+        logger.log('템플릿 체크 이미 완료됨 - 건너뜀')
         return
       }
 
       try {
-        console.log('🏗️ 부모 계정 감지 - 기본 템플릿 확인 및 생성 로직 시작...')
+        logger.log('부모 계정 감지 - 기본 템플릿 확인 시작')
         await missionSupabaseService.createDefaultTemplates()
         
         const allTemplates = await missionSupabaseService.getFamilyMissionTemplates()
@@ -249,6 +250,8 @@ function MissionPageContent() {
       
       return () => clearTimeout(timer)
     }
+    // No cleanup needed for other cases
+    return undefined
   }, [profile?.user_type, pendingProposals.length, isLoadingProposals])
 
   // 📅 데일리 미션 생성은 오직 useDailyMissionWelcome 훅을 통해서만 수행됨
@@ -548,7 +551,7 @@ function MissionPageContent() {
             }>
               <AllowanceRequestButton 
                 userId={profile.id}
-                parentId={profile.parent_id}
+                parentId={profile.parent_id || undefined}
                 onRequestSent={(amount, missions) => {
                   console.log(`💰 용돈 요청 완료: ${amount}원 (${missions.length}개 미션)`)
                   // 페이지 새로고침하여 상태 업데이트
@@ -671,7 +674,7 @@ function MissionPageContent() {
       <ParentWelcomeModal
         isOpen={showGuide}
         onClose={markGuideAsShown}
-        userName={userName}
+        userName={userName || undefined}
       />
       </div>
     </div>

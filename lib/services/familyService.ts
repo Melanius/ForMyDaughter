@@ -177,13 +177,13 @@ class FamilyService {
   }
 
   /**
-   * 👤 현재 사용자의 가족 정보 조회
+   * 👤 현재 사용자의 가족 정보 조회 (기존 profiles 시스템 호환)
    */
   async getCurrentUserFamily(): Promise<FamilyWithMembers | null> {
     const { data: { user } } = await this.supabase.auth.getUser()
     if (!user) return null
 
-    // 사용자가 속한 가족 구성원 정보 조회
+    // 1단계: 새로운 family_members 테이블에서 조회
     const { data: member, error } = await this.supabase
       .from('family_members')
       .select(`
@@ -194,14 +194,80 @@ class FamilyService {
       .eq('is_active', true)
       .single()
 
-    if (error && error.code !== 'PGRST116') {
-      console.error('사용자 가족 조회 실패:', error)
+    if (!error && member && member.families) {
+      // 새로운 시스템에 데이터가 있으면 기존 로직 사용
+      return await this.getFamilyWithMembers(member.family_id)
+    }
+
+    // 2단계: 기존 profiles 시스템에서 조회 (호환성 지원)
+    const { data: profile, error: profileError } = await this.supabase
+      .from('profiles')
+      .select('family_code, full_name')
+      .eq('id', user.id)
+      .single()
+
+    if (profileError || !profile || !profile.family_code) {
+      return null // 진짜 가족이 없음
+    }
+
+    // 3단계: 같은 family_code를 가진 모든 구성원 조회
+    const { data: familyMembers, error: membersError } = await this.supabase
+      .from('profiles')
+      .select('id, full_name, user_type, avatar_url, family_code')
+      .eq('family_code', profile.family_code)
+      .order('user_type', { ascending: false }) // parent가 먼저 오도록
+
+    if (membersError || !familyMembers || familyMembers.length === 0) {
+      console.error('가족 구성원 조회 실패:', membersError)
       return null
     }
 
-    if (!member || !member.families) return null
+    // 4단계: 가족 이름 결정 (첫 번째 부모의 이름으로)
+    const firstParent = familyMembers.find(m => m.user_type === 'parent')
+    const familyName = firstParent ? `${firstParent.full_name}님의 가족` : '우리 가족'
 
-    return await this.getFamilyWithMembers(member.family_id)
+    // 5단계: FamilyWithMembers 형태로 변환
+    const membersWithProfile: FamilyMemberWithProfile[] = familyMembers.map((member, index) => ({
+      id: `legacy-${member.id}`, // 임시 ID
+      family_id: `legacy-${profile.family_code}`, // 임시 family_id
+      user_id: member.id,
+      role: this.mapUserTypeToRole(member.user_type),
+      nickname: null,
+      joined_at: nowKST(),
+      is_active: true,
+      profile: {
+        id: member.id,
+        full_name: member.full_name,
+        user_type: member.user_type,
+        avatar_url: member.avatar_url
+      }
+    }))
+
+    // 6단계: 가상의 FamilyWithMembers 객체 반환
+    return {
+      id: `legacy-${profile.family_code}`,
+      family_code: profile.family_code,
+      family_name: familyName,
+      family_message: null,
+      created_by: firstParent?.id || user.id,
+      created_at: nowKST(),
+      updated_at: nowKST(),
+      members: membersWithProfile
+    }
+  }
+
+  /**
+   * 🔄 user_type을 role로 변환하는 유틸리티
+   */
+  private mapUserTypeToRole(userType: string): FamilyRole {
+    switch (userType) {
+      case 'parent':
+        return 'father' // 기본값으로 father 사용
+      case 'child':
+        return 'child'
+      default:
+        return 'child'
+    }
   }
 
   /**

@@ -35,6 +35,7 @@ export function RejectionNotificationModal({
       
       return () => clearTimeout(timer)
     }
+    return undefined
   }, [isOpen, autoCloseDelay, onClose])
 
   if (!isOpen) return null

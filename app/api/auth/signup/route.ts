@@ -40,13 +40,13 @@ export async function POST(request: NextRequest) {
 
     if (profileError) {
       console.error('Profile creation error:', profileError)
-      // 프로필 생성 실패 시 사용자 계정 삭제 시도 (cleanup)
-      try {
-        await supabase.auth.admin.deleteUser(authData.user.id)
-      } catch (cleanupError) {
-        console.error('User cleanup error:', cleanupError)
-      }
-      return NextResponse.json({ error: profileError.message }, { status: 500 })
+      // 🔒 보안: 관리자 권한 제거 - 프로필 생성 실패 시에도 사용자 계정은 유지
+      // 사용자가 다시 로그인 시 프로필 재생성 시도하도록 변경
+      console.warn('⚠️ 프로필 생성 실패 - 사용자가 재로그인 시 프로필 생성 재시도 필요')
+      return NextResponse.json({ 
+        error: '프로필 생성에 실패했습니다. 잠시 후 다시 시도해주세요.',
+        retryable: true 
+      }, { status: 500 })
     }
 
     // 🔒 부모 계정의 경우 family_code가 자동 생성되지 않도록 추가 보안

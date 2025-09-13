@@ -41,6 +41,10 @@ export interface FamilyMemberWithProfile {
     full_name: string
     user_type: 'parent' | 'child'
     avatar_url?: string
+    nickname?: string
+    phone?: string
+    bio?: string
+    birthday?: string
   }
 }
 

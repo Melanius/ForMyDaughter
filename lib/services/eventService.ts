@@ -15,8 +15,15 @@ import {
 class EventService {
   private supabase = createClient()
 
-  // 가족의 모든 이벤트 조회
+  // 가족의 모든 이벤트 조회 (기존 profiles 시스템 호환)
   async getFamilyEvents(familyId: string): Promise<FamilyEventWithCreator[]> {
+    // legacy 시스템 호환성 체크
+    if (this.isLegacyFamilyId(familyId)) {
+      // 기존 profiles 시스템에서는 이벤트 기능이 없으므로 빈 배열 반환
+      console.log('🔄 Legacy family ID 감지: 이벤트 기능 비활성화')
+      return []
+    }
+
     const { data, error } = await this.supabase
       .from('family_events')
       .select(`
@@ -31,6 +38,11 @@ class EventService {
     }
 
     return data || []
+  }
+
+  // Legacy family ID 감지 유틸리티
+  private isLegacyFamilyId(familyId: string): boolean {
+    return familyId.startsWith('legacy-')
   }
 
   // 다가오는 이벤트 조회 (D-day 계산 포함)
@@ -88,8 +100,13 @@ class EventService {
       .slice(0, limit)
   }
 
-  // 이벤트 추가
+  // 이벤트 추가 (기존 profiles 시스템 호환)
   async createEvent(familyId: string, eventData: CreateEventRequest): Promise<FamilyEvent> {
+    // legacy 시스템에서는 이벤트 생성 불가
+    if (this.isLegacyFamilyId(familyId)) {
+      throw new Error('기존 가족 시스템에서는 이벤트 기능을 사용할 수 없습니다.')
+    }
+
     const { data, error } = await this.supabase
       .from('family_events')
       .insert({
@@ -134,8 +151,14 @@ class EventService {
     }
   }
 
-  // 가족 구성원들의 생일을 자동으로 이벤트로 추가
+  // 가족 구성원들의 생일을 자동으로 이벤트로 추가 (기존 profiles 시스템 호환)
   async syncBirthdays(familyId: string): Promise<void> {
+    // legacy 시스템에서는 생일 동기화 생략
+    if (this.isLegacyFamilyId(familyId)) {
+      console.log('🔄 Legacy family ID: 생일 동기화 생략')
+      return
+    }
+
     try {
       // 가족 구성원들의 생일 정보 조회
       const { data: members, error: membersError } = await this.supabase

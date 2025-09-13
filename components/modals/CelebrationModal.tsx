@@ -38,6 +38,7 @@ export function CelebrationModal({ isOpen, onClose, amount, missionCount }: Cele
       }, 5000)
       return () => clearTimeout(timer)
     }
+    return undefined
   }, [isOpen, onClose])
 
   if (!mounted || !isOpen) {

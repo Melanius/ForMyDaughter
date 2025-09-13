@@ -37,6 +37,7 @@ export function ApprovalNotificationModal({
       
       return () => clearTimeout(timer)
     }
+    return undefined
   }, [isOpen, autoCloseDelay, onClose])
 
   const formatDate = (dateString?: string) => {

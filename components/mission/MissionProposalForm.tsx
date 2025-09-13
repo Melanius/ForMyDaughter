@@ -408,7 +408,7 @@ export default function MissionProposalForm({ isOpen, onClose, onSuccess }: Miss
       <ProposalSuccessModal
         isOpen={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
-        childName={profile?.full_name}
+        childName={profile?.full_name || undefined}
       />
     </div>
   )
