@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       user_type: userType
     }
 
-    // 자녀인 경우만 family_code 추가 (부모는 트리거에서 자동 생성)
+    // 자녀인 경우만 family_code 추가 (부모는 회원가입 후 별도로 가족 생성)
     if (userType === 'child' && familyCode) {
       profileData['family_code'] = familyCode
     }
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       success: true, 
       message: userType === 'parent' 
-        ? '부모 계정 회원가입이 완료되었습니다!' 
+        ? '부모 계정 회원가입이 완료되었습니다! 로그인 후 가족을 생성해주세요.' 
         : '자녀 계정 회원가입이 완료되었습니다. 부모님의 승인을 기다려주세요.'
     })
 
