@@ -5,7 +5,7 @@ import { Navigation, Pagination } from 'swiper/modules'
 import 'swiper/css'
 import 'swiper/css/navigation'
 import 'swiper/css/pagination'
-import { Crown, Settings } from 'lucide-react'
+import { Settings } from 'lucide-react'
 import { ProfileImageUpload } from './ProfileImageUpload'
 import { FamilyMemberWithProfile } from '@/lib/types/family'
 
@@ -41,20 +41,19 @@ export function SwipeableProfileCard({
 
   // 프로필 정보
   const getProfileInfo = (member: FamilyMemberWithProfile) => {
-    const info = [
-      { label: '역할', value: getRoleText(member.role) },
-      { label: '가입일', value: new Date(member.joined_at).toLocaleDateString('ko-KR') }
-    ]
+    const info = []
 
-    // 추가 개인정보가 있으면 표시
-    if (member.profile.nickname) {
-      info.push({ label: '닉네임', value: member.profile.nickname })
-    }
+    // 생일만 표시 (가입일 제거)
     if (member.profile.birthday) {
       const birthday = new Date(member.profile.birthday)
       const month = birthday.getMonth() + 1
       const day = birthday.getDate()
       info.push({ label: '생일', value: `${month}월 ${day}일` })
+    }
+
+    // 추가 개인정보가 있으면 표시
+    if (member.profile.nickname) {
+      info.push({ label: '닉네임', value: member.profile.nickname })
     }
     if (member.profile.phone) {
       info.push({ label: '전화번호', value: member.profile.phone })
@@ -94,6 +93,15 @@ export function SwipeableProfileCard({
                 </button>
               )}
 
+              {/* 역할 표시 */}
+              <div className="mb-4 text-center">
+                <div className="inline-block bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-2 rounded-full text-sm font-semibold">
+                  {['father', 'mother'].includes(member.role) 
+                    ? `👑 ${getRoleText(member.role)}` 
+                    : getRoleText(member.role)}
+                </div>
+              </div>
+
               {/* 프로필 사진 */}
               <div className="relative flex justify-center mb-6">
                 <ProfileImageUpload
@@ -107,7 +115,7 @@ export function SwipeableProfileCard({
                 
                 {/* 현재 사용자 표시 */}
                 {member.user_id === currentUserId && (
-                  <div className="absolute -top-2 -right-2">
+                  <div className="absolute -top-2 -left-2">
                     <div className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg animate-pulse">
                       ✨ 나
                     </div>
@@ -115,23 +123,15 @@ export function SwipeableProfileCard({
                 )}
               </div>
 
-              {/* 이름 및 역할 */}
+              {/* 이름 */}
               <div className="mb-6">
-                <h3 className="text-2xl font-bold text-gray-800 mb-2">
+                <h3 className="text-2xl font-bold text-gray-800 text-center">
                   {member.profile.full_name}
                 </h3>
-                <div className="flex items-center justify-center gap-2">
-                  {['father', 'mother'].includes(member.role) && (
-                    <Crown className="w-5 h-5 text-yellow-500" />
-                  )}
-                  <span className="text-lg text-gray-600 font-medium">
-                    {getRoleText(member.role)}
-                  </span>
-                </div>
               </div>
 
               {/* 프로필 정보 */}
-              <div className="space-y-4">
+              <div className="space-y-4 mb-6">
                 {getProfileInfo(member).map((info, index) => (
                   <div key={index} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
                     <span className="text-gray-600 font-medium">{info.label}</span>
@@ -142,7 +142,7 @@ export function SwipeableProfileCard({
 
               {/* 가족에게 하고 싶은 말 */}
               {member.profile.bio && (
-                <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl">
+                <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl">
                   <p className="text-sm text-gray-600 mb-2">
                     💭 가족에게 하고 싶은 말
                   </p>

@@ -25,6 +25,15 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    // 역할 업데이트 처리 (부모의 경우)
+    let familyMemberUpdate: Record<string, any> | null = null
+    if (updateData.role) {
+      familyMemberUpdate = {
+        role: updateData.role,
+        updated_at: nowKST()
+      }
+    }
+
     // 필수 필드 검증
     if (profileUpdate.full_name !== undefined && !profileUpdate.full_name?.trim()) {
       return NextResponse.json({ error: '이름을 입력해주세요' }, { status: 400 })
@@ -60,6 +69,20 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ 
         error: '프로필 업데이트에 실패했습니다' 
       }, { status: 500 })
+    }
+
+    // 가족 구성원 역할 업데이트 (새로운 family_members 테이블이 있는 경우에만)
+    if (familyMemberUpdate) {
+      const { error: memberUpdateError } = await supabase
+        .from('family_members')
+        .update(familyMemberUpdate)
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+
+      if (memberUpdateError) {
+        console.error('가족 구성원 역할 업데이트 실패:', memberUpdateError)
+        // 프로필은 성공했으므로 경고만 로그에 남김
+      }
     }
 
     return NextResponse.json({ 

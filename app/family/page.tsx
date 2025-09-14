@@ -356,7 +356,7 @@ export default function FamilyPage() {
       )}
 
       {/* 개인정보 수정 모달 */}
-      {currentProfile && (
+      {currentProfile && family && (
         <ProfileEditModal
           isOpen={showProfileModal}
           onClose={() => {
@@ -364,6 +364,7 @@ export default function FamilyPage() {
             setCurrentProfile(null)
           }}
           currentProfile={currentProfile}
+          currentRole={family.members.find(m => m.user_id === user?.id)?.role}
           onUpdate={handleProfileUpdate}
         />
       )}

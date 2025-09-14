@@ -210,10 +210,10 @@ class FamilyService {
       return null // 진짜 가족이 없음
     }
 
-    // 3단계: 같은 family_code를 가진 모든 구성원 조회
+    // 3단계: 같은 family_code를 가진 모든 구성원 조회 (누락된 필드 추가)
     const { data: familyMembers, error: membersError } = await this.supabase
       .from('profiles')
-      .select('id, full_name, user_type, avatar_url, family_code')
+      .select('id, full_name, user_type, avatar_url, family_code, nickname, phone, bio, birthday')
       .eq('family_code', profile.family_code)
       .order('user_type', { ascending: false }) // parent가 먼저 오도록
 
@@ -239,7 +239,11 @@ class FamilyService {
         id: member.id,
         full_name: member.full_name,
         user_type: member.user_type,
-        avatar_url: member.avatar_url
+        avatar_url: member.avatar_url,
+        nickname: (member as any).nickname || null,
+        phone: (member as any).phone || null,
+        bio: (member as any).bio || null,
+        birthday: (member as any).birthday || null
       }
     }))
 
