@@ -53,10 +53,7 @@ export function SwipeableProfileCard({
       info.push({ label: '생일', value: `${month}월 ${day}일` })
     }
 
-    // 추가 개인정보가 있으면 표시
-    if (member.profile.nickname) {
-      info.push({ label: '닉네임', value: member.profile.nickname })
-    }
+    // 전화번호만 표시 (닉네임은 이름 자리로 이동)
     if (member.profile.phone) {
       info.push({ label: '전화번호', value: member.profile.phone })
     }
@@ -125,10 +122,10 @@ export function SwipeableProfileCard({
                 )}
               </div>
 
-              {/* 이름 */}
+              {/* 닉네임 */}
               <div className="mb-6">
                 <h3 className="text-2xl font-bold text-gray-800 text-center">
-                  {member.profile.full_name}
+                  {member.profile.nickname || member.profile.full_name}
                 </h3>
               </div>
 

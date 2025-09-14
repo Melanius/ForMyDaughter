@@ -16,6 +16,7 @@ import {
 } from '@/hooks/useMissionProposals'
 import { MissionProposalWithProfile, MissionProposalStatus } from '@/lib/types/missionProposal'
 import { RejectionReasonModal } from '@/components/modals/RejectionReasonModal'
+import { isParentRole } from '@/lib/utils/roleUtils'
 
 interface MissionProposalManagerProps {
   isOpen: boolean
@@ -89,7 +90,7 @@ export default function MissionProposalManager({ isOpen, onClose }: MissionPropo
   }
 
   // 부모가 아니면 표시하지 않음
-  if (!profile || profile.user_type !== 'parent' || !isOpen) {
+  if (!profile || !isParentRole(profile.user_type) || !isOpen) {
     return null
   }
 

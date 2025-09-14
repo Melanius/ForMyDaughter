@@ -18,6 +18,7 @@ import {
 } from '../types/allowance'
 import { getTodayKST, nowKST } from '../utils/dateUtils'
 import { isParentRole, isChildRole } from '../utils/roleUtils'
+import familyCompatibilityService from './familyCompatibilityService'
 
 export interface SupabaseTransaction {
   id: string
@@ -34,7 +35,7 @@ export interface SupabaseProfile {
   id: string
   email: string
   full_name?: string
-  user_type: 'parent' | 'child'
+  user_type: 'father' | 'mother' | 'son' | 'daughter'
   parent_id?: string
   family_code?: string
 }
@@ -43,7 +44,7 @@ export class AllowanceSupabaseService {
   private supabase = createClient()
 
   /**
-   * 🔍 현재 사용자 정보 및 가족 관계 조회 (기존 호환성 유지)
+   * 🔍 현재 사용자 정보 및 가족 관계 조회 (새로운 family 시스템 사용)
    */
   async getCurrentUser(): Promise<{ user: { id: string; email?: string }, profile: SupabaseProfile, childrenIds: string[] }> {
     const { data: { user }, error: userError } = await this.supabase.auth.getUser()
@@ -51,33 +52,36 @@ export class AllowanceSupabaseService {
       throw new Error('사용자 정보를 가져올 수 없습니다.')
     }
 
-    // 프로필 조회
-    const { data: profile, error: profileError } = await this.supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', (user as { id: string }).id)
-      .single()
-
-    if (profileError || !profile) {
+    // 새로운 family 시스템을 통해 가족 정보 조회
+    const familyData = await familyCompatibilityService.getCurrentUserWithFamily()
+    
+    if (!familyData.profile) {
       throw new Error('프로필 정보를 가져올 수 없습니다.')
     }
 
     // 자녀 목록 조회 (부모인 경우)
     let childrenIds: string[] = []
-    if (isParentRole(profile.user_type)) {
-      const { data: children } = await this.supabase
-        .from('profiles')
-        .select('id')
-        .eq('parent_id', (user as { id: string }).id)
+    if (isParentRole(familyData.profile.user_type) && familyData.family) {
+      childrenIds = familyData.family.members
+        .filter(member => isChildRole(member.role))
+        .map(member => member.user_id)
+    }
 
-      childrenIds = children?.map(child => child.id) || []
+    // 기존 인터페이스와 호환되도록 변환
+    const profile: SupabaseProfile = {
+      id: familyData.profile.id,
+      email: familyData.profile.email,
+      full_name: familyData.profile.full_name,
+      user_type: familyData.profile.user_type,
+      parent_id: familyData.profile.parent_id,
+      family_code: familyData.profile.family_code
     }
 
     return { user, profile, childrenIds }
   }
 
   /**
-   * 🔍 현재 사용자 정보 및 가족 관계 조회 (부모 ID 포함)
+   * 🔍 현재 사용자 정보 및 가족 관계 조회 (부모 ID 포함, 새로운 family 시스템 사용)
    */
   async getCurrentUserWithParent(): Promise<{ user: unknown, profile: SupabaseProfile, childrenIds: string[], parentId: string | null }> {
     const { data: { user }, error: userError } = await this.supabase.auth.getUser()
@@ -85,30 +89,37 @@ export class AllowanceSupabaseService {
       throw new Error('사용자 정보를 가져올 수 없습니다.')
     }
 
-    // 프로필 조회
-    const { data: profile, error: profileError } = await this.supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', (user as { id: string }).id)
-      .single()
-
-    if (profileError || !profile) {
+    // 새로운 family 시스템을 통해 가족 정보 조회
+    const familyData = await familyCompatibilityService.getCurrentUserWithFamily()
+    
+    if (!familyData.profile) {
       throw new Error('프로필 정보를 가져올 수 없습니다.')
     }
 
     // 자녀 목록 조회 (부모인 경우)
     let childrenIds: string[] = []
-    if (isParentRole(profile.user_type)) {
-      const { data: children } = await this.supabase
-        .from('profiles')
-        .select('id')
-        .eq('parent_id', (user as { id: string }).id)
-
-      childrenIds = children?.map(child => child.id) || []
+    if (isParentRole(familyData.profile.user_type) && familyData.family) {
+      childrenIds = familyData.family.members
+        .filter(member => isChildRole(member.role))
+        .map(member => member.user_id)
     }
 
-    // 부모 ID 추가 (자녀인 경우)
-    const parentId = isChildRole(profile.user_type) ? profile.parent_id : null
+    // 부모 ID 조회 (자녀인 경우)
+    let parentId: string | null = null
+    if (isChildRole(familyData.profile.user_type) && familyData.family) {
+      const parentMember = familyData.family.members.find(member => isParentRole(member.role))
+      parentId = parentMember ? parentMember.user_id : familyData.profile.parent_id
+    }
+
+    // 기존 인터페이스와 호환되도록 변환
+    const profile: SupabaseProfile = {
+      id: familyData.profile.id,
+      email: familyData.profile.email,
+      full_name: familyData.profile.full_name,
+      user_type: familyData.profile.user_type,
+      parent_id: familyData.profile.parent_id,
+      family_code: familyData.profile.family_code
+    }
     
     console.log('🔍 [DEBUG] getCurrentUserWithParent 결과:', {
       userId: (user as { id: string }).id,

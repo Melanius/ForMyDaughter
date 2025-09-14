@@ -14,6 +14,7 @@ import { CreateMissionProposalRequest, MissionProposalType } from '@/lib/types/m
 import { MISSION_CATEGORIES, getMissionCategory } from '@/lib/constants/missionCategories'
 import { ProposalSuccessModal } from '@/components/modals/ProposalSuccessModal'
 import { getTodayKST } from '@/lib/utils/dateUtils'
+import { isChildRole } from '@/lib/utils/roleUtils'
 
 interface MissionProposalFormProps {
   isOpen: boolean
@@ -59,7 +60,7 @@ export default function MissionProposalForm({ isOpen, onClose, onSuccess }: Miss
   // 부모 ID 조회
   useEffect(() => {
     const fetchParentId = async () => {
-      if (!user || profile?.user_type !== 'child') {
+      if (!user || !isChildRole(profile?.user_type)) {
         setLoading(false)
         return
       }
@@ -178,7 +179,7 @@ export default function MissionProposalForm({ isOpen, onClose, onSuccess }: Miss
   }
 
   // 자녀가 아니면 표시하지 않음
-  if (!user || profile?.user_type !== 'child') {
+  if (!user || !isChildRole(profile?.user_type)) {
     return null
   }
 

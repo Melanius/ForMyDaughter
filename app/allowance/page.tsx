@@ -102,27 +102,6 @@ export default function AllowancePage() {
         } : null
       })
 
-      // 🔧 임시 테스트: 거래가 없는 자녀에게 테스트 데이터 추가
-      if (transactionsResult.length === 0 && selectedChildId) {
-        console.log('🧪 [TEST] 거래내역이 없으므로 테스트 데이터 추가 시도...')
-        try {
-          await allowanceSupabaseService.addMissionIncomeForUser(
-            selectedChildId, 
-            'test-mission', 
-            1000, 
-            '테스트 미션', 
-            new Date().toISOString().split('T')[0]
-          )
-          console.log('✅ [TEST] 테스트 데이터 추가 성공, 데이터 재로딩...')
-          // 데이터 재로딩
-          const [reloadTransactions] = await Promise.all([
-            allowanceSupabaseService.getFamilyTransactions(selectedChildId)
-          ])
-          console.log('📊 [TEST] 재로딩 결과:', reloadTransactions.length)
-        } catch (testError) {
-          console.log('⚠️ [TEST] 테스트 데이터 추가 실패:', testError)
-        }
-      }
 
       setAllTransactions(transactionsResult)
       // 통계는 자동으로 계산됨 (filteredStatistics useMemo로)

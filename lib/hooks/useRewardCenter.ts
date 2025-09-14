@@ -33,7 +33,7 @@ export function useRewardCenter() {
 
   // 정산 대기 미션 목록 새로고침
   const refreshPendingMissions = useCallback(async () => {
-    if (!profile?.id || profile.user_type !== 'parent') return
+    if (!profile?.id || !isParentRole(profile.user_type)) return
 
     setState(prev => ({ ...prev, isLoading: true, error: undefined }))
 
@@ -203,7 +203,7 @@ export function useRewardCenter() {
 
   // 실시간 구독 설정
   useEffect(() => {
-    if (!profile?.id || profile.user_type !== 'parent') return
+    if (!profile?.id || !isParentRole(profile.user_type)) return
 
     console.log('🔔 정산 실시간 구독 시작')
     

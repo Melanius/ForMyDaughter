@@ -7,6 +7,7 @@
 
 import { createClient } from '@/lib/supabase/client'
 import { nowKST } from '@/lib/utils/dateUtils'
+import { isChildRole } from '@/lib/utils/roleUtils'
 import familyCompatibilityService from './familyCompatibilityService'
 import missionSupabaseService from './missionSupabase'
 import notificationService from './notificationService'
@@ -42,7 +43,8 @@ class MissionProposalService {
         .eq('id', user.id)
         .single()
 
-      if (!profile || profile.user_type !== 'child') {
+      // 자녀 권한 확인 (새로운 4-role 시스템 적용)
+      if (!profile || !isChildRole(profile.user_type)) {
         return { data: null, error: '자녀만 미션을 제안할 수 있습니다', success: false }
       }
 

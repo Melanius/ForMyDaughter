@@ -14,7 +14,7 @@ export interface ChildInfo {
   name: string
   nickname?: string
   avatar?: string
-  role: 'father' | 'mother' | 'child'
+  role: 'father' | 'mother' | 'son' | 'daughter'
 }
 
 interface ChildSelectionContextType {
@@ -94,7 +94,7 @@ export function ChildSelectionProvider({ children }: ChildSelectionProviderProps
         if (familyData.family && (userRole === 'father' || userRole === 'mother')) {
           // 부모인 경우: 자녀 목록 구성
           const children: ChildInfo[] = familyData.family.members
-            .filter(member => member.role === 'child')
+            .filter(member => isChildRole(member.role))
             .map(member => ({
               id: member.user_id,
               name: member.profile.full_name,

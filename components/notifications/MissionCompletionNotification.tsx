@@ -7,6 +7,7 @@ import { useAllowance } from '@/hooks/useAllowance'
 import { Mission } from '@/lib/types/mission'
 import { X, Gift, Clock, Calendar } from 'lucide-react'
 import { getTodayKST } from '@/lib/utils/dateUtils'
+import { isParentRole } from '@/lib/utils/roleUtils'
 
 // 날짜를 사용자 친화적 한국어 형식으로 포맷
 const formatCompletionDate = (dateString: string): string => {
@@ -60,7 +61,7 @@ export default function MissionCompletionNotification({
 
   // 부모 계정에서만 작동
   useEffect(() => {
-    if (profile?.user_type !== 'parent' || !connectedChildren?.length) {
+    if (!isParentRole(profile?.user_type) || !connectedChildren?.length) {
       return
     }
 

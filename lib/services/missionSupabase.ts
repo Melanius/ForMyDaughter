@@ -280,7 +280,7 @@ export class MissionSupabaseService {
     const { profile, childrenIds } = await this.getCurrentUser()
 
     // 부모만 가족 이벤트 미션 생성 가능
-    if (profile.user_type !== 'parent') {
+    if (!isParentRole(profile.user_type)) {
       throw new Error('가족 이벤트 미션은 부모만 생성할 수 있습니다.')
     }
 
@@ -557,7 +557,7 @@ export class MissionSupabaseService {
     const { user, profile } = await this.getCurrentUser()
 
     // 부모만 템플릿 생성 가능
-    if (profile.user_type !== 'parent') {
+    if (!isParentRole(profile.user_type)) {
       throw new Error('미션 템플릿은 부모만 생성할 수 있습니다.')
     }
 
@@ -622,7 +622,7 @@ export class MissionSupabaseService {
     console.log('👤 현재 사용자 정보:', { userId: (user as { id: string })?.id, userType: profile.user_type })
 
     // 부모만 템플릿 수정 가능
-    if (profile.user_type !== 'parent') {
+    if (!isParentRole(profile.user_type)) {
       throw new Error('미션 템플릿은 부모만 수정할 수 있습니다.')
     }
 
@@ -672,7 +672,7 @@ export class MissionSupabaseService {
     const { user, profile } = await this.getCurrentUser()
 
     // 부모만 템플릿 삭제 가능
-    if (profile.user_type !== 'parent') {
+    if (!isParentRole(profile.user_type)) {
       throw new Error('미션 템플릿은 부모만 삭제할 수 있습니다.')
     }
 
@@ -702,7 +702,7 @@ export class MissionSupabaseService {
     const { user, profile } = await this.getCurrentUser()
 
     // 부모만 템플릿 삭제 가능
-    if (profile.user_type !== 'parent') {
+    if (!isParentRole(profile.user_type)) {
       throw new Error('미션 템플릿은 부모만 삭제할 수 있습니다.')
     }
 
@@ -748,7 +748,7 @@ export class MissionSupabaseService {
     const { profile } = await this.getCurrentUser()
 
     // 자녀는 템플릿을 생성할 수 없음
-    if (profile.user_type !== 'parent') {
+    if (!isParentRole(profile.user_type)) {
       return
     }
 
