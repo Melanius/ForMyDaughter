@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/components/auth/AuthProvider'
 import rewardService from '@/lib/services/rewardService'
 import { 
+import { isParentRole, isChildRole } from '../utils/roleUtils'
   PendingRewardMission, 
   RewardSummary, 
   BatchRewardRequest,
@@ -195,7 +196,7 @@ export function useRewardCenter() {
 
   // 컴포넌트 마운트시 데이터 로드
   useEffect(() => {
-    if (profile?.user_type === 'parent') {
+    if (isParentRole(profile?.user_type)) {
       refreshPendingMissions()
     }
   }, [profile, refreshPendingMissions])

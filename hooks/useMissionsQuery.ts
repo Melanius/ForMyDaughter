@@ -5,6 +5,7 @@ import { Mission, MissionInstance } from '@/lib/types/mission'
 import missionSupabaseService from '@/lib/services/missionSupabase'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { getTodayKST, nowKST, addDaysKST } from '@/lib/utils/dateUtils'
+import { isParentRole, isChildRole } from '@/lib/utils/roleUtils'
 
 // 쿼리 키 팩토리
 export const missionKeys = {
@@ -149,7 +150,7 @@ export function useAddMissionMutation(selectedDate: string, targetUserId?: strin
       } as const
 
       // 이벤트 미션이고 부모 계정이면 모든 자녀에게 생성
-      if (isEventMission && profile?.user_type === 'parent') {
+      if (isEventMission && isParentRole(profile?.user_type)) {
         const createdIds = await missionSupabaseService.addEventMissionToFamily(missionData)
         return createdIds[0] || 'family-event-mission' // 첫 번째 ID 반환 (기존 호환성 유지)
       } else {

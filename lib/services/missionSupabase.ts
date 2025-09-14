@@ -10,6 +10,7 @@
 import { createClient } from '@/lib/supabase/client'
 import { nowKST, shouldCreateMissionForDate } from '../utils/dateUtils'
 import { MissionTemplate, MissionInstance, RecurringPattern } from '../types/mission'
+import { isParentRole, isChildRole } from '../utils/roleUtils'
 
 export interface SupabaseMissionTemplate {
   id: string
@@ -74,7 +75,7 @@ export class MissionSupabaseService {
 
     // 자녀 목록 조회 (부모인 경우)
     let childrenIds: string[] = []
-    if (profile.user_type === 'parent') {
+    if (isParentRole(profile.user_type)) {
       const { data: children } = await this.supabase
         .from('profiles')
         .select('id')
@@ -95,7 +96,7 @@ export class MissionSupabaseService {
     let creatorIds: string[]
     let childFilter: string | null = null
     
-    if (profile.user_type === 'parent') {
+    if (isParentRole(profile.user_type)) {
       // 부모: 본인이 생성한 템플릿만 조회
       creatorIds = [profile.id]
       
@@ -152,7 +153,7 @@ export class MissionSupabaseService {
     
     if (targetUserId) {
       // 특정 사용자 지정된 경우: 권한 검증 후 해당 사용자만
-      if (profile.user_type === 'parent') {
+      if (isParentRole(profile.user_type)) {
         // 부모는 자녀들과 본인의 미션 볼 수 있음
         const allowedUserIds = [profile.id, ...childrenIds]
         if (allowedUserIds.includes(targetUserId)) {
@@ -170,7 +171,7 @@ export class MissionSupabaseService {
       }
     } else {
       // targetUserId가 없는 경우: 기존 로직 (가족 전체)
-      if (profile.user_type === 'parent') {
+      if (isParentRole(profile.user_type)) {
         // 부모: 본인 + 모든 자녀의 미션
         targetUserIds = [profile.id, ...childrenIds]
       } else {
@@ -468,12 +469,12 @@ export class MissionSupabaseService {
       let canDelete = false
       let deleteReason = ''
       
-      if (profile.user_type === 'child') {
+      if (isChildRole(profile.user_type)) {
         // 자녀: 미션 삭제 불가능
         canDelete = false
         deleteReason = '자녀는 미션을 삭제할 수 없습니다'
         console.log('🔍 [DELETE] 자녀 권한 체크:', { canDelete, deleteReason })
-      } else if (profile.user_type === 'parent') {
+      } else if (isParentRole(profile.user_type)) {
         // 부모: 가족 구성원의 모든 미션 삭제 가능
         console.log('🔍 [DELETE] 가족 미션 여부 확인 중...')
         const { data: missionOwnerProfile, error: ownerError } = await this.supabase
@@ -815,7 +816,7 @@ export class MissionSupabaseService {
     let createdCount = 0;
     let targetUserIds: string[];
 
-    if (profile.user_type === 'parent') {
+    if (isParentRole(profile.user_type)) {
       // 부모: 모든 자녀에게 개별적으로 미션 생성
       targetUserIds = childrenIds;
     } else {

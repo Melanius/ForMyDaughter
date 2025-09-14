@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { useAuth } from '@/components/auth/AuthProvider'
 import familyCompatibilityService from '@/lib/services/familyCompatibilityService'
 import { FamilyMemberWithProfile } from '@/lib/types/family'
+import { isParentRole, isChildRole } from '../utils/roleUtils'
 
 /**
  * 🧒 자녀 선택 컨텍스트 타입 정의
@@ -86,7 +87,7 @@ export function ChildSelectionProvider({ children }: ChildSelectionProviderProps
         if (!mounted) return
 
         // 사용자 역할 설정
-        const userRole = familyData.familyRole || (profile.user_type === 'parent' ? 'father' : 'child')
+        const userRole = familyData.familyRole || (isParentRole(profile.user_type) ? 'father' : 'child')
         setFamilyRole(userRole)
         setIsParent(userRole === 'father' || userRole === 'mother')
 

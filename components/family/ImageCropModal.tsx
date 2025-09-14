@@ -131,9 +131,9 @@ export function ImageCropModal({ isOpen, onClose, onSave }: ImageCropModalProps)
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[95vh] flex flex-col">
         {/* 헤더 */}
-        <div className="flex items-center justify-between p-6 border-b">
+        <div className="flex items-center justify-between p-6 border-b flex-shrink-0">
           <h3 className="text-xl font-bold text-gray-800">프로필 사진 설정</h3>
           <button
             onClick={handleClose}
@@ -143,8 +143,8 @@ export function ImageCropModal({ isOpen, onClose, onSave }: ImageCropModalProps)
           </button>
         </div>
 
-        {/* 내용 */}
-        <div className="p-6">
+        {/* 내용 - 스크롤 가능한 영역 */}
+        <div className="p-6 flex-1 overflow-y-auto">
           {!imageSrc ? (
             // 파일 선택 화면
             <div className="text-center py-12">
@@ -173,44 +173,46 @@ export function ImageCropModal({ isOpen, onClose, onSave }: ImageCropModalProps)
             </div>
           ) : (
             // 크롭 화면
-            <div className="space-y-4">
-              <div className="flex justify-center bg-gray-50 rounded-xl p-4">
+            <div className="flex flex-col min-h-0">
+              <div className="flex justify-center bg-gray-50 rounded-xl p-4 mb-4 flex-shrink-0" style={{ minHeight: '250px', maxHeight: '50vh' }}>
                 <ReactCrop
                   crop={crop}
                   onChange={(_, percentCrop) => setCrop(percentCrop)}
                   onComplete={(c) => setCompletedCrop(c)}
                   aspect={1} // 1:1 정사각형
-                  className="max-w-full max-h-96"
+                  className="max-w-full h-full"
                 >
                   <img
                     ref={imgRef}
                     alt="크롭할 이미지"
                     src={imageSrc}
                     onLoad={onImageLoad}
-                    className="max-w-full max-h-96 object-contain"
+                    className="max-w-full max-h-full object-contain"
                   />
                 </ReactCrop>
-              </div>
-
-              {/* 버튼들 */}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-3 rounded-xl font-medium transition-colors"
-                >
-                  다른 이미지 선택
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={!completedCrop || isUploading}
-                  className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white px-4 py-3 rounded-xl font-medium transition-colors"
-                >
-                  {isUploading ? '업로드 중...' : '저장하기'}
-                </button>
               </div>
             </div>
           )}
         </div>
+
+        {/* 버튼들 - 고정 푸터 */}
+        {imageSrc && (
+          <div className="flex gap-3 p-6 border-t bg-white rounded-b-2xl flex-shrink-0">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-3 rounded-xl font-medium transition-colors"
+            >
+              다른 이미지 선택
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!completedCrop || isUploading}
+              className="flex-1 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white px-4 py-3 rounded-xl font-medium transition-colors"
+            >
+              {isUploading ? '업로드 중...' : '저장하기'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

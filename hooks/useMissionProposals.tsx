@@ -17,6 +17,7 @@ import {
   MissionProposalFilters,
   MissionProposalStats
 } from '@/lib/types/missionProposal'
+import { isParentRole, isChildRole } from '@/lib/utils/roleUtils'
 
 /**
  * 🔑 Query Keys
@@ -65,7 +66,7 @@ export function useMissionProposalStats(parentId?: string) {
       }
       return response.data
     },
-    enabled: !!user && profile?.user_type === 'parent',
+    enabled: !!user && isParentRole(profile?.user_type),
     staleTime: 60 * 1000, // 1분
     refetchOnWindowFocus: false
   })
@@ -167,7 +168,7 @@ export function usePendingProposals(parentId?: string) {
       }
       return response.data || []
     },
-    enabled: !!user && profile?.user_type === 'parent',
+    enabled: !!user && isParentRole(profile?.user_type),
     staleTime: 30 * 1000, // 30초
     refetchInterval: 60 * 1000, // 1분마다 자동 갱신
     refetchOnWindowFocus: true
@@ -182,7 +183,7 @@ export function useChildProposals() {
   const { selectedChildId, currentUserId } = useChildSelection()
 
   // 부모인 경우 선택된 자녀의 제안, 자녀인 경우 자신의 제안
-  const targetChildId = profile?.user_type === 'parent' ? selectedChildId : currentUserId
+  const targetChildId = isParentRole(profile?.user_type) ? selectedChildId : currentUserId
 
   return useQuery({
     queryKey: missionProposalKeys.list({ child_id: targetChildId || undefined }),

@@ -17,6 +17,7 @@ import AddTransactionModal from '../../components/allowance/AddTransactionModal'
 import AnalyticsModal from '../../components/allowance/AnalyticsModal'
 import FilterModal, { FilterOption } from '../../components/allowance/FilterModal'
 import { FloatingActionButton } from '../../components/ui/FloatingActionButton'
+import { isParentRole, isChildRole } from '@/lib/utils/roleUtils'
 
 export default function AllowancePage() {
   const { profile } = useAuth()
@@ -289,7 +290,7 @@ export default function AllowancePage() {
             <ChildSelector />
             
             {/* 받을 수 있는 용돈 섹션 (자녀용 - 최상단) */}
-            {profile?.user_type === 'child' && selectedChildId && (
+            {isChildRole(profile?.user_type) && selectedChildId && (
               <AllowanceRequestButton 
                 userId={selectedChildId}
                 onRequestSent={(amount, missions) => {

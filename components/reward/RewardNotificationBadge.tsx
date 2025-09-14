@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/auth/AuthProvider'
 import rewardService from '@/lib/services/rewardService'
 import { RewardSummary } from '@/lib/types/reward'
+import { isParentRole, isChildRole } from '@/lib/utils/roleUtils'
 
 interface RewardNotificationBadgeProps {
   className?: string
@@ -48,7 +49,7 @@ export function RewardNotificationBadge({ className = '' }: RewardNotificationBa
 
   // 컴포넌트 마운트시 데이터 로드
   useEffect(() => {
-    if (profile?.user_type === 'parent') {
+    if (isParentRole(profile?.user_type)) {
       loadRewardSummary()
       
       // 5분마다 자동 새로고침
@@ -163,7 +164,7 @@ export function RewardNotificationBadgeSimple() {
   }
 
   useEffect(() => {
-    if (profile?.user_type === 'parent') {
+    if (isParentRole(profile?.user_type)) {
       loadRewardSummary()
       
       const unsubscribe = rewardService.subscribeToMissionCompletions(

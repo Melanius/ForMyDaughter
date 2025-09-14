@@ -17,6 +17,7 @@ import {
   EXPENSE_CATEGORIES 
 } from '../types/allowance'
 import { getTodayKST, nowKST } from '../utils/dateUtils'
+import { isParentRole, isChildRole } from '../utils/roleUtils'
 
 export interface SupabaseTransaction {
   id: string
@@ -63,7 +64,7 @@ export class AllowanceSupabaseService {
 
     // 자녀 목록 조회 (부모인 경우)
     let childrenIds: string[] = []
-    if (profile.user_type === 'parent') {
+    if (isParentRole(profile.user_type)) {
       const { data: children } = await this.supabase
         .from('profiles')
         .select('id')
@@ -97,7 +98,7 @@ export class AllowanceSupabaseService {
 
     // 자녀 목록 조회 (부모인 경우)
     let childrenIds: string[] = []
-    if (profile.user_type === 'parent') {
+    if (isParentRole(profile.user_type)) {
       const { data: children } = await this.supabase
         .from('profiles')
         .select('id')
@@ -107,7 +108,7 @@ export class AllowanceSupabaseService {
     }
 
     // 부모 ID 추가 (자녀인 경우)
-    const parentId = profile.user_type === 'child' ? profile.parent_id : null
+    const parentId = isChildRole(profile.user_type) ? profile.parent_id : null
     
     console.log('🔍 [DEBUG] getCurrentUserWithParent 결과:', {
       userId: (user as { id: string }).id,
@@ -134,7 +135,7 @@ export class AllowanceSupabaseService {
     try {
       const { profile } = await this.getCurrentUserWithParent()
       
-      if (profile.user_type === 'child') {
+      if (isChildRole(profile.user_type)) {
         if (!profile.parent_id) {
           console.log('🚨 [진단] 자녀 계정에 parent_id가 없음')
           
@@ -210,7 +211,7 @@ export class AllowanceSupabaseService {
         familyCode: profile.family_code
       })
 
-      if (profile.user_type === 'child') {
+      if (isChildRole(profile.user_type)) {
         // 자녀 계정: family_code로 부모 찾아서 parent_id 설정
         const { data: parents } = await this.supabase
           .from('profiles')
@@ -238,7 +239,7 @@ export class AllowanceSupabaseService {
         } else {
           return { success: false, message: '같은 family_code의 부모 계정을 찾을 수 없음' }
         }
-      } else if (profile.user_type === 'parent') {
+      } else if (isParentRole(profile.user_type)) {
         // 부모 계정: family_code로 자녀들 찾아서 parent_id 설정
         const { data: children } = await this.supabase
           .from('profiles')
@@ -291,7 +292,7 @@ export class AllowanceSupabaseService {
       .from('family_connection_requests')
       .select('id, parent_id, child_id, status')
     
-    if (profile.user_type === 'parent') {
+    if (isParentRole(profile.user_type)) {
       query = query.eq('parent_id', profile.id)
     } else {
       query = query.eq('child_id', profile.id)
@@ -364,7 +365,7 @@ export class AllowanceSupabaseService {
     
     if (targetUserId) {
       // 특정 사용자 지정된 경우: 권한 검증 후 해당 사용자만
-      if (profile.user_type === 'parent') {
+      if (isParentRole(profile.user_type)) {
         // 부모는 자녀들과 본인의 거래 볼 수 있음
         const allowedUserIds = [profile.id, ...childrenIds]
         if (allowedUserIds.includes(targetUserId)) {
@@ -387,7 +388,7 @@ export class AllowanceSupabaseService {
       }
     } else {
       // targetUserId가 없는 경우: 기존 로직 (가족 전체)
-      if (profile.user_type === 'parent') {
+      if (isParentRole(profile.user_type)) {
         // 부모: 본인 + 모든 자녀의 거래
         targetUserIds = [profile.id, ...childrenIds]
         console.log('📊 부모가 가족 전체 거래 조회:', {
@@ -476,7 +477,7 @@ export class AllowanceSupabaseService {
       const { profile, childrenIds } = await this.getCurrentUser()
       const notifyTargets: string[] = []
       
-      if (profile.user_type === 'parent') {
+      if (isParentRole(profile.user_type)) {
         // 부모의 거래: 모든 자녀에게 알림
         notifyTargets.push(...childrenIds)
       } else if (profile.parent_id) {
@@ -1020,7 +1021,7 @@ export class AllowanceSupabaseService {
       const { profile, childrenIds, parentId } = await this.getCurrentUserWithParent()
       
       let targetUserIds: string[]
-      if (profile.user_type === 'parent') {
+      if (isParentRole(profile.user_type)) {
         // 부모: 본인 + 모든 자녀의 거래 구독
         targetUserIds = [profile.id, ...childrenIds]
       } else {

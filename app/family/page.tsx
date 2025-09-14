@@ -53,29 +53,22 @@ export default function FamilyPage() {
     }
   }
 
-  const handleProfileEdit = (userId: string) => {
+  const handleProfileEdit = async (userId: string) => {
     if (!family) return
     
-    // 해당 사용자의 프로필 정보 찾기
-    const member = family.members.find(m => m.user_id === userId)
-    if (member) {
-      const profileData: Profile = {
-        id: member.profile.id,
-        email: '', // 이메일은 편집하지 않으므로 빈 값
-        full_name: member.profile.full_name,
-        user_type: member.profile.user_type,
-        family_code: null,
-        parent_id: null,
-        avatar_url: member.profile.avatar_url || null,
-        birthday: (member.profile as any).birthday || null,
-        phone: (member.profile as any).phone || null,
-        nickname: (member.profile as any).nickname || null,
-        bio: (member.profile as any).bio || null,
-        created_at: '',
-        updated_at: ''
+    try {
+      // 완전한 프로필 데이터를 API에서 가져오기
+      const response = await fetch(`/api/profile/${userId}`)
+      if (!response.ok) {
+        throw new Error('프로필 정보를 가져오는데 실패했습니다.')
       }
+      
+      const profileData: Profile = await response.json()
       setCurrentProfile(profileData)
       setShowProfileModal(true)
+    } catch (error) {
+      console.error('프로필 정보 로드 실패:', error)
+      alert('프로필 정보를 불러오는데 실패했습니다. 다시 시도해주세요.')
     }
   }
 
@@ -221,11 +214,8 @@ export default function FamilyPage() {
             <h1 className="text-4xl font-bold text-gray-800">
               우리 가족
             </h1>
-            <Users className="w-10 h-10 text-blue-400" />
+            <Heart className="w-10 h-10 text-red-400" />
           </div>
-          <p className="text-lg text-gray-600">
-            {family.family_name}
-          </p>
         </div>
 
         <div className="space-y-6">

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { X, Save, User, Calendar, Phone, MessageSquare, Camera } from 'lucide-react'
 import { Profile } from '@/lib/types/supabase'
 import { ProfileImageUpload } from '@/components/family/ProfileImageUpload'
+import { formatPhoneNumber, formatPhoneForDB, displayPhoneNumber } from '@/lib/utils/phoneUtils'
 
 interface ProfileEditModalProps {
   isOpen: boolean
@@ -36,7 +37,7 @@ export function ProfileEditModal({
         full_name: currentProfile.full_name || '',
         nickname: currentProfile.nickname || '',
         birthday: currentProfile.birthday || '',
-        phone: currentProfile.phone || '',
+        phone: displayPhoneNumber(currentProfile.phone) || '',
         bio: currentProfile.bio || ''
       })
       setProfileImageUrl(currentProfile.avatar_url || '')
@@ -45,10 +46,19 @@ export function ProfileEditModal({
   }, [isOpen, currentProfile])
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }))
+    // 전화번호 필드인 경우 자동 포맷팅 적용
+    if (field === 'phone') {
+      const formatted = formatPhoneNumber(value)
+      setFormData(prev => ({
+        ...prev,
+        [field]: formatted
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [field]: value
+      }))
+    }
   }
 
   const handleImageUpdate = (newUrl: string) => {
@@ -85,7 +95,7 @@ export function ProfileEditModal({
         full_name: formData.full_name.trim(),
         nickname: formData.nickname.trim() || null,
         birthday: formData.birthday || null,
-        phone: formData.phone.trim() || null,
+        phone: formatPhoneForDB(formData.phone) || null,
         bio: formData.bio.trim() || null
       }
 
@@ -110,7 +120,7 @@ export function ProfileEditModal({
       full_name: currentProfile.full_name || '',
       nickname: currentProfile.nickname || '',
       birthday: currentProfile.birthday || '',
-      phone: currentProfile.phone || '',
+      phone: displayPhoneNumber(currentProfile.phone) || '',
       bio: currentProfile.bio || ''
     })
     setProfileImageUrl(currentProfile.avatar_url || '')
@@ -265,10 +275,13 @@ export function ProfileEditModal({
               <input
                 id="phone"
                 type="tel"
+                inputMode="numeric"
+                pattern="[0-9\-]*"
                 value={formData.phone}
                 onChange={(e) => handleInputChange('phone', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                placeholder="010-1234-5678"
+                placeholder="01012345678 (숫자만 11자리)"
+                maxLength={13}
                 disabled={loading}
               />
             </div>

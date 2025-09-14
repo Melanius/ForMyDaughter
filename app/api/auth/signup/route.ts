@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { isParentRole, isChildRole } from '@/lib/utils/roleUtils'
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 자녀인 경우만 family_code 추가 (부모는 회원가입 후 별도로 가족 생성)
-    if (userType === 'child' && familyCode) {
+    if (isChildRole(userType) && familyCode) {
       profileData['family_code'] = familyCode
     }
 
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 🔒 부모 계정의 경우 family_code가 자동 생성되지 않도록 추가 보안
-    if (userType === 'parent') {
+    if (isParentRole(userType)) {
       await supabase
         .from('profiles')
         .update({ family_code: null })
@@ -58,13 +59,13 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. 자녀 계정인 경우 가족 연결 요청 생성
-    if (userType === 'child' && familyCode) {
+    if (isChildRole(userType) && familyCode) {
       // 부모 찾기
       const { data: parentData, error: parentError } = await supabase
         .from('profiles')
         .select('id')
         .eq('family_code', familyCode)
-        .eq('user_type', 'parent')
+        .in('user_type', ['father', 'mother', 'parent'])
         .single()
 
       if (parentError) {
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      message: userType === 'parent' 
+      message: isParentRole(userType) 
         ? '부모 계정 회원가입이 완료되었습니다! 로그인 후 가족을 생성해주세요.' 
         : '자녀 계정 회원가입이 완료되었습니다. 부모님의 승인을 기다려주세요.'
     })

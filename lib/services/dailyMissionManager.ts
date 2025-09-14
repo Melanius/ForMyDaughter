@@ -7,6 +7,7 @@ import { withMissionLock } from '../utils/missionLock'
 import missionSupabaseService from './missionSupabase'
 import { getTodayKST } from '../utils/dateUtils'
 import { missionLogger } from '../utils/logger'
+import { isParentRole, isChildRole } from '../utils/roleUtils'
 
 export class DailyMissionManager {
   private static instance: DailyMissionManager
@@ -80,7 +81,7 @@ export class DailyMissionManager {
       let totalCreated = 0
       let targetUserIds: string[] = []
 
-      if (profile.user_type === 'parent') {
+      if (isParentRole(profile.user_type)) {
         // 부모: 모든 자녀에게 미션 생성
         targetUserIds = childrenIds
         missionLogger.log(`👨‍👩‍👧‍👦 부모 계정: ${childrenIds.length}명의 자녀에게 미션 생성`)

@@ -117,7 +117,7 @@ export function SwipeableProfileCard({
                 
                 {/* 현재 사용자 표시 */}
                 {member.user_id === currentUserId && (
-                  <div className="absolute -top-2 -left-2">
+                  <div className="absolute top-4 left-4">
                     <div className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg animate-pulse">
                       ✨ 나
                     </div>

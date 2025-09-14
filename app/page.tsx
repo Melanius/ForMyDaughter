@@ -43,6 +43,7 @@ import { useDailyMissionWelcome } from '../hooks/useDailyMissionWelcome'
 import celebrationService from '../lib/services/celebrationService'
 import { CelebrationPayload } from '../lib/types/celebration'
 import { getTodayKST, nowKST } from '../lib/utils/dateUtils'
+import { isParentRole, isChildRole } from '@/lib/utils/roleUtils'
 import settlementService from '../lib/services/settlementService'
 
 // Lazy load AllowanceRequestButton for child users
@@ -143,7 +144,7 @@ function MissionPageContent() {
   // 가족 연결 상태 확인
   useEffect(() => {
     const checkFamilyConnection = async () => {
-      if (profile?.user_type !== 'parent') return
+      if (!isParentRole(profile?.user_type)) return
 
       try {
         const supabase = createClient()
@@ -151,7 +152,7 @@ function MissionPageContent() {
           .from('profiles')
           .select('id, full_name, family_code')
           .eq('parent_id', profile.id)
-          .eq('user_type', 'child')
+          .in('user_type', ['son', 'daughter', 'child'])
         
         if (!error && children && children.length > 0) {
           setConnectedChildren(children)
@@ -202,7 +203,7 @@ function MissionPageContent() {
   // 🔒 부모 기본 템플릿 생성 (세션당 한 번만, localStorage로 중복 실행 방지)
   useEffect(() => {
     const initializeParentTemplates = async () => {
-      if (!profile || profile.user_type !== 'parent') return
+      if (!profile || !isParentRole(profile.user_type)) return
 
       // 🔒 이미 이 세션에서 템플릿 체크를 했는지 확인
       const sessionKey = `template_check_${profile.id}_session`

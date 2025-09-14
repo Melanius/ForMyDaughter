@@ -8,6 +8,7 @@
 import { createClient } from '@/lib/supabase/client'
 import familyService from './familyService'
 import { FamilyWithMembers, FamilyMemberWithProfile } from '@/lib/types/family'
+import { isParentRole, isChildRole } from '../utils/roleUtils'
 
 interface LegacyFamilyInfo {
   parent_id?: string
@@ -188,7 +189,7 @@ class FamilyCompatibilityService {
     if (!viewerProfile || !targetProfile) return false
 
     // 부모가 자신의 자녀를 보는 경우
-    if (viewerProfile.user_type === 'parent' && targetProfile.parent_id === viewerId) {
+    if (isParentRole(viewerProfile.user_type) && targetProfile.parent_id === viewerId) {
       return true
     }
 
@@ -209,7 +210,7 @@ class FamilyCompatibilityService {
     }
 
     // 하나라도 family_members에 없으면 레거시 결과 사용
-    return viewerProfile.user_type === 'parent' && targetProfile.parent_id === viewerId
+    return isParentRole(viewerProfile.user_type) && targetProfile.parent_id === viewerId
   }
 
   /**
@@ -234,7 +235,7 @@ class FamilyCompatibilityService {
     if (!managerProfile || !targetProfile) return false
 
     // 부모가 자신의 자녀를 관리하는 경우
-    if (managerProfile.user_type === 'parent' && targetProfile.parent_id === managerId) {
+    if (isParentRole(managerProfile.user_type) && targetProfile.parent_id === managerId) {
       return true
     }
 
@@ -252,7 +253,7 @@ class FamilyCompatibilityService {
     }
 
     // 하나라도 family_members에 없으면 레거시 결과 사용
-    return managerProfile.user_type === 'parent' && targetProfile.parent_id === managerId
+    return isParentRole(managerProfile.user_type) && targetProfile.parent_id === managerId
   }
 
   /**
@@ -275,8 +276,8 @@ class FamilyCompatibilityService {
     if (!approverProfile || !childProfile) return false
 
     // 부모가 자신의 자녀의 용돈을 승인하는 경우
-    if (approverProfile.user_type === 'parent' && 
-        childProfile.user_type === 'child' && 
+    if (isParentRole(approverProfile.user_type) && 
+        isChildRole(childProfile.user_type) && 
         childProfile.parent_id === approverId) {
       return true
     }
@@ -295,8 +296,8 @@ class FamilyCompatibilityService {
     }
 
     // 하나라도 family_members에 없으면 레거시 결과 사용
-    return approverProfile.user_type === 'parent' && 
-           childProfile.user_type === 'child' && 
+    return isParentRole(approverProfile.user_type) && 
+           isChildRole(childProfile.user_type) && 
            childProfile.parent_id === approverId
   }
 
