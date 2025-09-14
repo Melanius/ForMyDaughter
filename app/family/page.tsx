@@ -155,7 +155,9 @@ export default function FamilyPage() {
     switch (role) {
       case 'father': return '👨'
       case 'mother': return '👩'
-      case 'child': return '🧒'
+      case 'son': return '👦'
+      case 'daughter': return '👧'
+      case 'child': return '🧒' // 호환성을 위해 유지
       default: return '👤'
     }
   }
@@ -165,7 +167,9 @@ export default function FamilyPage() {
     switch (role) {
       case 'father': return '아빠'
       case 'mother': return '엄마'
-      case 'child': return '자녀'
+      case 'son': return '아들'
+      case 'daughter': return '딸'
+      case 'child': return '자녀' // 호환성을 위해 유지
       default: return '가족'
     }
   }
@@ -250,7 +254,7 @@ export default function FamilyPage() {
               <div className="bg-purple-50 rounded-lg sm:rounded-xl p-2 sm:p-4 text-center">
                 <div className="text-lg sm:text-2xl mb-1 sm:mb-2">🧒</div>
                 <div className="text-lg sm:text-2xl font-bold text-purple-600">
-                  {family.members.filter(m => m.role === 'child').length}
+                  {family.members.filter(m => ['son', 'daughter', 'child'].includes(m.role)).length}
                 </div>
                 <div className="text-xs sm:text-sm text-gray-600">자녀</div>
               </div>
@@ -364,7 +368,6 @@ export default function FamilyPage() {
             setCurrentProfile(null)
           }}
           currentProfile={currentProfile}
-          currentRole={family.members.find(m => m.user_id === user?.id)?.role}
           onUpdate={handleProfileUpdate}
         />
       )}

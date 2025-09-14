@@ -56,7 +56,7 @@ export const NavigationBar = memo(function NavigationBar() {
                     : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
                 }`}
               >
-                {profile.user_type === 'parent' ? '자녀 지갑' : '지갑'}
+                {['father', 'mother'].includes(profile.user_type) ? '자녀 지갑' : '지갑'}
               </Link>
               
               <Link 
@@ -93,11 +93,11 @@ export const NavigationBar = memo(function NavigationBar() {
                     <span className="text-sm text-gray-600">안녕하세요,</span>
                     <span className="text-sm font-semibold text-gray-800">{profile.full_name || '사용자'}님</span>
                     <span className="text-lg">
-                      {profile.user_type === 'parent' ? '👨‍👩‍👧‍👦' : '🧒'}
+                      {['father', 'mother'].includes(profile.user_type) ? '👨‍👩‍👧‍👦' : '🧒'}
                     </span>
                   </div>
                   <div className="text-xs text-gray-500">
-                    {profile.user_type === 'parent' ? '부모님' : '자녀'} 계정
+                    {['father', 'mother'].includes(profile.user_type) ? '부모님' : '자녀'} 계정
                   </div>
                 </div>
                 
@@ -105,7 +105,7 @@ export const NavigationBar = memo(function NavigationBar() {
                 <div className="flex items-center space-x-2 sm:space-x-3 bg-gradient-to-r from-orange-50 to-pink-50 rounded-2xl px-2 sm:px-4 py-2 border border-orange-100">
                   <div className="flex items-center space-x-2">
                     <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold shadow-sm ${
-                      profile.user_type === 'parent' 
+                      ['father', 'mother'].includes(profile.user_type) 
                         ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white' 
                         : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'
                     }`}>

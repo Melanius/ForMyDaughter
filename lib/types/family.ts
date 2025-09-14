@@ -2,8 +2,8 @@
  * 🏠 가족 시스템 타입 정의
  */
 
-// 가족 역할 타입
-export type FamilyRole = 'father' | 'mother' | 'child'
+// 가족 역할 타입 (이제 user_type과 동일)
+export type FamilyRole = 'father' | 'mother' | 'son' | 'daughter'
 
 // 가족 정보
 export interface Family {
@@ -39,12 +39,13 @@ export interface FamilyMemberWithProfile {
   profile: {
     id: string
     full_name: string
-    user_type: 'parent' | 'child'
+    user_type: 'father' | 'mother' | 'son' | 'daughter'
     avatar_url?: string
     nickname?: string
     phone?: string
     bio?: string
     birthday?: string
+    role?: string
   }
 }
 

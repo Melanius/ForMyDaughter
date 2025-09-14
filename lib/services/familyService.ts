@@ -73,7 +73,7 @@ class FamilyService {
       .from('profiles')
       .select('id, full_name, family_code')
       .eq('family_code', request.family_code)
-      .eq('user_type', 'parent')
+      .in('user_type', ['father', 'mother'])
       .single()
 
     if (parentError || !parent) {
@@ -215,7 +215,7 @@ class FamilyService {
       .from('profiles')
       .select('id, full_name, user_type, avatar_url, family_code, nickname, phone, bio, birthday')
       .eq('family_code', profile.family_code)
-      .order('user_type', { ascending: false }) // parent가 먼저 오도록
+      .order('user_type', { ascending: false }) // 부모(father, mother)가 먼저 오도록
 
     if (membersError || !familyMembers || familyMembers.length === 0) {
       console.error('가족 구성원 조회 실패:', membersError)
@@ -223,7 +223,7 @@ class FamilyService {
     }
 
     // 4단계: 가족 이름 결정 (첫 번째 부모의 이름으로)
-    const firstParent = familyMembers.find(m => m.user_type === 'parent')
+    const firstParent = familyMembers.find(m => ['father', 'mother'].includes(m.user_type))
     const familyName = firstParent ? `${firstParent.full_name}님의 가족` : '우리 가족'
 
     // 5단계: FamilyWithMembers 형태로 변환
@@ -231,7 +231,7 @@ class FamilyService {
       id: `legacy-${member.id}`, // 임시 ID
       family_id: `legacy-${profile.family_code}`, // 임시 family_id
       user_id: member.id,
-      role: this.mapUserTypeToRole(member.user_type),
+      role: member.user_type as FamilyRole, // 직접 사용 (user_type이 이제 role과 동일)
       nickname: null,
       joined_at: nowKST(),
       is_active: true,
@@ -260,19 +260,6 @@ class FamilyService {
     }
   }
 
-  /**
-   * 🔄 user_type을 role로 변환하는 유틸리티
-   */
-  private mapUserTypeToRole(userType: string): FamilyRole {
-    switch (userType) {
-      case 'parent':
-        return 'father' // 기본값으로 father 사용
-      case 'child':
-        return 'child'
-      default:
-        return 'child'
-    }
-  }
 
   /**
    * 🏠 가족 상세 정보 조회 (구성원 포함)
@@ -350,7 +337,7 @@ class FamilyService {
       .from('family_members')
       .select('*', { count: 'exact', head: true })
       .eq('family_id', familyId)
-      .eq('role', 'child')
+      .in('role', ['son', 'daughter'])
       .eq('is_active', true)
 
     return {

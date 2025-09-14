@@ -6,7 +6,7 @@ export interface Database {
           id: string
           email: string
           full_name: string | null
-          user_type: 'parent' | 'child'
+          user_type: 'father' | 'mother' | 'son' | 'daughter'
           family_code: string | null
           parent_id: string | null
           avatar_url: string | null
@@ -14,6 +14,7 @@ export interface Database {
           phone: string | null
           nickname: string | null
           bio: string | null
+          role: string | null
           created_at: string
           updated_at: string
         }
@@ -21,7 +22,7 @@ export interface Database {
           id: string
           email: string
           full_name?: string | null
-          user_type: 'parent' | 'child'
+          user_type: 'father' | 'mother' | 'son' | 'daughter'
           family_code?: string | null
           parent_id?: string | null
           avatar_url?: string | null
@@ -29,6 +30,7 @@ export interface Database {
           phone?: string | null
           nickname?: string | null
           bio?: string | null
+          role?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -44,6 +46,7 @@ export interface Database {
           phone?: string | null
           nickname?: string | null
           bio?: string | null
+          role?: string | null
           created_at?: string
           updated_at?: string
         }

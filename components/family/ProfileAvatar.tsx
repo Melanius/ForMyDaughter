@@ -34,7 +34,9 @@ export function ProfileAvatar({
     switch (role) {
       case 'father': return '👨'
       case 'mother': return '👩'
-      case 'child': return '🧒'
+      case 'son': return '👦'
+      case 'daughter': return '👧'
+      case 'child': return '🧒' // 호환성을 위해 유지
       default: return '👤'
     }
   }

@@ -119,11 +119,11 @@ function MissionPageContent() {
   const { 
     data: pendingProposals = [], 
     isLoading: isLoadingProposals 
-  } = usePendingProposals(profile?.user_type === 'parent' ? profile?.id : undefined)
+  } = usePendingProposals(['father', 'mother'].includes(profile?.user_type) ? profile?.id : undefined)
 
   // 자녀 계정일 때 축하 알림 리스너 설정
   useEffect(() => {
-    if (profile?.user_type !== 'child') return
+    if (!['son', 'daughter'].includes(profile?.user_type)) return
 
     const handleCelebration = (payload: CelebrationPayload) => {
       setCelebrationData({
@@ -172,7 +172,7 @@ function MissionPageContent() {
 
   // 자녀 계정의 미션 완료 시 자동 정산 체크 (부모에게 알림)
   useEffect(() => {
-    if (profile?.user_type !== 'child' || !profile?.parent_id) return
+    if (!['son', 'daughter'].includes(profile?.user_type) || !profile?.parent_id) return
 
     const checkAutoSettlement = async () => {
       try {
@@ -242,7 +242,7 @@ function MissionPageContent() {
 
   // 부모 로그인 시 대기 중인 제안 알림
   useEffect(() => {
-    if (profile?.user_type === 'parent' && pendingProposals.length > 0 && !isLoadingProposals) {
+    if (['father', 'mother'].includes(profile?.user_type) && pendingProposals.length > 0 && !isLoadingProposals) {
       // 로그인 후 잠시 지연해서 알림 표시 (UX 개선)
       const timer = setTimeout(() => {
         setShowProposalNotification(true)
@@ -287,7 +287,7 @@ function MissionPageContent() {
       // 모바일 감지
       const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
       
-      if (profile?.user_type === 'parent') {
+      if (['father', 'mother'].includes(profile?.user_type)) {
         // 부모 계정: 미션 완료 알림을 빨리 받아야 함
         return isMobile ? 60000 : 120000 // 모바일: 1분, 데스크톱: 2분
       } else {
@@ -438,7 +438,7 @@ function MissionPageContent() {
   }, [])
 
   const handleFloatingButtonClick = useCallback(() => {
-    if (profile?.user_type === 'parent') {
+    if (['father', 'mother'].includes(profile?.user_type)) {
       setShowActionModal(true)
     } else {
       // 자녀는 미션 제안 폼 열기 - 다른 모달들 상태 초기화
@@ -498,7 +498,7 @@ function MissionPageContent() {
           <div className="max-w-4xl mx-auto">
           
           {/* 부모 계정 정산 알림 배지 */}
-          {profile?.user_type === 'parent' && (
+          {['father', 'mother'].includes(profile?.user_type) && (
             <div className="mb-6 flex justify-center">
               <RewardNotificationBadge />
             </div>
@@ -542,7 +542,7 @@ function MissionPageContent() {
         </div>
 
         {/* 자녀 계정 용돈 요청 버튼 */}
-        {profile?.user_type === 'child' && (
+        {['son', 'daughter'].includes(profile?.user_type) && (
           <div className="mb-6">
             <Suspense fallback={
               <div className="bg-gray-100 rounded-xl p-4 animate-pulse">
@@ -584,7 +584,7 @@ function MissionPageContent() {
       </div>
 
       {/* 자녀 계정 데일리 미션 웰컴 모달 */}
-      {profile?.user_type === 'child' && (
+      {['son', 'daughter'].includes(profile?.user_type) && (
         <DailyMissionWelcomeModal
           isOpen={showWelcomeModal}
           onClose={handleCloseWelcome}
@@ -597,7 +597,7 @@ function MissionPageContent() {
       )}
 
       {/* 미션 없음 모달 (자녀용) */}
-      {profile?.user_type === 'child' && (
+      {['son', 'daughter'].includes(profile?.user_type) && (
         <NoMissionModal
           isOpen={showNoMissionModal}
           onClose={handleCloseNoMissionModal}
@@ -606,7 +606,7 @@ function MissionPageContent() {
       )}
 
       {/* 부모 계정 미션 완료 알림 */}
-      {profile?.user_type === 'parent' && (
+      {['father', 'mother'].includes(profile?.user_type) && (
         <Suspense fallback={null}>
           <MissionCompletionNotification 
             connectedChildren={connectedChildren}
@@ -619,7 +619,7 @@ function MissionPageContent() {
       
       
       {/* Action Selection Modal (부모용) */}
-      {profile?.user_type === 'parent' && (
+      {['father', 'mother'].includes(profile?.user_type) && (
         <ActionSelectionModal
           isOpen={showActionModal}
           onClose={() => setShowActionModal(false)}
@@ -631,7 +631,7 @@ function MissionPageContent() {
       )}
 
       {/* 축하 모달 (자녀용) */}
-      {profile?.user_type === 'child' && (
+      {['son', 'daughter'].includes(profile?.user_type) && (
         <CelebrationModal
           isOpen={showCelebrationModal}
           onClose={() => setShowCelebrationModal(false)}
@@ -651,7 +651,7 @@ function MissionPageContent() {
       />
 
       {/* 제안 알림 모달 (부모용) */}
-      {profile?.user_type === 'parent' && (
+      {['father', 'mother'].includes(profile?.user_type) && (
         <ProposalNotificationModal
           isOpen={showProposalNotification}
           onClose={() => setShowProposalNotification(false)}

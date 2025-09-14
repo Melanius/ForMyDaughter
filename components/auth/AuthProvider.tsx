@@ -45,7 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkDailyMissionsForChild = async (profileData: Profile) => {
     // 자녀 계정이 아니면 체크하지 않음
-    if (!profileData || profileData.user_type !== 'child') {
+    if (!profileData || !['son', 'daughter'].includes(profileData.user_type)) {
       return
     }
 

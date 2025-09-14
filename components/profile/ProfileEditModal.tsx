@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Save, User, Calendar, Phone, MessageSquare, Camera, Crown } from 'lucide-react'
+import { X, Save, User, Calendar, Phone, MessageSquare, Camera } from 'lucide-react'
 import { Profile } from '@/lib/types/supabase'
 import { ProfileImageUpload } from '@/components/family/ProfileImageUpload'
 
@@ -9,15 +9,13 @@ interface ProfileEditModalProps {
   isOpen: boolean
   onClose: () => void
   currentProfile: Profile
-  currentRole?: string // 현재 역할 추가 (father, mother, child)
-  onUpdate: (updatedProfile: Partial<Profile> & { role?: string }) => Promise<void>
+  onUpdate: (updatedProfile: Partial<Profile>) => Promise<void>
 }
 
 export function ProfileEditModal({ 
   isOpen, 
   onClose, 
   currentProfile, 
-  currentRole,
   onUpdate 
 }: ProfileEditModalProps) {
   const [formData, setFormData] = useState({
@@ -25,13 +23,11 @@ export function ProfileEditModal({
     nickname: currentProfile.nickname || '',
     birthday: currentProfile.birthday || '',
     phone: currentProfile.phone || '',
-    bio: currentProfile.bio || '',
-    role: currentRole || 'child'
+    bio: currentProfile.bio || ''
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [profileImageUrl, setProfileImageUrl] = useState(currentProfile.avatar_url || '')
-  const [childGender, setChildGender] = useState<'male' | 'female'>('male') // 자녀 성별 별도 관리
 
   // 모달이 열릴 때마다 현재 프로필 데이터로 초기화
   useEffect(() => {
@@ -41,13 +37,12 @@ export function ProfileEditModal({
         nickname: currentProfile.nickname || '',
         birthday: currentProfile.birthday || '',
         phone: currentProfile.phone || '',
-        bio: currentProfile.bio || '',
-        role: currentRole || 'child'
+        bio: currentProfile.bio || ''
       })
       setProfileImageUrl(currentProfile.avatar_url || '')
       setError(null)
     }
-  }, [isOpen, currentProfile, currentRole])
+  }, [isOpen, currentProfile])
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({
@@ -86,17 +81,12 @@ export function ProfileEditModal({
       setLoading(true)
       setError(null)
 
-      const updateData: Partial<Profile> & { role?: string } = {
+      const updateData: Partial<Profile> = {
         full_name: formData.full_name.trim(),
         nickname: formData.nickname.trim() || null,
         birthday: formData.birthday || null,
         phone: formData.phone.trim() || null,
         bio: formData.bio.trim() || null
-      }
-
-      // 역할이 변경된 경우에만 포함
-      if (currentProfile.user_type === 'parent' && formData.role !== currentRole) {
-        updateData.role = formData.role
       }
 
       // 프로필 이미지가 변경된 경우에만 포함
@@ -121,36 +111,31 @@ export function ProfileEditModal({
       nickname: currentProfile.nickname || '',
       birthday: currentProfile.birthday || '',
       phone: currentProfile.phone || '',
-      bio: currentProfile.bio || '',
-      role: currentRole || 'child'
+      bio: currentProfile.bio || ''
     })
     setProfileImageUrl(currentProfile.avatar_url || '')
     setError(null)
     onClose()
   }
 
-  // 역할별 옵션 설정
-  const getRoleOptions = () => {
-    if (currentProfile.user_type === 'parent') {
-      return [
-        { value: 'father', label: '👨 아빠', emoji: '👨' },
-        { value: 'mother', label: '👩 엄마', emoji: '👩' }
-      ]
-    } else {
-      return [
-        { value: 'male', label: '👦 아들', emoji: '👦' },
-        { value: 'female', label: '👧 딸', emoji: '👧' }
-      ]
+  // 역할 표시 텍스트 반환
+  const getRoleText = (userType: string) => {
+    switch (userType) {
+      case 'father': return '아빠'
+      case 'mother': return '엄마'
+      case 'son': return '아들'
+      case 'daughter': return '딸'
+      default: return '가족'
     }
   }
 
-  // 역할 텍스트 반환
-  const getRoleText = (role: string) => {
-    switch (role) {
-      case 'father': return '아빠'
-      case 'mother': return '엄마'
-      case 'child': return '자녀'
-      default: return '가족'
+  const getRoleEmoji = (userType: string) => {
+    switch (userType) {
+      case 'father': return '👨'
+      case 'mother': return '👩'
+      case 'son': return '👦'
+      case 'daughter': return '👧'
+      default: return '👤'
     }
   }
 
@@ -193,7 +178,7 @@ export function ProfileEditModal({
                 userId={currentProfile.id}
                 currentImageUrl={profileImageUrl}
                 name={currentProfile.full_name || '사용자'}
-                role={currentProfile.user_type === 'parent' ? 'father' : 'child'}
+                role={currentProfile.user_type}
                 canEdit={true}
                 onImageUpdate={handleImageUpdate}
               />
@@ -224,35 +209,17 @@ export function ProfileEditModal({
               />
             </div>
 
-            {/* 역할 선택 */}
+            {/* 역할 표시 (수정 불가) */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                <Crown className="w-4 h-4" />
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 역할
               </label>
-              <div className="grid grid-cols-2 gap-3">
-                {getRoleOptions().map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => {
-                      if (currentProfile.user_type === 'parent') {
-                        handleInputChange('role', option.value)
-                      } else {
-                        setChildGender(option.value as 'male' | 'female')
-                      }
-                    }}
-                    className={`p-3 rounded-lg border-2 transition-all flex items-center justify-center gap-2 font-medium ${
-                      (currentProfile.user_type === 'parent' ? formData.role === option.value : childGender === option.value)
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 hover:border-gray-300 text-gray-600'
-                    }`}
-                    disabled={loading}
-                  >
-                    <span className="text-lg">{option.emoji}</span>
-                    <span>{option.label.replace(/👨|👩|👦|👧/, '').trim()}</span>
-                  </button>
-                ))}
+              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 flex items-center gap-3">
+                <span className="text-2xl">{getRoleEmoji(currentProfile.user_type)}</span>
+                <div>
+                  <p className="font-medium text-gray-800">{getRoleText(currentProfile.user_type)}</p>
+                  <p className="text-sm text-gray-500">역할은 변경할 수 없습니다</p>
+                </div>
               </div>
             </div>
 

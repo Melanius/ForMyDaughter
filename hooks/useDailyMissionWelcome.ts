@@ -75,7 +75,7 @@ export function useDailyMissionWelcome() {
   // 자녀 계정의 오늘 미션 체크 및 모달 표시 결정
   const checkDailyMissionWelcome = useCallback(async () => {
     // 자녀 계정이 아니면 체크하지 않음
-    if (!profile || profile.user_type !== 'child') {
+    if (!profile || !['son', 'daughter'].includes(profile.user_type)) {
       return
     }
 
@@ -125,7 +125,7 @@ export function useDailyMissionWelcome() {
 
   // 프로필이 로드되면 체크 실행 (한 번만)
   useEffect(() => {
-    if (profile && profile.user_type === 'child' && !isChecking && !hasCheckedToday()) {
+    if (profile && ['son', 'daughter'].includes(profile.user_type) && !isChecking && !hasCheckedToday()) {
       checkDailyMissionWelcome()
     }
   }, [profile?.id, profile?.user_type]) // 의존성 배열을 profile 전체가 아닌 필요한 속성만으로 제한

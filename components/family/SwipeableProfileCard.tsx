@@ -34,7 +34,9 @@ export function SwipeableProfileCard({
     switch (role) {
       case 'father': return '아빠'
       case 'mother': return '엄마'
-      case 'child': return '자녀'
+      case 'son': return '아들'
+      case 'daughter': return '딸'
+      case 'child': return '자녀' // 호환성을 위해 유지
       default: return '가족'
     }
   }

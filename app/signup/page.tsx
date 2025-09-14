@@ -17,7 +17,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [fullName, setFullName] = useState('')
-  const [userType, setUserType] = useState<'parent' | 'child'>('parent')
+  const [userType, setUserType] = useState<'father' | 'mother' | 'son' | 'daughter'>('father')
   const [familyCode, setFamilyCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -45,7 +45,7 @@ export default function SignupPage() {
     }
 
     // 자녀인 경우 가족 코드 필수 체크
-    if (userType === 'child' && !familyCode.trim()) {
+    if (['son', 'daughter'].includes(userType) && !familyCode.trim()) {
       setError('👨‍👩‍👧‍👦 부모님께 받은 가족 코드를 입력해주세요!')
       setLoading(false)
       return
@@ -67,13 +67,13 @@ export default function SignupPage() {
       // 2. 부모 정보 처리 (자녀인 경우만)
       let parentId = null
 
-      if (userType === 'child') {
+      if (['son', 'daughter'].includes(userType)) {
         // 자녀: 가족 코드로 부모 찾기
         const { data: parent, error: parentError } = await supabase
           .from('profiles')
           .select('id, full_name')
           .eq('family_code', familyCode.trim())
-          .eq('user_type', 'parent')
+          .in('user_type', ['father', 'mother'])
           .single()
         
         if (parentError || !parent) {
@@ -92,7 +92,7 @@ export default function SignupPage() {
       }
 
       // 자녀인 경우만 family_code와 parent_id 추가
-      if (userType === 'child') {
+      if (['son', 'daughter'].includes(userType)) {
         profileData.family_code = familyCode.trim()
         profileData.parent_id = parentId
       }
@@ -107,7 +107,7 @@ export default function SignupPage() {
       }
 
       // 4. 성공 메시지
-      if (userType === 'parent') {
+      if (['father', 'mother'].includes(userType)) {
         setSuccess('🎉 부모 계정이 만들어졌어요! 로그인 후 가족을 생성해주세요.')
         setTimeout(() => router.push('/login'), 3000)
       } else {
@@ -141,7 +141,7 @@ export default function SignupPage() {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">🌱 MoneySeed 💰</h1>
             <p className="text-lg text-gray-600">우리 가족 용돈 관리를 시작해요!</p>
             <p className="text-sm text-gray-500 mt-2">
-              {userType === 'parent' ? '👨‍👩‍👧‍👦 부모님이라면 가족을 만들어요' : '🧒 자녀라면 가족 코드로 참여해요'}
+              {['father', 'mother'].includes(userType) ? '👨‍👩‍👧‍👦 부모님이라면 가족을 만들어요' : '🧒 자녀라면 가족 코드로 참여해요'}
             </p>
           </div>
 
@@ -222,45 +222,75 @@ export default function SignupPage() {
               <label className="block text-lg font-medium text-gray-700 mb-3">
                 👥 나는 누구일까요?
               </label>
-              <div className="grid grid-cols-2 gap-4">
-                <label className={`flex flex-col items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                  userType === 'parent' 
+              <div className="grid grid-cols-2 gap-3">
+                <label className={`flex flex-col items-center p-3 border-2 rounded-xl cursor-pointer transition-all ${
+                  userType === 'father' 
                     ? 'border-blue-500 bg-blue-50' 
                     : 'border-gray-300 hover:border-blue-300'
                 }`}>
                   <input
                     type="radio"
                     name="userType"
-                    value="parent"
-                    checked={userType === 'parent'}
-                    onChange={(e) => setUserType(e.target.value as 'parent' | 'child')}
+                    value="father"
+                    checked={userType === 'father'}
+                    onChange={(e) => setUserType(e.target.value as 'father' | 'mother' | 'son' | 'daughter')}
                     className="sr-only"
                   />
-                  <div className="text-3xl mb-2">👨‍👩‍👧‍👦</div>
-                  <span className="text-lg font-medium text-gray-700">부모님</span>
-                  <span className="text-sm text-gray-500 mt-1">가족을 만들어요</span>
+                  <div className="text-2xl mb-1">👨</div>
+                  <span className="text-sm font-medium text-gray-700">아빠</span>
                 </label>
-                <label className={`flex flex-col items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                  userType === 'child' 
+                <label className={`flex flex-col items-center p-3 border-2 rounded-xl cursor-pointer transition-all ${
+                  userType === 'mother' 
                     ? 'border-blue-500 bg-blue-50' 
                     : 'border-gray-300 hover:border-blue-300'
                 }`}>
                   <input
                     type="radio"
                     name="userType"
-                    value="child"
-                    checked={userType === 'child'}
-                    onChange={(e) => setUserType(e.target.value as 'parent' | 'child')}
+                    value="mother"
+                    checked={userType === 'mother'}
+                    onChange={(e) => setUserType(e.target.value as 'father' | 'mother' | 'son' | 'daughter')}
                     className="sr-only"
                   />
-                  <div className="text-3xl mb-2">🧒</div>
-                  <span className="text-lg font-medium text-gray-700">자녀</span>
-                  <span className="text-sm text-gray-500 mt-1">가족에 참여해요</span>
+                  <div className="text-2xl mb-1">👩</div>
+                  <span className="text-sm font-medium text-gray-700">엄마</span>
+                </label>
+                <label className={`flex flex-col items-center p-3 border-2 rounded-xl cursor-pointer transition-all ${
+                  userType === 'son' 
+                    ? 'border-blue-500 bg-blue-50' 
+                    : 'border-gray-300 hover:border-blue-300'
+                }`}>
+                  <input
+                    type="radio"
+                    name="userType"
+                    value="son"
+                    checked={userType === 'son'}
+                    onChange={(e) => setUserType(e.target.value as 'father' | 'mother' | 'son' | 'daughter')}
+                    className="sr-only"
+                  />
+                  <div className="text-2xl mb-1">👦</div>
+                  <span className="text-sm font-medium text-gray-700">아들</span>
+                </label>
+                <label className={`flex flex-col items-center p-3 border-2 rounded-xl cursor-pointer transition-all ${
+                  userType === 'daughter' 
+                    ? 'border-blue-500 bg-blue-50' 
+                    : 'border-gray-300 hover:border-blue-300'
+                }`}>
+                  <input
+                    type="radio"
+                    name="userType"
+                    value="daughter"
+                    checked={userType === 'daughter'}
+                    onChange={(e) => setUserType(e.target.value as 'father' | 'mother' | 'son' | 'daughter')}
+                    className="sr-only"
+                  />
+                  <div className="text-2xl mb-1">👧</div>
+                  <span className="text-sm font-medium text-gray-700">딸</span>
                 </label>
               </div>
             </div>
 
-            {userType === 'child' && (
+            {['son', 'daughter'].includes(userType) && (
               <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4">
                 <label htmlFor="familyCode" className="block text-lg font-medium text-gray-700 mb-2">
                   🔑 부모님께 받은 가족 코드
@@ -272,7 +302,7 @@ export default function SignupPage() {
                   onChange={(e) => setFamilyCode(e.target.value.toUpperCase())}
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors text-lg text-center font-mono"
                   placeholder="FAM123ABC"
-                  required={userType === 'child'}
+                  required={['son', 'daughter'].includes(userType)}
                 />
                 <p className="mt-2 text-sm text-gray-600 flex items-center">
                   <span className="mr-2">💡</span>
@@ -294,7 +324,7 @@ export default function SignupPage() {
               ) : (
                 <span className="flex items-center justify-center">
                   <span className="mr-2">🚀</span>
-                  {userType === 'parent' ? '가족 만들기!' : '가족에 참여하기!'}
+                  {['father', 'mother'].includes(userType) ? '가족 만들기!' : '가족에 참여하기!'}
                 </span>
               )}
             </button>
