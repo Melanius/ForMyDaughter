@@ -289,6 +289,72 @@ export class AllowanceSupabaseService {
   }
 
   /**
+   * 🗑️ 거래 내역 삭제 (권한 검증 포함)
+   */
+  async deleteTransaction(transactionId: string): Promise<void> {
+    const { profile } = await this.getCurrentUserWithParent()
+    
+    // 삭제하려는 거래 내역 조회
+    const { data: transaction, error: fetchError } = await this.supabase
+      .from('allowance_transactions')
+      .select('*')
+      .eq('id', transactionId)
+      .single()
+    
+    if (fetchError || !transaction) {
+      throw new Error('삭제하려는 거래 내역을 찾을 수 없습니다.')
+    }
+    
+    // 권한 검증
+    const canDelete = this.canDeleteTransaction(transaction, profile.user_type)
+    if (!canDelete.allowed) {
+      throw new Error(canDelete.reason)
+    }
+    
+    // 삭제 실행
+    const { error: deleteError } = await this.supabase
+      .from('allowance_transactions')
+      .delete()
+      .eq('id', transactionId)
+    
+    if (deleteError) {
+      console.error('거래 내역 삭제 실패:', deleteError)
+      throw new Error('거래 내역 삭제에 실패했습니다.')
+    }
+    
+    console.log('✅ 거래 내역 삭제 완료:', transactionId)
+  }
+
+  /**
+   * 🛡️ 거래 내역 삭제 권한 검증
+   */
+  private canDeleteTransaction(transaction: any, userType: 'parent' | 'child'): { allowed: boolean; reason?: string } {
+    const isMissionTransaction = transaction.category === INCOME_CATEGORIES.MISSION
+    
+    if (isParentRole(userType)) {
+      // 부모: 미션완료 카테고리만 삭제 가능
+      if (isMissionTransaction) {
+        return { allowed: true }
+      } else {
+        return { 
+          allowed: false, 
+          reason: '부모는 미션완료 거래 내역만 삭제할 수 있습니다.' 
+        }
+      }
+    } else {
+      // 자녀: 미션완료 제외한 모든 거래 삭제 가능
+      if (!isMissionTransaction) {
+        return { allowed: true }
+      } else {
+        return { 
+          allowed: false, 
+          reason: '미션 완료로 받은 용돈은 삭제할 수 없습니다.' 
+        }
+      }
+    }
+  }
+
+  /**
    * 🔗 승인된 가족 연결 ID 조회 (레거시 기능 제거됨)
    * @deprecated family_connection_requests 테이블이 삭제되어 사용하지 않음
    * 현재는 profiles.family_code와 Phase 2 families 테이블 자동 동기화 사용
@@ -853,7 +919,7 @@ export class AllowanceSupabaseService {
         amount: amount,
         type: 'income',
         category: INCOME_CATEGORIES.MISSION,
-        description: `🎯 미션 완료 - ${missionTitle}`
+        description: `미션 완료 - ${missionTitle}`
       })
       .select('id')
       .single()
@@ -938,10 +1004,15 @@ export class AllowanceSupabaseService {
       // 새 형태: "🎯 미션 완료 - 제목" (그대로 유지)
       cleanDescription = supabaseData.description.replace(/\s*\(ID:\s*[^)]+\)\s*$/, '')
       
-      // 기존 형태를 새 형태로 변환
+      // 기존 형태를 새 형태로 변환 (이모지 제거)
       if (cleanDescription.startsWith('미션 완료:')) {
         const title = cleanDescription.replace(/^미션 완료:\s*/, '').trim()
-        cleanDescription = `🎯 미션 완료 - ${title}`
+        cleanDescription = `미션 완료 - ${title}`
+      }
+      
+      // 기존 🎯 이모지 제거
+      if (cleanDescription.startsWith('🎯 미션 완료 - ')) {
+        cleanDescription = cleanDescription.replace('🎯 ', '')
       }
     }
 

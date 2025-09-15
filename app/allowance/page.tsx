@@ -11,6 +11,7 @@ import ChildSelector from '@/components/child-selection/ChildSelector'
 import { getTodayKST } from '@/lib/utils/dateUtils'
 import { allowanceLogger } from '@/lib/utils/logger'
 import AllowanceRequestButton from '../../components/allowance/AllowanceRequestButton'
+import { SwipeableTransactionItem } from '../../components/allowance/SwipeableTransactionItem'
 
 // Lazy loading을 일시적으로 비활성화하고 직접 import
 import AddTransactionModal from '../../components/allowance/AddTransactionModal'
@@ -215,6 +216,24 @@ export default function AllowancePage() {
     })
   }, [])
 
+  // 거래 내역 삭제 핸들러
+  const handleDeleteTransaction = useCallback(async (transactionId: string) => {
+    try {
+      await allowanceSupabaseService.deleteTransaction(transactionId)
+      await loadData() // 데이터 새로고침
+      allowanceLogger.log('거래 내역 삭제 완료:', { transactionId: transactionId.substring(0, 8) })
+    } catch (error) {
+      allowanceLogger.error('거래 내역 삭제 실패:', error)
+      alert(error instanceof Error ? error.message : '거래 내역 삭제에 실패했습니다.')
+    }
+  }, [loadData])
+
+  // 거래 내역 수정 핸들러
+  const handleEditTransaction = useCallback((transaction: AllowanceTransaction) => {
+    setEditingTransaction(transaction)
+    setShowAddModal(true)
+  }, [])
+
   // 필터가 변경될 때 visibleTransactionsCount 초기화
   useEffect(() => {
     setVisibleTransactionsCount(10)
@@ -376,24 +395,13 @@ export default function AllowancePage() {
                 ) : (
                   <div className="space-y-3">
                     {displayedTransactions.map((transaction) => (
-                      <div key={transaction.id} className="flex items-center justify-between p-4 bg-white rounded-xl border-2 border-gray-100 hover:border-gray-200 transition-colors shadow-sm">
-                        <div className="flex-1">
-                          <div>
-                            <p className="font-medium text-gray-800 text-base">{transaction.description}</p>
-                            <p className="text-sm text-gray-600 mt-1">{transaction.category}</p>
-                          </div>
-                        </div>
-                        
-                        <div className="text-right">
-                          <p className={`font-bold text-lg ${
-                            transaction.type === 'income' ? 'text-green-600' : 'text-pink-600'
-                          }`}>
-                            {transaction.type === 'income' ? '+' : '-'}
-                            {transaction.amount.toLocaleString()}원
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">{transaction.date}</p>
-                        </div>
-                      </div>
+                      <SwipeableTransactionItem
+                        key={transaction.id}
+                        transaction={transaction}
+                        userType={profile?.user_type || 'child'}
+                        onEdit={handleEditTransaction}
+                        onDelete={handleDeleteTransaction}
+                      />
                     ))}
                   </div>
                 )}
@@ -478,8 +486,10 @@ export default function AllowancePage() {
         }}
       />
 
-      {/* 플로팅 액션 버튼 */}
-      <FloatingActionButton onClick={() => setShowAddModal(true)} />
+      {/* 플로팅 액션 버튼 (자녀만 표시) */}
+      {isChildRole(profile?.user_type) && (
+        <FloatingActionButton onClick={() => setShowAddModal(true)} />
+      )}
     </>
   )
 }
