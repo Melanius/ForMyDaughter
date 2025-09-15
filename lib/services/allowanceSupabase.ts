@@ -289,80 +289,13 @@ export class AllowanceSupabaseService {
   }
 
   /**
-   * 🔗 승인된 가족 연결 ID 조회 (자동 승인 포함)
+   * 🔗 승인된 가족 연결 ID 조회 (레거시 기능 제거됨)
+   * @deprecated family_connection_requests 테이블이 삭제되어 사용하지 않음
+   * 현재는 profiles.family_code와 Phase 2 families 테이블 자동 동기화 사용
    */
   async getApprovedFamilyConnectionId(): Promise<string | null> {
-    const { profile } = await this.getCurrentUserWithParent()
-    
-    console.log('🔗 [DEBUG] 가족 연결 ID 조회 시작:', {
-      userId: profile.id.substring(0, 8),
-      userType: profile.user_type
-    })
-    
-    let query = this.supabase
-      .from('family_connection_requests')
-      .select('id, parent_id, child_id, status')
-    
-    if (isParentRole(profile.user_type)) {
-      query = query.eq('parent_id', profile.id)
-    } else {
-      query = query.eq('child_id', profile.id)
-    }
-    
-    const { data: connections, error } = await query
-    
-    if (error) {
-      console.error('❌ 가족 연결 조회 실패:', error)
-      return null
-    }
-    
-    console.log('🔗 [DEBUG] 조회된 가족 연결들:', {
-      totalConnections: connections?.length || 0,
-      connections: connections?.map(c => ({
-        id: c.id.substring(0, 8),
-        parentId: c.parent_id.substring(0, 8),
-        childId: c.child_id.substring(0, 8),
-        status: c.status
-      }))
-    })
-    
-    // 승인된 연결 찾기
-    let approvedConnection = connections?.find(c => c.status === 'approved')
-    
-    // 승인된 연결이 없으면 pending 연결을 자동 승인
-    if (!approvedConnection && connections?.length > 0) {
-      const pendingConnection = connections.find(c => c.status === 'pending')
-      if (pendingConnection) {
-        console.log('🔄 [AUTO_APPROVE] pending 연결을 자동 승인 중:', {
-          connectionId: pendingConnection.id.substring(0, 8)
-        })
-        
-        const { error: approveError } = await this.supabase
-          .from('family_connection_requests')
-          .update({ 
-            status: 'approved',
-            responded_at: nowKST()
-          })
-          .eq('id', pendingConnection.id)
-          
-        if (!approveError) {
-          approvedConnection = { ...pendingConnection, status: 'approved' as const }
-          console.log('✅ [AUTO_APPROVE] 가족 연결 자동 승인 완료!')
-        } else {
-          console.error('❌ [AUTO_APPROVE] 자동 승인 실패:', approveError)
-        }
-      }
-    }
-    
-    console.log('🔗 [DEBUG] 최종 가족 연결 결과:', {
-      found: !!approvedConnection,
-      connectionId: approvedConnection?.id.substring(0, 8),
-      parentId: approvedConnection?.parent_id.substring(0, 8),
-      childId: approvedConnection?.child_id.substring(0, 8),
-      status: approvedConnection?.status
-    })
-    
-    return approvedConnection?.id || null
+    console.warn('⚠️ getApprovedFamilyConnectionId는 더 이상 사용되지 않습니다. family_connection_requests 테이블이 제거되었습니다.')
+    return null
   }
 
   /**

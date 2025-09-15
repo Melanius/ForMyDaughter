@@ -160,15 +160,14 @@ class EventService {
     }
 
     try {
-      // 가족 구성원들의 생일 정보 조회
+      // profiles 테이블에서 직접 가족 구성원들의 생일 정보 조회
+      // familyId는 legacy-{family_code} 형태이므로 family_code 추출
+      const familyCode = familyId.replace('legacy-', '')
+      
       const { data: members, error: membersError } = await this.supabase
-        .from('family_members')
-        .select(`
-          user_id,
-          profile:profiles!family_members_user_id_fkey(id, full_name, birthday)
-        `)
-        .eq('family_id', familyId)
-        .eq('is_active', true)
+        .from('profiles')
+        .select('id, full_name, birthday')
+        .eq('family_code', familyCode)
 
       if (membersError) {
         throw membersError
@@ -188,15 +187,15 @@ class EventService {
       // 새로운 생일 이벤트 생성
       const newBirthdays = members
         ?.filter(member => 
-          member.profile?.birthday && 
-          !existingBirthdayCreators.has(member.user_id)
+          member.birthday && 
+          !existingBirthdayCreators.has(member.id)
         )
         .map(member => ({
           family_id: familyId,
-          title: `${member.profile.full_name}님의 생일`,
-          event_date: member.profile.birthday,
+          title: `${member.full_name}님의 생일`,
+          event_date: member.birthday,
           event_type: 'birthday' as EventType,
-          created_by: member.user_id
+          created_by: member.id
         }))
 
       if (newBirthdays && newBirthdays.length > 0) {

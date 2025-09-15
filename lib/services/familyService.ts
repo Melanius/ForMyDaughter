@@ -110,7 +110,8 @@ class FamilyService {
   }
 
   /**
-   * 👥 가족 구성원 추가
+   * 👥 가족 구성원 추가 (Phase 2 시스템에서는 profiles 테이블 직접 사용)
+   * @deprecated Phase 2에서는 families 테이블의 자동 동기화 사용
    */
   private async addFamilyMember(
     familyId: string, 
@@ -118,7 +119,12 @@ class FamilyService {
     role: FamilyRole, 
     nickname?: string
   ): Promise<FamilyMember> {
-    const memberData: Omit<SupabaseFamilyMemberTable, 'id'> = {
+    // Phase 2에서는 profiles 테이블 업데이트로 자동 동기화됨
+    console.warn('⚠️ addFamilyMember는 Phase 2에서 사용되지 않습니다. profiles 테이블을 직접 업데이트하세요.')
+    
+    // 임시 반환값 (호환성 유지)
+    return {
+      id: `legacy-${userId}`,
       family_id: familyId,
       user_id: userId,
       role,
@@ -126,19 +132,6 @@ class FamilyService {
       joined_at: nowKST(),
       is_active: true
     }
-
-    const { data: member, error } = await this.supabase
-      .from('family_members')
-      .insert(memberData)
-      .select()
-      .single()
-
-    if (error) {
-      console.error('가족 구성원 추가 실패:', error)
-      throw new Error('가족 구성원 추가에 실패했습니다')
-    }
-
-    return this.convertMemberFromSupabase(member)
   }
 
   /**
@@ -177,29 +170,13 @@ class FamilyService {
   }
 
   /**
-   * 👤 현재 사용자의 가족 정보 조회 (기존 profiles 시스템 호환)
+   * 👤 현재 사용자의 가족 정보 조회 (profiles 기반 단순화)
    */
   async getCurrentUserFamily(): Promise<FamilyWithMembers | null> {
     const { data: { user } } = await this.supabase.auth.getUser()
     if (!user) return null
 
-    // 1단계: 새로운 family_members 테이블에서 조회
-    const { data: member, error } = await this.supabase
-      .from('family_members')
-      .select(`
-        *,
-        families!family_members_family_id_fkey (*)
-      `)
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .single()
-
-    if (!error && member && member.families) {
-      // 새로운 시스템에 데이터가 있으면 기존 로직 사용
-      return await this.getFamilyWithMembers(member.family_id)
-    }
-
-    // 2단계: 기존 profiles 시스템에서 조회 (호환성 지원)
+    // profiles 테이블에서 사용자 정보 조회
     const { data: profile, error: profileError } = await this.supabase
       .from('profiles')
       .select('family_code, full_name')
@@ -207,32 +184,32 @@ class FamilyService {
       .single()
 
     if (profileError || !profile || !profile.family_code) {
-      return null // 진짜 가족이 없음
+      return null // 가족이 없음
     }
 
-    // 3단계: 같은 family_code를 가진 모든 구성원 조회 (누락된 필드 추가)
+    // 같은 family_code를 가진 모든 구성원 조회
     const { data: familyMembers, error: membersError } = await this.supabase
       .from('profiles')
       .select('id, full_name, user_type, avatar_url, family_code, nickname, phone, bio, birthday')
       .eq('family_code', profile.family_code)
-      .order('user_type', { ascending: false }) // 부모(father, mother)가 먼저 오도록
+      .order('user_type', { ascending: false }) // 부모가 먼저 오도록
 
     if (membersError || !familyMembers || familyMembers.length === 0) {
       console.error('가족 구성원 조회 실패:', membersError)
       return null
     }
 
-    // 4단계: 가족 이름 결정 (첫 번째 부모의 이름으로)
+    // 가족 이름 결정 (첫 번째 부모의 이름으로)
     const firstParent = familyMembers.find(m => ['father', 'mother'].includes(m.user_type))
     const familyName = firstParent ? `${firstParent.full_name}님의 가족` : '우리 가족'
 
-    // 5단계: FamilyWithMembers 형태로 변환
-    const membersWithProfile: FamilyMemberWithProfile[] = familyMembers.map((member, index) => ({
-      id: `legacy-${member.id}`, // 임시 ID
-      family_id: `legacy-${profile.family_code}`, // 임시 family_id
+    // FamilyWithMembers 형태로 변환
+    const membersWithProfile: FamilyMemberWithProfile[] = familyMembers.map(member => ({
+      id: `legacy-${member.id}`,
+      family_id: `legacy-${profile.family_code}`,
       user_id: member.id,
-      role: member.user_type as FamilyRole, // 직접 사용 (user_type이 이제 role과 동일)
-      nickname: null,
+      role: member.user_type as FamilyRole,
+      nickname: null as string | null,
       joined_at: nowKST(),
       is_active: true,
       profile: {
@@ -247,12 +224,11 @@ class FamilyService {
       }
     }))
 
-    // 6단계: 가상의 FamilyWithMembers 객체 반환
     return {
       id: `legacy-${profile.family_code}`,
       family_code: profile.family_code,
       family_name: familyName,
-      family_message: null,
+      family_message: null as string | null,
       created_by: firstParent?.id || user.id,
       created_at: nowKST(),
       updated_at: nowKST(),
@@ -277,21 +253,10 @@ class FamilyService {
       throw new Error('가족 정보를 찾을 수 없습니다')
     }
 
-    // 가족 구성원 정보 (프로필 포함)
-    const { data: members, error: membersError } = await this.supabase
-      .from('family_members')
-      .select(`
-        *,
-        profiles!family_members_user_id_fkey (
-          id,
-          full_name,
-          user_type,
-          avatar_url
-        )
-      `)
-      .eq('family_id', familyId)
-      .eq('is_active', true)
-      .order('joined_at', { ascending: true })
+    // Phase 2에서는 families 테이블의 members JSONB 컬럼 사용
+    // 현재는 legacy 지원을 위해 빈 배열 반환
+    const members: any[] = []
+    const membersError = null
 
     if (membersError) {
       console.error('가족 구성원 조회 실패:', membersError)
@@ -316,37 +281,40 @@ class FamilyService {
   }
 
   /**
-   * 📊 가족 통계 조회
+   * 📊 가족 통계 조회 (Phase 2 시스템 사용)
    */
   async getFamilyStats(familyId: string): Promise<FamilyStats> {
-    // 구성원 수 조회
-    const { count: totalMembers } = await this.supabase
-      .from('family_members')
-      .select('*', { count: 'exact', head: true })
-      .eq('family_id', familyId)
-      .eq('is_active', true)
+    // Phase 2에서는 adminFamilyService를 사용하거나
+    // families 테이블의 집계 컬럼 사용
+    try {
+      const { data: familyData } = await this.supabase
+        .from('families')
+        .select('total_members, parents_count, children_count')
+        .eq('id', familyId)
+        .single()
 
-    const { count: parentsCount } = await this.supabase
-      .from('family_members')
-      .select('*', { count: 'exact', head: true })
-      .eq('family_id', familyId)
-      .in('role', ['father', 'mother'])
-      .eq('is_active', true)
+      if (familyData) {
+        return {
+          total_members: familyData.total_members || 0,
+          parents_count: familyData.parents_count || 0,
+          children_count: familyData.children_count || 0,
+          active_missions: 0, // TODO: 미션 서비스와 연동
+          completed_missions_today: 0, // TODO: 미션 서비스와 연동
+          pending_allowance: 0 // TODO: 정산 서비스와 연동
+        }
+      }
+    } catch (error) {
+      console.error('Phase 2 가족 통계 조회 실패:', error)
+    }
 
-    const { count: childrenCount } = await this.supabase
-      .from('family_members')
-      .select('*', { count: 'exact', head: true })
-      .eq('family_id', familyId)
-      .in('role', ['son', 'daughter'])
-      .eq('is_active', true)
-
+    // 실패 시 기본값 반환
     return {
-      total_members: totalMembers || 0,
-      parents_count: parentsCount || 0,
-      children_count: childrenCount || 0,
-      active_missions: 0, // TODO: 미션 서비스와 연동
-      completed_missions_today: 0, // TODO: 미션 서비스와 연동
-      pending_allowance: 0 // TODO: 정산 서비스와 연동
+      total_members: 0,
+      parents_count: 0,
+      children_count: 0,
+      active_missions: 0,
+      completed_missions_today: 0,
+      pending_allowance: 0
     }
   }
 
@@ -392,18 +360,15 @@ class FamilyService {
   }
 
   /**
-   * 🚫 가족 구성원 제거 (비활성화)
+   * 🚫 가족 구성원 제거 (Phase 2에서는 profiles 테이블 업데이트)
+   * @deprecated Phase 2에서는 profiles.family_code를 null로 설정하여 제거
    */
   async removeFamilyMember(memberId: string): Promise<void> {
-    const { error } = await this.supabase
-      .from('family_members')
-      .update({ is_active: false })
-      .eq('id', memberId)
-
-    if (error) {
-      console.error('가족 구성원 제거 실패:', error)
-      throw new Error('가족 구성원 제거에 실패했습니다')
-    }
+    // Phase 2에서는 실제 user_id를 받아서 profiles 테이블에서 family_code 제거
+    console.warn('⚠️ removeFamilyMember는 Phase 2에서 다르게 구현되어야 합니다.')
+    
+    // 임시로 아무것도 하지 않음 (호환성 유지)
+    console.log(`Legacy removeFamilyMember 호출됨: ${memberId}`)
   }
 
   /**
@@ -443,23 +408,34 @@ class FamilyService {
   }
 
   /**
-   * 🔍 사용자 ID로 가족 구성원 정보 조회
+   * 🔍 사용자 ID로 가족 구성원 정보 조회 (Phase 2에서는 profiles 기반)
+   * @deprecated Phase 2에서는 profiles 테이블에서 직접 조회
    */
   private async getFamilyMemberByUserId(familyId: string, userId: string): Promise<FamilyMember | null> {
-    const { data, error } = await this.supabase
-      .from('family_members')
-      .select('*')
-      .eq('family_id', familyId)
-      .eq('user_id', userId)
-      .eq('is_active', true)
-      .single()
+    // Phase 2에서는 profiles 테이블에서 조회
+    try {
+      const { data: profile } = await this.supabase
+        .from('profiles')
+        .select('id, full_name, user_type, family_code')
+        .eq('id', userId)
+        .single()
 
-    if (error && error.code !== 'PGRST116') {
-      console.error('가족 구성원 조회 실패:', error)
-      return null
+      if (profile && profile.family_code) {
+        return {
+          id: `legacy-${userId}`,
+          family_id: familyId,
+          user_id: userId,
+          role: profile.user_type as FamilyRole,
+          nickname: null,
+          joined_at: nowKST(),
+          is_active: true
+        }
+      }
+    } catch (error) {
+      console.error('Phase 2 가족 구성원 조회 실패:', error)
     }
 
-    return data ? this.convertMemberFromSupabase(data) : null
+    return null
   }
 
   /**

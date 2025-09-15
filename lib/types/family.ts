@@ -112,3 +112,45 @@ export interface SupabaseFamilyMemberTable {
   joined_at: string
   is_active: boolean
 }
+
+// 관리자용 families 테이블 타입 (Phase 2)
+export interface AdminFamilyTable {
+  id: string
+  family_code: string
+  family_name: string
+  members: AdminFamilyMember[]
+  total_members: number
+  parents_count: number
+  children_count: number
+  is_active: boolean
+  last_activity_at?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface AdminFamilyMember {
+  user_id: string
+  name: string
+  role: FamilyRole
+  joined_at: string
+  is_active: boolean
+}
+
+// 관리자용 가족 통계
+export interface AdminFamilyStats {
+  total_families: number
+  active_families: number
+  total_users: number
+  total_parents: number
+  total_children: number
+  families_by_size: {
+    size: number
+    count: number
+  }[]
+  recent_activity: {
+    family_code: string
+    family_name: string
+    last_activity: string
+    members_count: number
+  }[]
+}
