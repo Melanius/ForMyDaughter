@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/components/auth/AuthProvider'
 import streakService, { UserProgress, StreakSettings } from '@/lib/services/streak'
-import { CelebrationEffect } from './CelebrationEffect'
+import { InteractiveRewardModal } from './InteractiveRewardModal'
 import { getTodayKST } from '@/lib/utils/dateUtils'
 
 interface StreakDisplayProps {
@@ -12,7 +12,7 @@ interface StreakDisplayProps {
 }
 
 export function StreakDisplay({ onStreakUpdate, triggerCelebration }: StreakDisplayProps) {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [progress, setProgress] = useState<UserProgress | null>(null)
   const [settings, setSettings] = useState<StreakSettings | null>(null)
   const [loading, setLoading] = useState(true)
@@ -82,11 +82,44 @@ export function StreakDisplay({ onStreakUpdate, triggerCelebration }: StreakDisp
     }
   }
 
-  if (loading || !progress || !settings) {
+  if (loading || !progress) {
     return (
       <div className="bg-white rounded-xl shadow-lg p-4 animate-pulse">
         <div className="h-6 bg-gray-200 rounded mb-2"></div>
         <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+      </div>
+    )
+  }
+
+  // 설정이 없는 경우 (부모가 설정하지 않음)
+  if (!settings) {
+    const userType = profile?.user_type
+    const isParent = ['father', 'mother'].includes(userType || '')
+    
+    return (
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-lg p-6 border border-blue-200">
+        <div className="text-center">
+          <div className="text-4xl mb-4">⚙️</div>
+          <h3 className="text-lg font-bold text-gray-800 mb-2">
+            {isParent ? '연속 완료 도전 설정' : '연속 완료 도전'}
+          </h3>
+          <p className="text-gray-600 mb-4">
+            {isParent 
+              ? '자녀들의 연속 완료 도전을 설정해주세요. 목표 일수와 보상 금액을 정할 수 있습니다.'
+              : '부모님이 연속 완료 도전을 설정하고 시작해보세요!'
+            }
+          </p>
+          {isParent && (
+            <div className="bg-blue-100 rounded-lg p-3 text-sm text-blue-800">
+              <p>💡 우측 상단의 ⚙️ 버튼을 클릭하여 설정을 시작하세요</p>
+            </div>
+          )}
+          {!isParent && (
+            <div className="bg-indigo-100 rounded-lg p-3 text-sm text-indigo-800">
+              <p>📱 부모님께 연속 완료 도전 설정을 요청해보세요</p>
+            </div>
+          )}
+        </div>
       </div>
     )
   }
@@ -211,13 +244,22 @@ export function StreakDisplay({ onStreakUpdate, triggerCelebration }: StreakDisp
         </div>
       )}
 
-      {/* 축하 효과 */}
+      {/* 보상 수령 모달 */}
       {celebrationData && (
-        <CelebrationEffect
+        <InteractiveRewardModal
           isVisible={showCelebration}
           streakCount={celebrationData.streakCount}
           bonusAmount={celebrationData.bonusAmount}
-          onComplete={() => {
+          onClaim={() => {
+            // 보상 수령 완료 후 UI 업데이트
+            if (onStreakUpdate) {
+              onStreakUpdate(celebrationData.streakCount, celebrationData.bonusAmount)
+            }
+            setShowCelebration(false)
+            setCelebrationData(null)
+          }}
+          onClose={() => {
+            // 나중에 받기 선택 시
             setShowCelebration(false)
             setCelebrationData(null)
           }}

@@ -512,23 +512,48 @@ function MissionPageContent() {
             <div className="bg-white rounded-xl shadow-lg p-8">
 
             {activeTab === 'missions' ? (
-              <MissionSection
-                missions={missions}
-                loading={false}
-                selectedDate={selectedDate}
-                onDateChange={handleDateChange}
-                userType={profile?.user_type || 'child'}
-                showAddModal={showAddModal}
-                editingMission={editingMission}
-                onShowAddModal={setShowAddModal}
-                onAddMission={handleAddMission}
-                onEditMission={handleEditMission}
-                onDeleteMission={handleDeleteMission}
-                onMissionComplete={handleMissionComplete}
-                onUndoComplete={handleUndoComplete}
-                onUndoTransfer={handleUndoTransfer}
-                onCloseModal={handleCloseModal}
-              />
+              <>
+                {/* 자녀 계정 용돈 요청 버튼 - 미션 카드 상단으로 이동 */}
+                {['son', 'daughter'].includes(profile?.user_type) && (
+                  <div className="mb-6">
+                    <Suspense fallback={
+                      <div className="bg-gray-100 rounded-xl p-4 animate-pulse">
+                        <div className="h-24 bg-gray-200 rounded-lg"></div>
+                      </div>
+                    }>
+                      <AllowanceRequestButton 
+                        userId={profile.id}
+                        parentId={profile.parent_id || undefined}
+                        userType={profile.user_type}
+                        connectedChildren={connectedChildren}
+                        onRequestSent={(amount, missions) => {
+                          console.log(`💰 용돈 요청 완료: ${amount}원 (${missions.length}개 미션)`)
+                          // 페이지 새로고침하여 상태 업데이트
+                          window.location.reload()
+                        }}
+                      />
+                    </Suspense>
+                  </div>
+                )}
+                
+                <MissionSection
+                  missions={missions}
+                  loading={false}
+                  selectedDate={selectedDate}
+                  onDateChange={handleDateChange}
+                  userType={profile?.user_type || 'child'}
+                  showAddModal={showAddModal}
+                  editingMission={editingMission}
+                  onShowAddModal={setShowAddModal}
+                  onAddMission={handleAddMission}
+                  onEditMission={handleEditMission}
+                  onDeleteMission={handleDeleteMission}
+                  onMissionComplete={handleMissionComplete}
+                  onUndoComplete={handleUndoComplete}
+                  onUndoTransfer={handleUndoTransfer}
+                  onCloseModal={handleCloseModal}
+                />
+              </>
             ) : (
               <Suspense fallback={
                 <div className="text-center py-8">
@@ -542,26 +567,6 @@ function MissionPageContent() {
           </div>
         </div>
 
-        {/* 자녀 계정 용돈 요청 버튼 */}
-        {['son', 'daughter'].includes(profile?.user_type) && (
-          <div className="mb-6">
-            <Suspense fallback={
-              <div className="bg-gray-100 rounded-xl p-4 animate-pulse">
-                <div className="h-24 bg-gray-200 rounded-lg"></div>
-              </div>
-            }>
-              <AllowanceRequestButton 
-                userId={profile.id}
-                parentId={profile.parent_id || undefined}
-                onRequestSent={(amount, missions) => {
-                  console.log(`💰 용돈 요청 완료: ${amount}원 (${missions.length}개 미션)`)
-                  // 페이지 새로고침하여 상태 업데이트
-                  window.location.reload()
-                }}
-              />
-            </Suspense>
-          </div>
-        )}
 
         <Suspense fallback={
           <div className="bg-white rounded-xl shadow-lg p-6 text-center mb-6">

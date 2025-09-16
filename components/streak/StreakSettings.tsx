@@ -77,8 +77,8 @@ export function StreakSettingsModal({ isOpen, onClose, onSave }: StreakSettingsP
 
   if (!isOpen) return null
 
-  // 부모 권한 체크
-  if (profile?.user_type !== 'parent') {
+  // 부모 권한 체크 (4역할 시스템: father, mother, son, daughter)
+  if (!['father', 'mother'].includes(profile?.user_type || '')) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-lg p-6 max-w-md w-full">
