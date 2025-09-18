@@ -125,7 +125,7 @@ class StreakService {
       console.log(`📊 연속 완료일 계산 시작: 사용자 ${userId}, 기준일 ${targetDate}`)
       
       let streakCount = 0
-      let currentDate = new Date(targetDate)
+      let currentDate = new Date(targetDate + 'T00:00:00.000Z') // UTC 기준으로 파싱
       
       // 최대 365일까지만 확인 (무한 루프 방지)
       for (let day = 0; day < 365; day++) {
@@ -168,8 +168,8 @@ class StreakService {
           break
         }
         
-        // 하루 이전으로 이동
-        currentDate.setDate(currentDate.getDate() - 1)
+        // 하루 이전으로 이동 (안전한 방법)
+        currentDate = new Date(currentDate.getTime() - 24 * 60 * 60 * 1000)
       }
       
       console.log(`🎯 최종 연속 완료일: ${streakCount}일`)

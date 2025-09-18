@@ -6,11 +6,11 @@ import { NextRequest, NextResponse } from 'next/server'
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
     const supabase = await createClient()
-    const { userId } = params
+    const { userId } = await params
 
     // 현재 로그인한 사용자 확인
     const { data: { user } } = await supabase.auth.getUser()

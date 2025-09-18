@@ -10,6 +10,7 @@ import { RewardNotificationBadge } from '../components/reward/RewardNotification
 
 const TemplateManager = lazy(() => import('../components/mission/TemplateManager').then(module => ({ default: module.TemplateManager })))
 const StreakSection = lazy(() => import('../components/dashboard/StreakSection').then(module => ({ default: module.StreakSection })))
+const AllowancePlannerSection = lazy(() => import('../components/dashboard/AllowancePlannerSection').then(module => ({ default: module.AllowancePlannerSection })))
 const MissionCompletionNotification = lazy(() => import('../components/notifications/MissionCompletionNotification'))
 import { 
   useMissionsQuery,
@@ -120,11 +121,11 @@ function MissionPageContent() {
   const { 
     data: pendingProposals = [], 
     isLoading: isLoadingProposals 
-  } = usePendingProposals(['father', 'mother'].includes(profile?.user_type) ? profile?.id : undefined)
+  } = usePendingProposals(['father', 'mother'].includes(profile?.user_type || '') ? profile?.id : undefined)
 
   // 자녀 계정일 때 축하 알림 리스너 설정
   useEffect(() => {
-    if (!['son', 'daughter'].includes(profile?.user_type)) return
+    if (!['son', 'daughter'].includes(profile?.user_type || '')) return
 
     const handleCelebration = (payload: CelebrationPayload) => {
       setCelebrationData({
@@ -134,7 +135,7 @@ function MissionPageContent() {
       setShowCelebrationModal(true)
     }
 
-    const channel = celebrationService.subscribeTocelebrations(profile.id, handleCelebration)
+    const channel = celebrationService.subscribeTocelebrations(profile?.id || '', handleCelebration)
 
     return () => {
       celebrationService.unsubscribe(channel)
@@ -151,7 +152,7 @@ function MissionPageContent() {
         const { data: children, error } = await supabase
           .from('profiles')
           .select('id, full_name, family_code')
-          .eq('parent_id', profile.id)
+          .eq('parent_id', profile?.id || '')
           .in('user_type', ['son', 'daughter', 'child'])
         
         if (!error && children && children.length > 0) {
@@ -173,11 +174,11 @@ function MissionPageContent() {
 
   // 자녀 계정의 미션 완료 시 자동 정산 체크 (부모에게 알림)
   useEffect(() => {
-    if (!['son', 'daughter'].includes(profile?.user_type) || !profile?.parent_id) return
+    if (!['son', 'daughter'].includes(profile?.user_type || '') || !profile?.parent_id) return
 
     const checkAutoSettlement = async () => {
       try {
-        const settlementCheck = await settlementService.shouldTriggerAutoSettlement(profile.id)
+        const settlementCheck = await settlementService.shouldTriggerAutoSettlement(profile?.id || '')
         
         if (settlementCheck.shouldTrigger) {
           logger.log('모든 미션 완료 - 자동 정산 알림 전송')
@@ -243,7 +244,7 @@ function MissionPageContent() {
 
   // 부모 로그인 시 대기 중인 제안 알림
   useEffect(() => {
-    if (['father', 'mother'].includes(profile?.user_type) && pendingProposals.length > 0 && !isLoadingProposals) {
+    if (['father', 'mother'].includes(profile?.user_type || '') && pendingProposals.length > 0 && !isLoadingProposals) {
       // 로그인 후 잠시 지연해서 알림 표시 (UX 개선)
       const timer = setTimeout(() => {
         setShowProposalNotification(true)
@@ -288,7 +289,7 @@ function MissionPageContent() {
       // 모바일 감지
       const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
       
-      if (['father', 'mother'].includes(profile?.user_type)) {
+      if (['father', 'mother'].includes(profile?.user_type || '')) {
         // 부모 계정: 미션 완료 알림을 빨리 받아야 함
         return isMobile ? 60000 : 120000 // 모바일: 1분, 데스크톱: 2분
       } else {
@@ -322,16 +323,36 @@ function MissionPageContent() {
     try {
       await completeMissionMutation.mutateAsync(missionId)
       
-      // 연속 완료 카운터 업데이트
+      // 연속 완료 카운터 업데이트 - 해당 날짜의 모든 미션이 완료되었을 때만
       try {
-        const streakResult = await streakService.updateStreak(profile.id)
+        // 현재 날짜의 모든 미션 상태 확인
+        const todayMissions = Array.isArray(missions) ? missions.filter(m => 
+          m.date === selectedDate && m.userId === profile.id
+        ) : []
         
-        if (streakResult.shouldCelebrate) {
-          setCelebrationTrigger({
-            streakCount: streakResult.newStreak,
-            bonusAmount: streakResult.bonusEarned,
-            timestamp: Date.now()
-          })
+        // 방금 완료한 미션 포함하여 모든 미션이 완료되었는지 확인
+        const completedCount = todayMissions.filter(m => 
+          m.isCompleted || m.id === missionId
+        ).length
+        const totalCount = todayMissions.length
+        
+        console.log(`📊 ${selectedDate} 미션 완료 상태: ${completedCount}/${totalCount}`)
+        
+        // 모든 미션이 완료되었을 때만 streak 업데이트
+        if (completedCount === totalCount && totalCount > 0) {
+          console.log(`🎯 ${selectedDate} 모든 미션 완료! 연속 완료 체크 시작`)
+          
+          const streakResult = await streakService.updateStreak(profile.id, selectedDate)
+          
+          if (streakResult.shouldCelebrate) {
+            setCelebrationTrigger({
+              streakCount: streakResult.newStreak,
+              bonusAmount: streakResult.bonusEarned,
+              timestamp: Date.now()
+            })
+          }
+        } else {
+          console.log(`⏳ ${selectedDate} 아직 미완료 미션 있음 (${completedCount}/${totalCount})`)
         }
       } catch (streakError) {
         console.error('연속 카운터 업데이트 실패:', streakError)
@@ -439,7 +460,7 @@ function MissionPageContent() {
   }, [])
 
   const handleFloatingButtonClick = useCallback(() => {
-    if (['father', 'mother'].includes(profile?.user_type)) {
+    if (['father', 'mother'].includes(profile?.user_type || '')) {
       setShowActionModal(true)
     } else {
       // 자녀는 미션 제안 폼 열기 - 다른 모달들 상태 초기화
@@ -499,7 +520,7 @@ function MissionPageContent() {
           <div className="max-w-4xl mx-auto">
           
           {/* 부모 계정 정산 알림 배지 */}
-          {['father', 'mother'].includes(profile?.user_type) && (
+          {['father', 'mother'].includes(profile?.user_type || '') && (
             <div className="mb-6 flex justify-center">
               <RewardNotificationBadge />
             </div>
@@ -514,7 +535,7 @@ function MissionPageContent() {
             {activeTab === 'missions' ? (
               <>
                 {/* 자녀 계정 용돈 요청 버튼 - 미션 카드 상단으로 이동 */}
-                {['son', 'daughter'].includes(profile?.user_type) && (
+                {['son', 'daughter'].includes(profile?.user_type || '') && (
                   <div className="mb-6">
                     <Suspense fallback={
                       <div className="bg-gray-100 rounded-xl p-4 animate-pulse">
@@ -522,9 +543,9 @@ function MissionPageContent() {
                       </div>
                     }>
                       <AllowanceRequestButton 
-                        userId={profile.id}
-                        parentId={profile.parent_id || undefined}
-                        userType={profile.user_type}
+                        userId={profile?.id || ''}
+                        parentId={profile?.parent_id || undefined}
+                        userType={profile?.user_type || 'child'}
                         connectedChildren={connectedChildren}
                         onRequestSent={(amount, missions) => {
                           console.log(`💰 용돈 요청 완료: ${amount}원 (${missions.length}개 미션)`)
@@ -581,6 +602,18 @@ function MissionPageContent() {
           />
         </Suspense>
 
+        {/* 스마트 용돈 플래너 섹션 (부모만 표시) */}
+        <Suspense fallback={
+          <div className="bg-white rounded-xl shadow-lg p-6 text-center mb-6">
+            <div className="animate-spin h-8 w-8 border-b-2 border-blue-600 rounded-full mx-auto mb-4"></div>
+            <p className="text-gray-600">용돈 플래너 로딩 중...</p>
+          </div>
+        }>
+          <AllowancePlannerSection
+            userType={profile?.user_type || 'child'}
+          />
+        </Suspense>
+
         
         <div className="text-center">
           <p className="text-xs sm:text-sm text-gray-500">
@@ -590,7 +623,7 @@ function MissionPageContent() {
       </div>
 
       {/* 자녀 계정 데일리 미션 웰컴 모달 */}
-      {['son', 'daughter'].includes(profile?.user_type) && (
+      {['son', 'daughter'].includes(profile?.user_type || '') && (
         <DailyMissionWelcomeModal
           isOpen={showWelcomeModal}
           onClose={handleCloseWelcome}
@@ -603,7 +636,7 @@ function MissionPageContent() {
       )}
 
       {/* 미션 없음 모달 (자녀용) */}
-      {['son', 'daughter'].includes(profile?.user_type) && (
+      {['son', 'daughter'].includes(profile?.user_type || '') && (
         <NoMissionModal
           isOpen={showNoMissionModal}
           onClose={handleCloseNoMissionModal}
@@ -612,7 +645,7 @@ function MissionPageContent() {
       )}
 
       {/* 부모 계정 미션 완료 알림 */}
-      {['father', 'mother'].includes(profile?.user_type) && (
+      {['father', 'mother'].includes(profile?.user_type || '') && (
         <Suspense fallback={null}>
           <MissionCompletionNotification 
             connectedChildren={connectedChildren}
@@ -625,7 +658,7 @@ function MissionPageContent() {
       
       
       {/* Action Selection Modal (부모용) */}
-      {['father', 'mother'].includes(profile?.user_type) && (
+      {['father', 'mother'].includes(profile?.user_type || '') && (
         <ActionSelectionModal
           isOpen={showActionModal}
           onClose={() => setShowActionModal(false)}
@@ -637,7 +670,7 @@ function MissionPageContent() {
       )}
 
       {/* 축하 모달 (자녀용) */}
-      {['son', 'daughter'].includes(profile?.user_type) && (
+      {['son', 'daughter'].includes(profile?.user_type || '') && (
         <CelebrationModal
           isOpen={showCelebrationModal}
           onClose={() => setShowCelebrationModal(false)}
@@ -657,7 +690,7 @@ function MissionPageContent() {
       />
 
       {/* 제안 알림 모달 (부모용) */}
-      {['father', 'mother'].includes(profile?.user_type) && (
+      {['father', 'mother'].includes(profile?.user_type || '') && (
         <ProposalNotificationModal
           isOpen={showProposalNotification}
           onClose={() => setShowProposalNotification(false)}
