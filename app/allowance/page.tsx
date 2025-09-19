@@ -12,6 +12,7 @@ import { getTodayKST } from '@/lib/utils/dateUtils'
 import { allowanceLogger } from '@/lib/utils/logger'
 import AllowanceRequestButton from '../../components/allowance/AllowanceRequestButton'
 import { SwipeableTransactionItem } from '../../components/allowance/SwipeableTransactionItem'
+import { TransactionDetailModal } from '../../components/allowance/TransactionDetailModal'
 
 // Lazy loading을 일시적으로 비활성화하고 직접 import
 import AddTransactionModal from '../../components/allowance/AddTransactionModal'
@@ -32,6 +33,8 @@ export default function AllowancePage() {
   const [currentFilter, setCurrentFilter] = useState<FilterOption>({ type: 'this_month' })
   const [allTransactions, setAllTransactions] = useState<AllowanceTransaction[]>([])
   const [editingTransaction, setEditingTransaction] = useState<AllowanceTransaction | null>(null)
+  const [selectedTransaction, setSelectedTransaction] = useState<AllowanceTransaction | null>(null)
+  const [showTransactionDetail, setShowTransactionDetail] = useState(false)
   
   // 거래 내역 페이지네이션을 위한 상태
   const [visibleTransactionsCount, setVisibleTransactionsCount] = useState(10)
@@ -234,6 +237,12 @@ export default function AllowancePage() {
     setShowAddModal(true)
   }, [])
 
+  // 거래 내역 상세 보기 핸들러
+  const handleViewTransaction = useCallback((transaction: AllowanceTransaction) => {
+    setSelectedTransaction(transaction)
+    setShowTransactionDetail(true)
+  }, [])
+
   // 필터가 변경될 때 visibleTransactionsCount 초기화
   useEffect(() => {
     setVisibleTransactionsCount(10)
@@ -401,6 +410,7 @@ export default function AllowancePage() {
                         userType={profile?.user_type || 'child'}
                         onEdit={handleEditTransaction}
                         onDelete={handleDeleteTransaction}
+                        onClick={handleViewTransaction}
                       />
                     ))}
                   </div>
@@ -484,6 +494,19 @@ export default function AllowancePage() {
         onApplyFilter={(filter) => {
           setCurrentFilter(filter)
         }}
+      />
+
+      {/* 거래 상세 모달 */}
+      <TransactionDetailModal
+        isOpen={showTransactionDetail}
+        onClose={() => {
+          setShowTransactionDetail(false)
+          setSelectedTransaction(null)
+        }}
+        transaction={selectedTransaction}
+        userType={profile?.user_type || 'child'}
+        onEdit={handleEditTransaction}
+        onDelete={handleDeleteTransaction}
       />
 
       {/* 플로팅 액션 버튼 (자녀만 표시) */}

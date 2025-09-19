@@ -1118,6 +1118,95 @@ export class MissionSupabaseService {
   }
 
   /**
+   * 📅 특정 템플릿으로 생성된 특정 날짜의 미션들 조회
+   */
+  async getMissionsByTemplateAndDate(templateId: string, date: string): Promise<MissionInstance[]> {
+    try {
+      const { data, error } = await this.supabase
+        .from('mission_instances')
+        .select('*')
+        .eq('template_id', templateId)
+        .eq('date', date)
+
+      if (error) {
+        console.error('템플릿별 날짜 미션 조회 실패:', error)
+        throw error
+      }
+
+      return (data || []).map(item => this.convertSupabaseToInstance(item))
+    } catch (error) {
+      console.error('getMissionsByTemplateAndDate 처리 중 오류:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 👤 자녀 프로필 정보 조회
+   */
+  async getChildProfile(userId: string): Promise<{ full_name: string } | null> {
+    try {
+      const { data, error } = await this.supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', userId)
+        .single()
+
+      if (error) {
+        console.error('자녀 프로필 조회 실패:', error)
+        return null
+      }
+
+      return data
+    } catch (error) {
+      console.error('getChildProfile 처리 중 오류:', error)
+      return null
+    }
+  }
+
+  /**
+   * 🗑️ 미션 템플릿 삭제 (오늘 미션도 함께 삭제 옵션)
+   */
+  async deleteTemplateWithTodayMissions(templateId: string, deleteToday: boolean = false): Promise<boolean> {
+    const { user, profile } = await this.getCurrentUser()
+
+    // 부모만 템플릿 삭제 가능
+    if (!isParentRole(profile.user_type)) {
+      throw new Error('미션 템플릿은 부모만 삭제할 수 있습니다.')
+    }
+
+    console.log('🗑️ 템플릿 삭제 시작:', { templateId, deleteToday })
+
+    try {
+      // 오늘 미션 삭제 옵션이 true인 경우
+      if (deleteToday) {
+        const today = nowKST().split('T')[0] // YYYY-MM-DD 형식
+        
+        console.log('📅 오늘 생성된 미션 삭제 중...', today)
+        
+        const { error: deleteTodayError } = await this.supabase
+          .from('mission_instances')
+          .delete()
+          .eq('template_id', templateId)
+          .eq('date', today)
+
+        if (deleteTodayError) {
+          console.error('오늘 미션 삭제 실패:', deleteTodayError)
+          throw new Error('오늘 생성된 미션을 삭제할 수 없습니다.')
+        }
+
+        console.log('✅ 오늘 미션 삭제 완료')
+      }
+
+      // 기존 하드 삭제 로직 실행
+      return await this.hardDeleteMissionTemplate(templateId)
+
+    } catch (error) {
+      console.error('템플릿 삭제 중 오류:', error)
+      throw error
+    }
+  }
+
+  /**
    * 🧹 정리
    */
   cleanup() {

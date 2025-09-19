@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { MissionTemplate, RecurringPattern } from '../../lib/types/mission'
 import { MissionTemplateModal } from './MissionTemplateModal'
+import { TemplateDeleteConfirmModal } from '../modals/TemplateDeleteConfirmModal'
 import missionSupabaseService from '../../lib/services/missionSupabase'
 import { getTodayKST } from '../../lib/utils/dateUtils'
 import { useChildSelection } from '@/lib/contexts/ChildSelectionContext'
@@ -91,6 +92,8 @@ export function TemplateManager() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<MissionTemplate | null>(null)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [templateToDelete, setTemplateToDelete] = useState<MissionTemplate | null>(null)
   const { selectedChildId, availableChildren, isParent } = useChildSelection()
 
   useEffect(() => {
@@ -194,45 +197,29 @@ export function TemplateManager() {
     setShowModal(true)
   }
 
-  const handleDeleteTemplate = async (template: MissionTemplate) => {
-    // 삭제 옵션 선택
-    const choice = confirm(
-      `"${template.title}" 템플릿을 어떻게 처리하시겠습니까?\n\n` +
-      `확인: 완전 삭제 (기존 미션은 유지되지만 템플릿 연결 해제)\n` +
-      `취소: 비활성화만 (템플릿은 남겨두지만 새로운 미션 생성 안됨)`
-    )
-    
-    if (choice === true) {
-      // 완전 삭제 선택
-      const finalConfirm = confirm(
-        `⚠️ 주의: 템플릿을 완전히 삭제합니다.\n\n` +
-        `• 기존에 생성된 미션들은 유지됩니다\n` +
-        `• 하지만 해당 미션들의 템플릿 연결이 끊어집니다\n` +
-        `• 이 작업은 되돌릴 수 없습니다\n\n` +
-        `정말로 "${template.title}" 템플릿을 완전 삭제하시겠습니까?`
-      )
-      
-      if (finalConfirm) {
-        try {
-          await missionSupabaseService.hardDeleteMissionTemplate(template.id)
-          await loadTemplates()
-          alert('템플릿이 완전히 삭제되었습니다.')
-        } catch (error) {
-          console.error('Failed to hard delete template:', error)
-          alert('템플릿 완전 삭제 중 오류가 발생했습니다.')
-        }
-      }
-    } else if (choice === false) {
-      // 비활성화 선택
-      try {
-        await missionSupabaseService.deleteMissionTemplate(template.id)
-        await loadTemplates()
-        alert('템플릿이 비활성화되었습니다. (새로운 미션이 자동 생성되지 않습니다)')
-      } catch (error) {
-        console.error('Failed to deactivate template:', error)
-        alert('템플릿 비활성화 중 오류가 발생했습니다.')
-      }
+  const handleDeleteTemplate = (template: MissionTemplate) => {
+    setTemplateToDelete(template)
+    setShowDeleteModal(true)
+  }
+
+  const handleConfirmDelete = async (deleteToday: boolean) => {
+    if (!templateToDelete) return
+
+    try {
+      await missionSupabaseService.deleteTemplateWithTodayMissions(templateToDelete.id, deleteToday)
+      console.log('✅ 템플릿 삭제 완료:', templateToDelete.title, { deleteToday })
+      await loadTemplates() // 템플릿 목록 새로고침
+    } catch (error) {
+      console.error('템플릿 삭제 실패:', error)
+      alert('템플릿 삭제에 실패했습니다.')
+    } finally {
+      setTemplateToDelete(null)
     }
+  }
+
+  const handleCloseDeleteModal = () => {
+    setShowDeleteModal(false)
+    setTemplateToDelete(null)
   }
 
   const handleToggleActive = async (template: MissionTemplate) => {
@@ -317,6 +304,14 @@ export function TemplateManager() {
           selectedChildId={selectedChildId}
         />
       )}
+      
+      {/* 템플릿 삭제 확인 모달 */}
+      <TemplateDeleteConfirmModal
+        isOpen={showDeleteModal}
+        onClose={handleCloseDeleteModal}
+        onConfirm={handleConfirmDelete}
+        template={templateToDelete}
+      />
     </div>
   )
 }

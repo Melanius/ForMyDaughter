@@ -494,6 +494,138 @@ class StreakService {
       throw error
     }
   }
+
+  // 연속 완료 미션 생성 (설정 활성화 시 자동 생성)
+  async createStreakMission(userId: string, targetDate: string = getTodayKST()): Promise<void> {
+    try {
+      console.log(`🎯 연속 완료 미션 생성 시작: 사용자 ${userId}, 날짜 ${targetDate}`)
+
+      // 1. 연속 완료 설정 조회
+      const settings = await this.getStreakSettings(userId)
+      if (!settings || !settings.streak_enabled) {
+        console.log('⚠️ 연속 완료 설정이 비활성화되어 있음 - 미션 생성 안함')
+        return
+      }
+
+      // 2. 이미 연속 완료 미션이 있는지 확인
+      const { data: existingMission, error: checkError } = await supabase
+        .from('mission_instances')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('date', targetDate)
+        .eq('title', '연속 완료 도전')
+        .single()
+
+      if (!checkError && existingMission) {
+        console.log('✅ 이미 연속 완료 미션이 존재함 - 생성 생략')
+        return
+      }
+
+      // 3. 사용자 정보 조회
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('full_name, user_type')
+        .eq('id', userId)
+        .single()
+
+      if (profileError || !profile) {
+        throw new Error('사용자 정보를 조회할 수 없습니다')
+      }
+
+      // 4. 연속 완료 미션 생성
+      const { data: missionData, error: missionError } = await supabase
+        .from('mission_instances')
+        .insert({
+          user_id: userId,
+          title: '연속 완료 도전',
+          description: `${settings.streak_target}일 연속 완료하면 ${settings.streak_bonus.toLocaleString()}원 보상!`,
+          reward_amount: settings.streak_bonus,
+          date: targetDate,
+          is_completed: false,
+          mission_type: 'streak',
+          created_at: nowKST(),
+          updated_at: nowKST()
+        })
+        .select()
+
+      if (missionError) {
+        console.error('연속 완료 미션 생성 실패:', missionError)
+        throw missionError
+      }
+
+      console.log(`✅ 연속 완료 미션 생성 완료: ID ${missionData?.[0]?.id}`)
+      console.log(`   - 목표: ${settings.streak_target}일 연속`)
+      console.log(`   - 보상: ${settings.streak_bonus}원`)
+
+    } catch (error) {
+      console.error('연속 완료 미션 생성 실패:', error)
+      throw error
+    }
+  }
+
+  // 가족 모든 구성원에게 연속 완료 미션 생성
+  async createStreakMissionsForFamily(parentUserId: string, targetDate: string = getTodayKST()): Promise<void> {
+    try {
+      console.log(`👥 가족 연속 완료 미션 생성 시작: 부모 ${parentUserId}`)
+
+      // 1. 부모의 가족 코드 조회
+      const { data: parentProfile, error: parentError } = await supabase
+        .from('profiles')
+        .select('family_code, user_type')
+        .eq('id', parentUserId)
+        .single()
+
+      if (parentError || !parentProfile) {
+        throw new Error('부모 정보를 조회할 수 없습니다')
+      }
+
+      if (!['father', 'mother'].includes(parentProfile.user_type || '')) {
+        throw new Error('연속 완료 미션은 부모만 생성할 수 있습니다')
+      }
+
+      if (!parentProfile.family_code) {
+        throw new Error('가족 코드가 설정되지 않았습니다')
+      }
+
+      // 2. 가족 구성원 조회 (자녀만)
+      const { data: familyMembers, error: familyError } = await supabase
+        .from('profiles')
+        .select('id, full_name, user_type')
+        .eq('family_code', parentProfile.family_code)
+        .in('user_type', ['son', 'daughter'])
+
+      if (familyError) {
+        throw new Error('가족 구성원을 조회할 수 없습니다')
+      }
+
+      if (!familyMembers || familyMembers.length === 0) {
+        console.log('⚠️ 가족에 자녀가 없음 - 미션 생성 안함')
+        return
+      }
+
+      console.log(`👨‍👩‍👧‍👦 자녀 ${familyMembers.length}명에게 연속 완료 미션 생성`)
+
+      // 3. 각 자녀에게 연속 완료 미션 생성
+      const createPromises = familyMembers.map(child => 
+        this.createStreakMission(child.id, targetDate)
+      )
+
+      const results = await Promise.allSettled(createPromises)
+
+      // 4. 결과 확인
+      const failed = results.filter(result => result.status === 'rejected')
+      if (failed.length > 0) {
+        console.error('일부 자녀 미션 생성 실패:', failed)
+        throw new Error(`${failed.length}명의 연속 완료 미션 생성에 실패했습니다`)
+      }
+
+      console.log(`✅ 가족 구성원 ${familyMembers.length}명 연속 완료 미션 생성 완료`)
+
+    } catch (error) {
+      console.error('가족 연속 완료 미션 생성 실패:', error)
+      throw error
+    }
+  }
 }
 
 export default new StreakService()

@@ -10,13 +10,15 @@ interface SwipeableTransactionItemProps {
   userType: 'parent' | 'child'
   onEdit?: (transaction: AllowanceTransaction) => void
   onDelete?: (transactionId: string) => void
+  onClick?: (transaction: AllowanceTransaction) => void
 }
 
 export function SwipeableTransactionItem({
   transaction,
   userType,
   onEdit,
-  onDelete
+  onDelete,
+  onClick
 }: SwipeableTransactionItemProps) {
   const [translateX, setTranslateX] = useState(0)
   const [showActions, setShowActions] = useState(false)
@@ -159,7 +161,7 @@ export function SwipeableTransactionItem({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        onClick={showActions ? hideActions : undefined}
+        onClick={showActions ? hideActions : () => onClick?.(transaction)}
       >
         <div className="flex items-center justify-between">
           <div className="flex-1">

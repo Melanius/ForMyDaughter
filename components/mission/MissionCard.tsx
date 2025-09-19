@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, memo } from 'react'
+import { useState, memo, useRef } from 'react'
 import { Mission } from '@/lib/types/mission'
+import { Trash2, Edit } from 'lucide-react'
 
 interface MissionCardProps {
   mission: Mission
@@ -23,6 +24,10 @@ export const MissionCard = memo(function MissionCard({
   onUndoTransfer
 }: MissionCardProps) {
   const [isProcessing, setIsProcessing] = useState(false)
+  const [showActions, setShowActions] = useState(false)
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null)
+  const startXRef = useRef(0)
+  const isDraggingRef = useRef(false)
 
   // 반복 패턴 이모지 (템플릿과 동일)
   const getPatternEmoji = (recurringPattern?: string) => {
@@ -115,14 +120,87 @@ export const MissionCard = memo(function MissionCard({
     }
   }
 
+  // 부모용 터치 핸들러 (롱프레스 액션)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (userType !== 'parent') return
+    
+    const touch = e.touches[0]
+    startXRef.current = touch.clientX
+    isDraggingRef.current = false
+
+    // 롱프레스 타이머 시작
+    const timer = setTimeout(() => {
+      if (!isDraggingRef.current) {
+        setShowActions(true)
+        // 진동 피드백 (지원하는 경우)
+        if (navigator.vibrate) {
+          navigator.vibrate(50)
+        }
+      }
+    }, 500) // 0.5초
+
+    setLongPressTimer(timer)
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (userType !== 'parent') return
+    
+    const touch = e.touches[0]
+    const deltaX = Math.abs(touch.clientX - startXRef.current)
+    
+    // 드래그 중임을 표시
+    if (deltaX > 10) {
+      isDraggingRef.current = true
+      if (longPressTimer) {
+        clearTimeout(longPressTimer)
+        setLongPressTimer(null)
+      }
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (userType !== 'parent') return
+    
+    if (longPressTimer) {
+      clearTimeout(longPressTimer)
+      setLongPressTimer(null)
+    }
+    isDraggingRef.current = false
+  }
+
+  // 액션 버튼 숨김
+  const hideActions = () => {
+    setShowActions(false)
+  }
+
+  // 삭제 처리
+  const handleDeleteAction = () => {
+    if (confirm('정말로 이 미션을 삭제하시겠습니까?')) {
+      handleAction(onDelete)
+      hideActions()
+    }
+  }
+
+  // 수정 처리
+  const handleEditAction = () => {
+    handleAction(onEdit)
+    hideActions()
+  }
+
   return (
-    <div className={`p-3 sm:p-6 rounded-lg sm:rounded-2xl transition-all duration-200 shadow-md sm:shadow-lg hover:shadow-lg sm:hover:shadow-xl ${
-      mission.isCompleted 
-        ? 'bg-gradient-to-r from-green-100 to-emerald-100 border-2 border-green-200' 
-        : mission.isTransferred
-        ? 'bg-gradient-to-r from-blue-100 to-indigo-100 border-2 border-blue-200'
-        : 'bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200 hover:border-orange-300'
-    }`}>
+    <div 
+      className={`relative p-3 sm:p-6 rounded-lg sm:rounded-2xl transition-all duration-200 shadow-md sm:shadow-lg hover:shadow-lg sm:hover:shadow-xl ${
+        mission.isCompleted 
+          ? 'bg-gradient-to-r from-green-100 to-emerald-100 border-2 border-green-200' 
+          : mission.isTransferred
+          ? 'bg-gradient-to-r from-blue-100 to-indigo-100 border-2 border-blue-200'
+          : 'bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200 hover:border-orange-300'
+      }`}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onClick={showActions ? hideActions : undefined}
+    >
       <div className="flex items-start justify-between">
         <div className="flex-1">
           {/* 1. Pattern/Category/Proposal 태그가 가장 위에 */}
@@ -182,38 +260,27 @@ export const MissionCard = memo(function MissionCard({
         <div className="flex flex-col gap-1 sm:gap-2 ml-2 sm:ml-4">
           {!mission.isCompleted ? (
             <>
-              {/* 자녀만 완료 버튼 표시 */}
+              {/* 자녀만 완료 버튼 표시 - 개선된 UI */}
               {userType !== 'parent' && (
                 <>
                   <button
                     onClick={() => handleAction(onComplete)}
                     disabled={isProcessing || mission.isTransferred}
-                    className="flex items-center gap-1 sm:gap-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-2 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-2xl transition-all duration-200 text-xs sm:text-sm font-bold disabled:from-gray-300 disabled:to-gray-300 shadow-md sm:shadow-lg hover:shadow-lg sm:hover:shadow-xl mb-2 sm:mb-3"
+                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-4 py-3 sm:px-6 sm:py-4 rounded-xl sm:rounded-2xl transition-all duration-200 text-sm sm:text-base font-bold disabled:from-gray-300 disabled:to-gray-300 shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 mb-2 sm:mb-3"
                   >
-                    <span>{isProcessing ? '⏳' : '✅'}</span>
-                    <span className="hidden sm:inline">{isProcessing ? '처리중' : '완료!'}</span>
-                    <span className="sm:hidden">{isProcessing ? '...' : '완료'}</span>
+                    <span className="text-lg sm:text-xl">{isProcessing ? '⏳' : '🎯'}</span>
+                    <span>{isProcessing ? '처리중...' : '미션 완료!'}</span>
+                    {!isProcessing && <span className="text-lg sm:text-xl">✨</span>}
                   </button>
                   
                 </>
               )}
-              {/* 부모 관리 버튼들 */}
-              {userType === 'parent' && (
-                <div className="flex flex-col gap-1 sm:gap-2">
-                  <button
-                    onClick={() => handleAction(onEdit)}
-                    disabled={isProcessing || mission.isTransferred}
-                    className="w-full bg-white hover:bg-blue-50 text-blue-600 hover:text-blue-700 px-2 py-1.5 sm:px-4 sm:py-2.5 rounded-md sm:rounded-lg transition-all duration-200 text-xs sm:text-sm font-medium border border-blue-200 hover:border-blue-300 disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200"
-                  >
-                    수정
-                  </button>
-                  <button
-                    onClick={() => handleAction(onDelete)}
-                    disabled={isProcessing || mission.isTransferred}
-                    className="w-full bg-white hover:bg-red-50 text-red-600 hover:text-red-700 px-2 py-1.5 sm:px-4 sm:py-2.5 rounded-md sm:rounded-lg transition-all duration-200 text-xs sm:text-sm font-medium border border-red-200 hover:border-red-300 disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200"
-                  >
-                    삭제
-                  </button>
+              {/* 부모 관리 버튼들 - 롱프레스로 대체됨 */}
+              {userType === 'parent' && !showActions && (
+                <div className="flex items-center justify-center">
+                  <div className="bg-gray-100 px-3 py-2 rounded-lg">
+                    <p className="text-xs text-gray-600 text-center">길게 눌러서<br/>수정/삭제</p>
+                  </div>
                 </div>
               )}
             </>
@@ -234,42 +301,52 @@ export const MissionCard = memo(function MissionCard({
             </div>
           ) : (
             <>
-              {/* 자녀만 완료 취소 버튼 표시 */}
+              {/* 자녀만 완료 취소 버튼 표시 - 개선된 UI */}
               {userType !== 'parent' && (
                 <>
                   <button
                     onClick={() => handleAction(onUndoComplete)}
                     disabled={isProcessing}
-                    className="bg-orange-100 hover:bg-orange-200 text-orange-700 hover:text-orange-800 px-2 py-1.5 sm:px-4 sm:py-2.5 rounded-md sm:rounded-lg transition-colors text-xs sm:text-sm font-medium disabled:bg-gray-100 disabled:text-gray-400 border border-orange-200 hover:border-orange-300 mb-2 sm:mb-3"
+                    className="w-full flex items-center justify-center gap-2 bg-orange-100 hover:bg-orange-200 text-orange-700 hover:text-orange-800 px-4 py-3 sm:px-6 sm:py-4 rounded-xl sm:rounded-2xl transition-all duration-200 text-sm sm:text-base font-medium disabled:bg-gray-100 disabled:text-gray-400 border-2 border-orange-200 hover:border-orange-300 transform hover:scale-105 active:scale-95 mb-2 sm:mb-3 shadow-md hover:shadow-lg"
                   >
-                    취소
+                    <span className="text-lg sm:text-xl">🔄</span>
+                    <span>완료 취소</span>
                   </button>
                   
                 </>
               )}
-              {/* 부모 관리 버튼들 */}
-              {userType === 'parent' && (
-                <div className="flex flex-col gap-2">
-                  <button
-                    onClick={() => handleAction(onEdit)}
-                    disabled={isProcessing}
-                    className="w-full bg-white hover:bg-blue-50 text-blue-600 hover:text-blue-700 px-4 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium border-2 border-blue-200 hover:border-blue-300 disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200"
-                  >
-                    수정
-                  </button>
-                  <button
-                    onClick={() => handleAction(onDelete)}
-                    disabled={isProcessing}
-                    className="w-full bg-white hover:bg-red-50 text-red-600 hover:text-red-700 px-4 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium border-2 border-red-200 hover:border-red-300 disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200"
-                  >
-                    삭제
-                  </button>
+              {/* 부모 관리 버튼들 - 롱프레스로 대체됨 */}
+              {userType === 'parent' && !showActions && (
+                <div className="flex items-center justify-center">
+                  <div className="bg-gray-100 px-3 py-2 rounded-lg">
+                    <p className="text-xs text-gray-600 text-center">길게 눌러서<br/>수정/삭제</p>
+                  </div>
                 </div>
               )}
             </>
           )}
         </div>
       </div>
+
+      {/* 롱프레스 액션 오버레이 (부모용) */}
+      {showActions && userType === 'parent' && (
+        <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center z-10 rounded-lg sm:rounded-2xl">
+          <div className="flex space-x-4">
+            <button
+              onClick={handleEditAction}
+              className="bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-full shadow-lg transition-colors flex items-center justify-center"
+            >
+              <Edit className="w-6 h-6" />
+            </button>
+            <button
+              onClick={handleDeleteAction}
+              className="bg-red-500 hover:bg-red-600 text-white p-3 rounded-full shadow-lg transition-colors flex items-center justify-center"
+            >
+              <Trash2 className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 })

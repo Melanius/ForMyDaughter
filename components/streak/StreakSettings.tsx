@@ -49,7 +49,23 @@ export function StreakSettingsModal({ isOpen, onClose, onSave }: StreakSettingsP
 
     try {
       setSaving(true)
+      
+      // 1. 설정 저장
       await streakService.updateStreakSettings(user.id, settings)
+      
+      // 2. 연속 완료가 활성화된 경우 가족에게 미션 생성
+      if (settings.streak_enabled) {
+        console.log('🎯 연속 완료 설정이 활성화됨 - 가족 미션 생성 시작')
+        try {
+          await streakService.createStreakMissionsForFamily(user.id)
+          console.log('✅ 가족 연속 완료 미션 생성 완료')
+        } catch (missionError) {
+          console.error('연속 완료 미션 생성 실패:', missionError)
+          // 미션 생성 실패해도 설정은 저장됨을 알림
+          alert('설정은 저장되었지만, 연속 완료 미션 생성에 실패했습니다. 나중에 다시 시도해주세요.')
+        }
+      }
+      
       onSave?.()
       onClose()
     } catch (error) {

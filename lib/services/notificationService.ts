@@ -39,6 +39,10 @@ class NotificationService {
         .single()
 
       if (error) {
+        if (error.message?.includes('Could not find the table')) {
+          console.warn('⚠️ 알림 테이블이 존재하지 않습니다. 데이터베이스 설정이 필요합니다.')
+          return { data: null, error: null, success: true }
+        }
         console.error('알림 생성 실패:', error)
         return { data: null, error: '알림 생성에 실패했습니다', success: false }
       }
@@ -65,6 +69,10 @@ class NotificationService {
         .order('created_at', { ascending: false })
 
       if (error) {
+        if (error.message?.includes('Could not find the table')) {
+          console.warn('⚠️ 알림 테이블이 존재하지 않습니다.')
+          return { data: [], error: null, success: true }
+        }
         console.error('읽지 않은 알림 조회 실패:', error)
         return { data: null, error: '알림 조회에 실패했습니다', success: false }
       }
@@ -137,6 +145,14 @@ class NotificationService {
         .eq('user_id', userId)
 
       if (error) {
+        if (error.message?.includes('Could not find the table')) {
+          console.warn('⚠️ 알림 테이블이 존재하지 않습니다.')
+          const stats: NotificationStats = {
+            total_notifications: 0,
+            unread_notifications: 0
+          }
+          return { data: stats, error: null, success: true }
+        }
         console.error('알림 통계 조회 실패:', error)
         return { data: null, error: '통계 조회에 실패했습니다', success: false }
       }

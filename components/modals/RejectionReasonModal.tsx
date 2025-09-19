@@ -12,7 +12,7 @@ interface RejectionReasonModalProps {
   isOpen: boolean
   onClose: () => void
   onReject: (reason: string) => void
-  proposalTitle: string
+  missionTitle: string
   childName?: string
 }
 
@@ -20,7 +20,7 @@ export function RejectionReasonModal({
   isOpen, 
   onClose, 
   onReject, 
-  proposalTitle,
+  missionTitle,
   childName 
 }: RejectionReasonModalProps) {
   const [reason, setReason] = useState('')
@@ -75,7 +75,7 @@ export function RejectionReasonModal({
             <span className="text-red-600 text-lg mr-2">📝</span>
             <div>
               <p className="text-red-800 text-sm font-medium mb-1">거절할 제안</p>
-              <p className="text-red-700 font-bold">{proposalTitle}</p>
+              <p className="text-red-700 font-bold">{missionTitle}</p>
               {childName && (
                 <p className="text-red-600 text-xs mt-1">제안자: {childName}</p>
               )}
