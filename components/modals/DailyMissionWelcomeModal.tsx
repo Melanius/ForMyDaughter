@@ -37,29 +37,29 @@ export function DailyMissionWelcomeModal({
       <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
         {/* 헤더 */}
         <div className="text-center mb-6">
-          <div className="text-4xl mb-3">🌟</div>
+          <div className="text-4xl mb-3">🎯</div>
           <h2 className="text-2xl font-bold text-gray-800 mb-2">
-            안녕하세요{childName ? `, ${childName}님` : ''}!
+            안녕{childName ? `, ${childName}` : ''}! 👋
           </h2>
-          <p className="text-gray-600">
-            새로운 하루가 시작되었어요
+          <p className="text-gray-600 text-lg">
+            아직 못한 미션이 있어요!
           </p>
         </div>
 
         {/* 메인 콘텐츠 */}
         <div className="text-center mb-8">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-            <p className="text-blue-800 font-medium text-lg">
-              📝 오늘의 미션을 확인해봐!
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
+            <p className="text-orange-800 font-medium text-lg">
+              📋 오늘 할 일을 확인해볼까요?
             </p>
-            <p className="text-blue-600 text-sm mt-2">
-              새로운 데일리 미션들이 준비되어 있어요
+            <p className="text-orange-600 text-sm mt-2">
+              아직 끝내지 못한 미션들이 기다리고 있어요
             </p>
           </div>
           
           <div className="text-sm text-gray-500 space-y-1">
-            <p>✨ 미션을 완료하면 용돈을 받을 수 있어요</p>
-            <p>🎯 꾸준히 도전해서 목표를 달성해보세요</p>
+            <p>💪 미션을 하나씩 완료해보세요</p>
+            <p>💰 다 끝내면 용돈을 받을 수 있어요</p>
           </div>
         </div>
 
@@ -83,7 +83,7 @@ export function DailyMissionWelcomeModal({
                 생성 중...
               </>
             ) : (
-              '미션 확인하기'
+              '미션 보러 가기'
             )}
           </button>
         </div>

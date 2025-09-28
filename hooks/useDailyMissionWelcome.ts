@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { dailyMissionManager } from '@/lib/services/dailyMissionManager'
 import { getTodayKST } from '@/lib/utils/dateUtils'
+import missionSupabaseService from '@/lib/services/missionSupabase'
 
 export function useDailyMissionWelcome() {
   const { profile } = useAuth()
@@ -57,6 +58,26 @@ export function useDailyMissionWelcome() {
     }
   }
 
+  // 🎯 새로운 함수: 오늘 완료되지 않은 미션이 있는지 확인
+  const checkIncompleteMissionsExist = async (): Promise<boolean> => {
+    try {
+      if (!profile?.id) return false
+      
+      const today = getTodayString()
+      const todayMissions = await missionSupabaseService.getFamilyMissionInstances(today, profile.id)
+      
+      // 완료되지 않은 미션이 1개 이상 있는지 확인
+      const incompleteMissions = todayMissions.filter(mission => !mission.isCompleted)
+      
+      console.log(`📋 오늘 미션 현황: 전체 ${todayMissions.length}개, 미완료 ${incompleteMissions.length}개`)
+      
+      return incompleteMissions.length > 0
+    } catch (error) {
+      console.error('미완료 미션 확인 실패:', error)
+      return false
+    }
+  }
+
   // 데일리 미션 생성 (통합 관리자 사용)
   const generateTodayMissions = useCallback(async () => {
     try {
@@ -87,15 +108,23 @@ export function useDailyMissionWelcome() {
     try {
       setIsChecking(true)
       
-      // 오늘의 데일리 미션이 이미 있는지 확인
-      const missionsExist = await checkTodayMissionsExist()
+      // 🎯 새로운 로직: 완료되지 않은 미션이 있는지 확인
+      const hasIncompleteMissions = await checkIncompleteMissionsExist()
       
-      if (missionsExist) {
-        // 미션이 있으면 기존 웰컴 모달 표시
+      if (hasIncompleteMissions) {
+        // 미완료 미션이 있으면 모달 표시 (내용이 "아직 못한 미션"으로 바뀜)
         setShowWelcomeModal(true)
+        console.log('🎯 미완료 미션이 있어서 알림 모달 표시')
       } else {
-        // 미션이 없으면 '미션 없음' 모달 표시
-        setShowNoMissionModal(true)
+        // 미션이 없거나 모두 완료된 경우
+        const missionsExist = await checkTodayMissionsExist()
+        if (!missionsExist) {
+          // 미션이 아예 없으면 '미션 없음' 모달 표시
+          setShowNoMissionModal(true)
+          console.log('📋 오늘 미션이 없어서 미션 없음 모달 표시')
+        } else {
+          console.log('✅ 오늘 미션이 모두 완료되어 모달 표시하지 않음')
+        }
       }
     } catch (error) {
       console.error('데일리 미션 체크 실패:', error)

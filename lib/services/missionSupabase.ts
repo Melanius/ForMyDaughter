@@ -8,7 +8,7 @@
  */
 
 import { createClient } from '@/lib/supabase/client'
-import { nowKST, shouldCreateMissionForDate } from '../utils/dateUtils'
+import { nowKST, shouldCreateMissionForDate, getTodayKST, addDaysKST } from '../utils/dateUtils'
 import { MissionTemplate, MissionInstance, RecurringPattern } from '../types/mission'
 import { isParentRole, isChildRole } from '../utils/roleUtils'
 
@@ -142,7 +142,7 @@ export class MissionSupabaseService {
   }
 
   /**
-   * 📅 가족 단위 미션 인스턴스 조회 (특정 날짜)
+   * 📅 가족 단위 미션 인스턴스 조회 (특정 날짜 또는 최근 1주일)
    * @param date - 조회할 날짜
    * @param targetUserId - 특정 사용자의 미션만 조회 (선택적, 부모가 특정 자녀 선택 시 사용)
    */
@@ -180,12 +180,28 @@ export class MissionSupabaseService {
       }
     }
 
-    const { data: instances, error } = await this.supabase
+    // 🔍 날짜 범위 설정: targetUserId가 없는 경우(가족 전체 조회)만 1주일 제한 적용
+    let query = this.supabase
       .from('mission_instances')
       .select('*')
       .in('user_id', targetUserIds)
-      .eq('date', date)
-      .order('created_at', { ascending: false })
+
+    if (targetUserId) {
+      // 특정 사용자 조회: 특정 날짜만 조회 (기존 동작 유지)
+      query = query.eq('date', date)
+    } else {
+      // 가족 전체 조회: 최근 1주일로 제한 (성능 최적화)
+      const oneWeekAgo = addDaysKST(getTodayKST(), -7) // 7일 전
+      const today = getTodayKST()
+      
+      query = query
+        .gte('date', oneWeekAgo)  // 7일 전 이후
+        .lte('date', today)      // 오늘까지
+      
+      console.log(`📅 가족 전체 미션 조회 범위: ${oneWeekAgo} ~ ${today} (최근 1주일)`)
+    }
+
+    const { data: instances, error } = await query.order('created_at', { ascending: false })
 
     if (error) {
       console.error('미션 인스턴스 조회 실패:', error)
@@ -197,7 +213,7 @@ export class MissionSupabaseService {
     if (targetUserId) {
       console.log(`📅 ${date} 특정 사용자(${targetUserId}) 미션 조회: ${missions.length}개`)
     } else {
-      console.log(`📅 ${date} 가족 전체 미션 조회: ${missions.length}개`)
+      console.log(`📅 가족 전체 미션 조회 (최근 1주일): ${missions.length}개`)
     }
 
     return missions
@@ -1020,34 +1036,17 @@ export class MissionSupabaseService {
   }
 
   /**
-   * 💰 모든 완료되었지만 승인되지 않은 미션들 조회 (누적 정산용)
+   * 💰 모든 완료되었지만 승인되지 않은 미션들 조회 (최근 1주일, 누적 정산용)
    */
   async getAllPendingMissions(userId: string): Promise<MissionInstance[]> {
     try {
       console.log(`🔍 getAllPendingMissions 호출됨 - 사용자 ID: ${userId}`)
       
-      // 🔍 전체 미션 상태 확인 (디버깅용)
-      const { data: allMissions, error: debugError } = await this.supabase
-        .from('mission_instances')
-        .select('id, title, mission_type, reward, is_completed, is_transferred, user_id')
-        .eq('user_id', userId)
-
-      if (!debugError && allMissions) {
-        console.log(`🔍 해당 사용자의 모든 미션 (${allMissions.length}개):`)
-        allMissions.forEach(m => {
-          console.log(`   - ${m.title} (${m.mission_type}): 완료=${m.is_completed}, 전송=${m.is_transferred}, 보상=${m.reward}원`)
-        })
-        
-        const completedMissions = allMissions.filter(m => m.is_completed)
-        const transferredMissions = allMissions.filter(m => m.is_transferred)
-        const pendingMissions = allMissions.filter(m => m.is_completed && !m.is_transferred)
-        
-        console.log(`🔍 미션 상태 분석:`)
-        console.log(`   - 전체: ${allMissions.length}개`)
-        console.log(`   - 완료됨: ${completedMissions.length}개`)
-        console.log(`   - 전송됨: ${transferredMissions.length}개`)
-        console.log(`   - 대기중: ${pendingMissions.length}개`)
-      }
+      // 🚀 성능 최적화: 최근 1주일로 조회 범위 제한
+      const oneWeekAgo = addDaysKST(getTodayKST(), -7) // 7일 전
+      const today = getTodayKST()
+      
+      console.log(`📅 조회 범위: ${oneWeekAgo} ~ ${today} (최근 1주일)`)
 
       const { data, error } = await this.supabase
         .from('mission_instances')
@@ -1055,6 +1054,8 @@ export class MissionSupabaseService {
         .eq('user_id', userId)
         .eq('is_completed', true)
         .eq('is_transferred', false)
+        .gte('date', oneWeekAgo)  // 7일 전 이후
+        .lte('date', today)      // 오늘까지
         .order('date', { ascending: false })
         .order('created_at', { ascending: false })
 
@@ -1066,7 +1067,7 @@ export class MissionSupabaseService {
       const missions = (data || []).map(item => this.convertSupabaseToInstance(item))
       
       // 🔍 상세 디버깅 로깅 추가
-      console.log(`📋 ${missions.length}개의 승인 대기 미션 조회됨 (사용자: ${userId})`)
+      console.log(`📋 ${missions.length}개의 승인 대기 미션 조회됨 (사용자: ${userId}, 최근 1주일)`)
       console.log('🔍 조회된 미션 상세 정보:', missions.map(m => ({
         id: m.id,
         title: m.title,
@@ -1080,7 +1081,7 @@ export class MissionSupabaseService {
       const dailyMissions = missions.filter(m => m.missionType === 'daily')
       const eventMissions = missions.filter(m => m.missionType === 'event')
       
-      console.log(`📊 미션 유형별 분석:`)
+      console.log(`📊 미션 유형별 분석 (최근 1주일):`)
       console.log(`   - 데일리 미션: ${dailyMissions.length}개`)
       console.log(`   - 이벤트 미션: ${eventMissions.length}개`)
       console.log(`   - 총 금액: ${missions.reduce((sum, m) => sum + m.reward, 0)}원`)

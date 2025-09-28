@@ -88,7 +88,8 @@ export default function SignupPage() {
         id: authData.user.id,
         email,
         full_name: fullName,
-        user_type: userType
+        user_type: userType,
+        is_first_login: true  // 새 사용자는 첫 로그인으로 설정
       }
 
       // 자녀인 경우만 family_code와 parent_id 추가
@@ -106,13 +107,16 @@ export default function SignupPage() {
         throw new Error('프로필 생성에 실패했습니다.')
       }
 
-      // 4. 성공 메시지
+      // 4. 프로필 생성 완료 대기 (AuthProvider 타이밍 문제 해결)
+      await new Promise(resolve => setTimeout(resolve, 1500))
+
+      // 5. 성공 메시지
       if (['father', 'mother'].includes(userType)) {
         setSuccess('🎉 부모 계정이 만들어졌어요! 로그인 후 가족을 생성해주세요.')
-        setTimeout(() => router.push('/login'), 3000)
+        setTimeout(() => router.push('/login'), 2000)
       } else {
         setSuccess('🎉 우리 가족에 참여했어요! 이제 용돈 관리를 시작할 수 있어요!')
-        setTimeout(() => router.push('/login'), 3000)
+        setTimeout(() => router.push('/login'), 2000)
       }
 
     } catch (error: unknown) {

@@ -25,7 +25,7 @@ export function useFirstLoginGuide() {
       }
 
       // 자녀 계정은 가이드 불필요 (이미 가족 연결됨)
-      if (profile.user_type !== 'parent') {
+      if (!['father', 'mother'].includes(profile.user_type || '')) {
         setShowGuide(false)
         return
       }

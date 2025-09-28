@@ -26,6 +26,43 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body className={notoSansKr.className}>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              // Global error handler for unhandled promise rejections
+              window.addEventListener('unhandledrejection', function(event) {
+                console.warn('Unhandled promise rejection:', event.reason);
+                event.preventDefault();
+              });
+              
+              // Global error handler for runtime errors
+              window.addEventListener('error', function(event) {
+                console.warn('Global error:', event.error);
+                event.preventDefault();
+              });
+              
+              // Clear potentially corrupted localStorage on load
+              try {
+                if (typeof Storage !== 'undefined') {
+                  const keys = Object.keys(localStorage);
+                  keys.forEach(key => {
+                    try {
+                      const value = localStorage.getItem(key);
+                      if (value && value.trim()) {
+                        JSON.parse(value);
+                      }
+                    } catch (e) {
+                      console.warn('Removing corrupted localStorage key:', key);
+                      localStorage.removeItem(key);
+                    }
+                  });
+                }
+              } catch (e) {
+                console.warn('localStorage cleanup failed:', e);
+              }
+            `,
+          }}
+        />
         <ErrorBoundary>
           <QueryProvider>
             <AuthProvider>

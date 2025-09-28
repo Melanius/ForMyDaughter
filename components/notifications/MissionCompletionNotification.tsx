@@ -58,8 +58,19 @@ export default function MissionCompletionNotification({
   const [totalReward, setTotalReward] = useState(0)
   const [waitMessage, setWaitMessage] = useState('')
   const [isWaiting, setIsWaiting] = useState(false)
+  const [isTabActive, setIsTabActive] = useState(true)
 
-  // 부모 계정에서만 작동
+  // 브라우저 탭 활성 상태 감지
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      setIsTabActive(!document.hidden)
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [])
+
+  // 부모 계정에서만 작동 - 스마트 폴링
   useEffect(() => {
     if (!isParentRole(profile?.user_type) || !connectedChildren?.length) {
       return
@@ -67,6 +78,12 @@ export default function MissionCompletionNotification({
 
     // 실시간 미션 완료 상태 감지
     const checkMissionCompletion = async () => {
+      // 탭이 활성화되지 않으면 체크하지 않음 (리소스 절약)
+      if (!isTabActive) {
+        console.log('⏸️ 탭 비활성화 상태 - 미션 체크 건너뜀')
+        return
+      }
+
       const today = getTodayKST()
       
       for (const child of connectedChildren) {
@@ -96,7 +113,7 @@ export default function MissionCompletionNotification({
               setTotalReward(totalAmount)
               setShowNotification(true)
               
-              console.log(`📊 정산 대상:`, {
+              console.log(`📊 정산 대상 (최근 1주일):`, {
                 todayMissions: allPendingMissions.filter(m => m.date === today).length,
                 pastMissions: allPendingMissions.filter(m => m.date !== today).length,
                 totalMissions: allPendingMissions.length,
@@ -115,51 +132,40 @@ export default function MissionCompletionNotification({
       }
     }
 
-    // 10초마다 확인
-    const interval = setInterval(checkMissionCompletion, 10000)
+    // 🚀 최적화: 30초마다 확인 (기존 10초 → 30초로 변경, 70% 감소)
+    const interval = setInterval(checkMissionCompletion, 30000)
     
-    // 초기 체크
+    // 초기 체크 (페이지 로드 시)
     checkMissionCompletion()
 
     return () => clearInterval(interval)
-  }, [profile, connectedChildren])
+  }, [profile, connectedChildren, isTabActive])
 
-  // 모든 대기 중인 미션 조회 (과거 + 당일)
+  // 모든 대기 중인 미션 조회 (최근 1주일) - 최적화된 일괄 조회
   const getAllPendingMissions = async (userId: string): Promise<Mission[]> => {
     try {
-      // 지난 30일간의 미션 중 완료되었지만 전달되지 않은 미션 조회
-      const thirtyDaysAgo = new Date()
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-      const startDate = thirtyDaysAgo.toISOString().split('T')[0]!
-      const endDate = getTodayKST()
+      console.log(`🔍 대기 중인 미션 조회 시작 - 사용자: ${userId}`)
       
-      const allMissions: Mission[] = []
+      // 🚀 최적화: missionSupabaseService의 getAllPendingMissions 사용 (1주일 제한 + 일괄 조회)
+      const pendingMissionInstances = await missionSupabaseService.getAllPendingMissions(userId)
       
-      // 날짜별로 조회
-      for (let date = new Date(startDate); date <= new Date(endDate); date.setDate(date.getDate() + 1)) {
-        const dateStr = date.toISOString().split('T')[0]!
-        const dayMissions = await missionSupabaseService.getFamilyMissionInstances(dateStr)
-        
-        const pendingMissions = dayMissions
-          .filter(m => m.userId === userId && m.isCompleted && !m.isTransferred)
-          .map(mission => ({
-            id: mission.id,
-            userId: mission.userId || userId,
-            title: mission.title,
-            description: mission.description,
-            reward: mission.reward,
-            isCompleted: mission.isCompleted,
-            completedAt: mission.completedAt || '',
-            isTransferred: mission.isTransferred || false,
-            category: mission.category,
-            missionType: mission.missionType === 'daily' ? '데일리' : '이벤트',
-            date: mission.date,
-            templateId: mission.templateId
-          }))
-        
-        allMissions.push(...pendingMissions)
-      }
+      // Mission 형식으로 변환 (기존 UI 호환성)
+      const allMissions: Mission[] = pendingMissionInstances.map(mission => ({
+        id: mission.id,
+        userId: mission.userId || userId,
+        title: mission.title,
+        description: mission.description,
+        reward: mission.reward,
+        isCompleted: mission.isCompleted,
+        completedAt: mission.completedAt || '',
+        isTransferred: mission.isTransferred || false,
+        category: mission.category,
+        missionType: mission.missionType === 'daily' ? '데일리' : '이벤트',
+        date: mission.date,
+        templateId: mission.templateId
+      }))
       
+      console.log(`✅ 대기 중인 미션 조회 완료: ${allMissions.length}개 (기존 방식 대비 97% API 호출 감소)`)
       return allMissions
     } catch (error) {
       console.error('대기 중인 미션 조회 실패:', error)

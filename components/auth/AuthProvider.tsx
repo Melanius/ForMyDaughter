@@ -23,7 +23,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string, retryCount = 0) => {
+    const MAX_RETRIES = 3
+    const RETRY_DELAY = 1000 // 1초
+    
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -31,14 +34,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq('id', userId)
         .single()
 
-      if (error) throw error
+      if (error) {
+        // PGRST116 에러 (프로필이 아직 생성되지 않음)이고 재시도 가능한 경우
+        if (error.code === 'PGRST116' && retryCount < MAX_RETRIES) {
+          authLogger.log(`프로필 생성 대기 중... (${retryCount + 1}/${MAX_RETRIES})`)
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * (retryCount + 1)))
+          return fetchProfile(userId, retryCount + 1)
+        }
+        throw error
+      }
+      
       setProfile(data)
+      authLogger.log('프로필 조회 성공:', data.user_type)
       
       // 자녀 계정 로그인 시 데일리 미션 체크
       await checkDailyMissionsForChild(data)
       
     } catch (error) {
-      authLogger.error('Error fetching profile:', error)
+      if (retryCount >= MAX_RETRIES) {
+        authLogger.error(`프로필 조회 최종 실패 (${MAX_RETRIES}회 재시도 후):`, error)
+      } else {
+        authLogger.error('프로필 조회 실패:', error)
+      }
       setProfile(null)
     }
   }
@@ -49,7 +66,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    // 새로운 통합 관리자 사용 (중복 방지)
+    // 첫 로그인인 경우 미션 생성하지 않음 (환영 모달에서 처리)
+    if (profileData.is_first_login) {
+      authLogger.log('첫 로그인 감지 - 미션 자동 생성 건너뜀', {
+        userId: profileData.id,
+        userType: profileData.user_type
+      })
+      return
+    }
+
+    // 기존 사용자만 자동 미션 생성
+    authLogger.log('기존 자녀 로그인 - 데일리 미션 체크 시작')
     await checkDailyMissionsOnChildLogin(profileData.id)
   }
 

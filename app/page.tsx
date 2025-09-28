@@ -26,6 +26,7 @@ import { Mission } from '../lib/types/mission'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { ChildSelectionProvider, useSelectedChild } from '@/lib/contexts/ChildSelectionContext'
 import { ParentWelcomeModal } from '@/components/family/ParentWelcomeModal'
+import { FirstLoginWelcomeModal } from '@/components/modals/FirstLoginWelcomeModal'
 import { useFirstLoginGuide } from '@/hooks/useFirstLoginGuide'
 import ChildSelector from '@/components/child-selection/ChildSelector'
 import missionSupabaseService from '../lib/services/missionSupabase'
@@ -563,6 +564,7 @@ function MissionPageContent() {
                   selectedDate={selectedDate}
                   onDateChange={handleDateChange}
                   userType={profile?.user_type || 'child'}
+                  isFirstLogin={profile?.is_first_login || false}
                   showAddModal={showAddModal}
                   editingMission={editingMission}
                   onShowAddModal={setShowAddModal}
@@ -714,6 +716,17 @@ function MissionPageContent() {
         isOpen={showGuide}
         onClose={markGuideAsShown}
         userName={userName || undefined}
+      />
+
+      {/* 자녀용 첫 로그인 환영 모달 */}
+      <FirstLoginWelcomeModal
+        profile={profile}
+        onComplete={() => {
+          // 프로필 새로고침하여 is_first_login 상태 업데이트
+          if (profile) {
+            queryClient.invalidateQueries({ queryKey: ['profile', profile.id] })
+          }
+        }}
       />
       </div>
     </div>

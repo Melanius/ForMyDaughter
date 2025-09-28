@@ -289,7 +289,7 @@ export class AllowanceSupabaseService {
   }
 
   /**
-   * 🗑️ 거래 내역 삭제 (권한 검증 포함)
+   * 🗑️ 거래 내역 삭제 (권한 검증 포함) - 미션 관련 거래 삭제 시 미션 상태 되돌리기
    */
   async deleteTransaction(transactionId: string): Promise<void> {
     const { profile } = await this.getCurrentUserWithParent()
@@ -320,6 +320,33 @@ export class AllowanceSupabaseService {
     if (deleteError) {
       console.error('거래 내역 삭제 실패:', deleteError)
       throw new Error('거래 내역 삭제에 실패했습니다.')
+    }
+    
+    // 미션 관련 거래였다면 해당 미션을 미완료 상태로 되돌리기
+    if (transaction?.category === INCOME_CATEGORIES.MISSION && transaction.description?.includes('미션 완료')) {
+      try {
+        // 설명에서 미션 ID 추출 시도 (기존 형태와 신규 형태 모두 지원)
+        let missionId: string | null = null
+        
+        // 기존 형태: "미션 완료: 제목 (ID: xxx)" 
+        const oldFormatMatch = transaction.description.match(/\(ID: ([^)]+)\)/)
+        if (oldFormatMatch && oldFormatMatch[1]) {
+          missionId = oldFormatMatch[1]
+        }
+        
+        // 신규 형태에서는 미션 제목으로 역추적하는 방식으로 향후 개선 예정
+        // 현재는 기존 ID 형태가 없으면 날짜 기준으로 되돌리기
+        
+        if (missionId) {
+          await this.revertMissionFromTransaction(missionId, transaction.user_id)
+        } else {
+          // ID를 찾을 수 없으면 해당 날짜의 전달된 미션들을 되돌리기
+          await this.revertMissionsForDate(transaction.date, transaction.user_id)
+        }
+      } catch (revertError) {
+        console.error('미션 되돌리기 실패 (거래 삭제는 완료됨):', revertError)
+        // 미션 되돌리기 실패해도 거래 삭제는 완료되었으므로 에러 던지지 않음
+      }
     }
     
     console.log('✅ 거래 내역 삭제 완료:', transactionId)
@@ -549,67 +576,6 @@ export class AllowanceSupabaseService {
     return true
   }
 
-  /**
-   * 🗑️ 거래 삭제 (본인 거래만) - 미션 관련 거래 삭제 시 미션 상태 되돌리기
-   */
-  async deleteTransaction(id: string): Promise<boolean> {
-    const { user } = await this.getCurrentUser()
-
-    try {
-      // 1. 삭제할 거래의 정보를 먼저 조회 (미션 관련 거래인지 확인)
-      const { data: transaction, error: fetchError } = await this.supabase
-        .from('allowance_transactions')
-        .select('description, user_id, date, category')
-        .eq('id', id)
-        .eq('user_id', (user as { id: string }).id) // 본인 거래만 
-        .single()
-
-      if (fetchError) {
-        console.error('거래 조회 실패:', fetchError)
-        return false
-      }
-
-      // 2. 거래 삭제
-      const { error: deleteError } = await this.supabase
-        .from('allowance_transactions')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', (user as { id: string }).id)
-
-      if (deleteError) {
-        console.error('거래 삭제 실패:', deleteError)
-        return false
-      }
-
-      // 3. 미션 관련 거래였다면 해당 미션을 미완료 상태로 되돌리기
-      if (transaction?.category === INCOME_CATEGORIES.MISSION && transaction.description?.includes('미션 완료')) {
-        // 설명에서 미션 ID 추출 시도 (기존 형태와 신규 형태 모두 지원)
-        let missionId: string | null = null
-        
-        // 기존 형태: "미션 완료: 제목 (ID: xxx)" 
-        const oldFormatMatch = transaction.description.match(/\(ID: ([^)]+)\)/)
-        if (oldFormatMatch && oldFormatMatch[1]) {
-          missionId = oldFormatMatch[1]
-        }
-        
-        // 신규 형태에서는 미션 제목으로 역추적하는 방식으로 향후 개선 예정
-        // 현재는 기존 ID 형태가 없으면 날짜 기준으로 되돌리기
-        
-        if (missionId) {
-          await this.revertMissionFromTransaction(missionId, transaction.user_id)
-        } else {
-          // ID를 찾을 수 없으면 해당 날짜의 전달된 미션들을 되돌리기
-          await this.revertMissionsForDate(transaction.date, transaction.user_id)
-        }
-      }
-
-      console.log('✅ 거래 삭제 성공:', id)
-      return true
-    } catch (error) {
-      console.error('거래 삭제 중 오류:', error)
-      return false
-    }
-  }
 
   /**
    * 🔄 미션 관련 거래 삭제 시 미션 상태 되돌리기
