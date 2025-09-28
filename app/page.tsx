@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { useCallback, lazy, Suspense } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { logger } from '@/lib/utils/logger'
 import { MissionSection } from '../components/dashboard/MissionSection'
@@ -19,8 +19,7 @@ import {
   useUncompleteMissionMutation,
   useUpdateMissionMutation,
   useDeleteMissionMutation,
-  useUpdateMissionTransferStatus,
-  missionKeys
+  useUpdateMissionTransferStatus
 } from '../hooks/useMissionsQuery'
 import { Mission } from '../lib/types/mission'
 import { useAuth } from '@/components/auth/AuthProvider'
@@ -29,24 +28,24 @@ import { ParentWelcomeModal } from '@/components/family/ParentWelcomeModal'
 import { FirstLoginWelcomeModal } from '@/components/modals/FirstLoginWelcomeModal'
 import { useFirstLoginGuide } from '@/hooks/useFirstLoginGuide'
 import ChildSelector from '@/components/child-selection/ChildSelector'
-import missionSupabaseService from '../lib/services/missionSupabase'
-import streakService from '../lib/services/streak'
-import syncService from '../lib/services/sync'
-import enhancedSyncService from '../lib/services/enhancedSync'
-import { createClient } from '@/lib/supabase/client'
 import { DailyMissionWelcomeModal } from '../components/modals/DailyMissionWelcomeModal'
 import { NoMissionModal } from '../components/modals/NoMissionModal'
 import MissionProposalForm from '../components/mission/MissionProposalForm'
 import MissionProposalManager from '../components/mission/MissionProposalManager'
 import { ProposalNotificationModal } from '../components/notifications/ProposalNotificationModal'
-import { usePendingProposals } from '../hooks/useMissionProposals'
+import { RejectionNotificationModal } from '../components/modals/RejectionNotificationModal'
 import { CelebrationModal } from '../components/modals/CelebrationModal'
 import { useDailyMissionWelcome } from '../hooks/useDailyMissionWelcome'
-import celebrationService from '../lib/services/celebrationService'
-import { CelebrationPayload } from '../lib/types/celebration'
-import { getTodayKST, nowKST } from '../lib/utils/dateUtils'
+import { useMarkNotificationAsRead } from '../hooks/useRejectionNotifications'
+import { getTodayKST } from '../lib/utils/dateUtils'
 import { isParentRole, isChildRole } from '@/lib/utils/roleUtils'
-import settlementService from '../lib/services/settlementService'
+
+// 커스텀 훅들
+import { useAppState } from '../hooks/useAppState'
+import { useNotificationEffects } from '../hooks/useNotificationEffects'
+import { useFamilyEffects } from '../hooks/useFamilyEffects'
+import { useCelebrationEffects } from '../hooks/useCelebrationEffects'
+import { useParentTemplateEffects } from '../hooks/useParentTemplateEffects'
 
 // Lazy load AllowanceRequestButton for child users
 const AllowanceRequestButton = lazy(() => import('../components/allowance/AllowanceRequestButton').then(module => ({ default: module.default })))
@@ -55,35 +54,47 @@ function MissionPageContent() {
   const { profile } = useAuth()
   const queryClient = useQueryClient()
   const selectedChildId = useSelectedChild()
-  const [selectedDate, setSelectedDate] = useState(() => getTodayKST())
   
   // 부모용 첫 로그인 가이드
   const { showGuide, markGuideAsShown, userName } = useFirstLoginGuide()
+  
+  // 상태 관리 통합
+  const {
+    // 모달 상태
+    showAddModal, showActionModal, showProposalForm, showProposalManager,
+    showProposalNotification, showRejectionNotification, showCelebrationModal,
+    
+    // 선택된 아이템들
+    selectedMission, editingMission, currentRejectionNotification, celebrationData,
+    
+    // 가족 관련 상태
+    connectedChildren, isParentWithChild,
+    
+    // 모달 제어 함수들
+    openAddModal, closeAddModal, openActionModal, closeActionModal,
+    openProposalForm, closeProposalForm, openProposalManager, closeProposalManager,
+    openProposalNotification, closeProposalNotification,
+    openRejectionNotification, closeRejectionNotification,
+    openCelebrationModal, closeCelebrationModal,
+    
+    // 선택 관련 함수들
+    setEditingMission,
+    
+    // 가족 관련 함수들
+    setConnectedChildren, setIsParentWithChild,
+    
+    // 유틸리티 함수들
+    resetAllModals
+  } = useAppState()
+  
+  // 기본 상태들
+  const [selectedDate, setSelectedDate] = useState(() => getTodayKST())
   const [activeTab, setActiveTab] = useState<'missions' | 'templates'>('missions')
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [showActionModal, setShowActionModal] = useState(false)
-  const [showProposalForm, setShowProposalForm] = useState(false)
-  const [showProposalManager, setShowProposalManager] = useState(false)
-  const [showProposalNotification, setShowProposalNotification] = useState(false)
-  const [editingMission, setEditingMission] = useState<Mission | null>(null)
   const [celebrationTrigger, setCelebrationTrigger] = useState<{ 
     streakCount: number
     bonusAmount: number
     timestamp: number 
   } | null>(null)
-  const [connectedChildren, setConnectedChildren] = useState<{
-    id: string
-    full_name: string
-    family_code: string
-  }[]>([])
-  const [isParentWithChild, setIsParentWithChild] = useState(false)
-  
-  // 축하 모달 상태
-  const [showCelebrationModal, setShowCelebrationModal] = useState(false)
-  const [celebrationData, setCelebrationData] = useState<{
-    amount: number
-    missionCount: number
-  }>({ amount: 0, missionCount: 0 })
 
   // 날짜 변경 핸들러
   const handleDateChange = useCallback((newDate: string) => {
@@ -118,144 +129,28 @@ function MissionPageContent() {
     handleCloseNoMissionModal
   } = useDailyMissionWelcome()
 
-  // 부모 계정 미션 제안 확인
-  const { 
-    data: pendingProposals = [], 
-    isLoading: isLoadingProposals 
-  } = usePendingProposals(['father', 'mother'].includes(profile?.user_type || '') ? profile?.id : undefined)
+  // 거절 알림 읽음 처리
+  const markNotificationAsRead = useMarkNotificationAsRead()
 
-  // 자녀 계정일 때 축하 알림 리스너 설정
-  useEffect(() => {
-    if (!['son', 'daughter'].includes(profile?.user_type || '')) return
+  // Effect 훅들을 커스텀 훅으로 분리
+  const { pendingProposals, rejectionNotifications } = useNotificationEffects({
+    openProposalNotification,
+    openRejectionNotification,
+    resetAllModals
+  })
+  
+  useFamilyEffects({
+    setConnectedChildren,
+    setIsParentWithChild
+  })
+  
+  useCelebrationEffects({
+    missions,
+    openCelebrationModal
+  })
+  
+  useParentTemplateEffects()
 
-    const handleCelebration = (payload: CelebrationPayload) => {
-      setCelebrationData({
-        amount: payload.amount,
-        missionCount: payload.missionCount
-      })
-      setShowCelebrationModal(true)
-    }
-
-    const channel = celebrationService.subscribeTocelebrations(profile?.id || '', handleCelebration)
-
-    return () => {
-      celebrationService.unsubscribe(channel)
-    }
-  }, [profile?.id, profile?.user_type])
-
-  // 가족 연결 상태 확인
-  useEffect(() => {
-    const checkFamilyConnection = async () => {
-      if (!isParentRole(profile?.user_type)) return
-
-      try {
-        const supabase = createClient()
-        const { data: children, error } = await supabase
-          .from('profiles')
-          .select('id, full_name, family_code')
-          .eq('parent_id', profile?.id || '')
-          .in('user_type', ['son', 'daughter', 'child'])
-        
-        if (!error && children && children.length > 0) {
-          setConnectedChildren(children)
-          setIsParentWithChild(true)
-          logger.log('연결된 자녀 조회 완료', { count: children.length })
-        } else {
-          setConnectedChildren([])
-          setIsParentWithChild(false)
-        }
-      } catch (error) {
-        console.error('가족 연결 상태 확인 실패:', error)
-        setIsParentWithChild(false)
-      }
-    }
-
-    checkFamilyConnection()
-  }, [profile])
-
-  // 자녀 계정의 미션 완료 시 자동 정산 체크 (부모에게 알림)
-  useEffect(() => {
-    if (!['son', 'daughter'].includes(profile?.user_type || '') || !profile?.parent_id) return
-
-    const checkAutoSettlement = async () => {
-      try {
-        const settlementCheck = await settlementService.shouldTriggerAutoSettlement(profile?.id || '')
-        
-        if (settlementCheck.shouldTrigger) {
-          logger.log('모든 미션 완료 - 자동 정산 알림 전송')
-          
-          // 부모에게 축하 알림 전송 (용돈 전달 팝업 트리거)
-          await celebrationService.sendCelebrationNotification(
-            profile.parent_id || '',
-            settlementCheck.pendingSettlement.totalAmount,
-            settlementCheck.pendingSettlement.totalCount
-          )
-          
-          logger.log('부모에게 정산 알림 전송 완료', { amount: settlementCheck.pendingSettlement.totalAmount })
-        }
-      } catch (error) {
-        console.error('자동 정산 체크 실패:', error)
-      }
-    }
-
-    // 미션 상태가 변경될 때마다 체크
-    checkAutoSettlement()
-  }, [missions, profile?.id, profile?.user_type, profile?.parent_id])
-
-  // 🔒 부모 기본 템플릿 생성 (세션당 한 번만, localStorage로 중복 실행 방지)
-  useEffect(() => {
-    const initializeParentTemplates = async () => {
-      if (!profile || !isParentRole(profile.user_type)) return
-
-      // 🔒 이미 이 세션에서 템플릿 체크를 했는지 확인
-      const sessionKey = `template_check_${profile.id}_session`
-      if (localStorage.getItem(sessionKey)) {
-        logger.log('템플릿 체크 이미 완료됨 - 건너뜀')
-        return
-      }
-
-      try {
-        logger.log('부모 계정 감지 - 기본 템플릿 확인 시작')
-        await missionSupabaseService.createDefaultTemplates()
-        
-        const allTemplates = await missionSupabaseService.getFamilyMissionTemplates()
-        const activeDaily = allTemplates.filter(t => t.missionType === 'daily' && t.isActive)
-        console.log(`📋 최종 확인 - 총 템플릿: ${allTemplates.length}개, 활성 데일리: ${activeDaily.length}개`)
-        
-        // 🔒 세션 체크 완료 플래그 설정
-        localStorage.setItem(sessionKey, 'checked')
-      } catch (error) {
-        console.error('부모 템플릿 초기화 실패:', error)
-      }
-    }
-
-    initializeParentTemplates()
-  }, [profile?.id]) // profile.id가 변경될 때만 실행 (로그인/로그아웃시에만)
-
-  // 사용자 타입 변경 시 모든 모달 상태 초기화
-  useEffect(() => {
-    // 모든 모달 상태 초기화
-    setShowAddModal(false)
-    setShowActionModal(false)
-    setShowProposalForm(false)
-    setShowProposalManager(false)
-    setShowProposalNotification(false)
-    setEditingMission(null)
-  }, [profile?.user_type])
-
-  // 부모 로그인 시 대기 중인 제안 알림
-  useEffect(() => {
-    if (['father', 'mother'].includes(profile?.user_type || '') && pendingProposals.length > 0 && !isLoadingProposals) {
-      // 로그인 후 잠시 지연해서 알림 표시 (UX 개선)
-      const timer = setTimeout(() => {
-        setShowProposalNotification(true)
-      }, 1500)
-      
-      return () => clearTimeout(timer)
-    }
-    // No cleanup needed for other cases
-    return undefined
-  }, [profile?.user_type, pendingProposals.length, isLoadingProposals])
 
   // 📅 데일리 미션 생성은 오직 useDailyMissionWelcome 훅을 통해서만 수행됨
   // 자녀 계정의 첫 로그인 시에만 웰컴 모달을 통해 생성
@@ -702,6 +597,28 @@ function MissionPageContent() {
           }}
           pendingCount={pendingProposals?.length || 0}
           latestProposals={pendingProposals?.slice(0, 3) || []}
+        />
+      )}
+
+      {/* 거절 알림 모달 (자녀용) */}
+      {['son', 'daughter'].includes(profile?.user_type || '') && currentRejectionNotification && (
+        <RejectionNotificationModal
+          isOpen={showRejectionNotification}
+          onClose={async () => {
+            // 알림을 읽음 처리
+            if (currentRejectionNotification?.id) {
+              try {
+                await markNotificationAsRead.mutateAsync(currentRejectionNotification.id)
+              } catch (error) {
+                console.error('알림 읽음 처리 실패:', error)
+              }
+            }
+            setShowRejectionNotification(false)
+            setCurrentRejectionNotification(null)
+          }}
+          proposalTitle={currentRejectionNotification?.data?.proposal_title || '미션 제안'}
+          rejectionReason={currentRejectionNotification?.data?.rejection_reason || '사유 없음'}
+          category={currentRejectionNotification?.data?.category || '일반'}
         />
       )}
 
