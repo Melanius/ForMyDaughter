@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { isParentRole } from '@/lib/utils/roleUtils'
-import { missionSupabaseService } from '@/lib/services/missionSupabaseService'
+import missionSupabaseService from '@/lib/services/missionSupabase'
 import { logger } from '@/lib/utils/logger'
 
 export function useParentTemplateEffects() {

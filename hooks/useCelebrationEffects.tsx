@@ -2,8 +2,9 @@
 
 import { useEffect } from 'react'
 import { useAuth } from '@/components/auth/AuthProvider'
-import { celebrationService, CelebrationPayload } from '@/lib/services/celebrationService'
-import { settlementService } from '@/lib/services/settlementService'
+import celebrationService from '@/lib/services/celebrationService'
+import { CelebrationPayload } from '@/lib/types/celebration'
+import settlementService from '@/lib/services/settlementService'
 import { logger } from '@/lib/utils/logger'
 import { Mission } from '@/lib/types/common'
 
