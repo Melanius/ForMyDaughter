@@ -295,7 +295,7 @@ function MissionPageContent() {
   const handleEditMission = useCallback((mission: Mission) => {
     if (mission.isTransferred) return
     setEditingMission(mission)
-    setShowAddModal(true)
+    openAddModal()
   }, [])
 
   const handleAddMission = useCallback(async (newMission: {
@@ -324,11 +324,11 @@ function MissionPageContent() {
         // 새 미션 추가
         await addMissionMutation.mutateAsync(newMission)
       }
-      setShowAddModal(false)
+      closeAddModal()
     } catch (error) {
       console.error('미션 추가/수정 실패:', error)
       alert(error instanceof Error ? error.message : '미션 처리에 실패했습니다.')
-      setShowAddModal(false)
+      closeAddModal()
     }
   }, [editingMission, addMissionMutation, updateMissionMutation])
 
@@ -351,30 +351,30 @@ function MissionPageContent() {
   }, [])
 
   const handleCloseModal = useCallback(() => {
-    setShowAddModal(false)
+    closeAddModal()
     setEditingMission(null)
   }, [])
 
   const handleFloatingButtonClick = useCallback(() => {
     if (['father', 'mother'].includes(profile?.user_type || '')) {
-      setShowActionModal(true)
+      openActionModal(mission)
     } else {
       // 자녀는 미션 제안 폼 열기 - 다른 모달들 상태 초기화
-      setShowAddModal(false)
-      setShowActionModal(false)
+      closeAddModal()
+      closeActionModal()
       setEditingMission(null)
-      setShowProposalForm(true)
+      openProposalForm()
     }
   }, [profile?.user_type])
 
   const handleActionSelect = useCallback((action: 'mission' | 'template' | 'proposals') => {
-    setShowActionModal(false)
+    closeActionModal()
     if (action === 'mission') {
-      setShowAddModal(true)
+      openAddModal()
     } else if (action === 'template') {
       setActiveTab('templates')
     } else if (action === 'proposals') {
-      setShowProposalManager(true)
+      openProposalManager()
     }
   }, [])
 
@@ -462,7 +462,7 @@ function MissionPageContent() {
                   isFirstLogin={profile?.is_first_login || false}
                   showAddModal={showAddModal}
                   editingMission={editingMission}
-                  onShowAddModal={setShowAddModal}
+                  onShowAddModal={openAddModal}
                   onAddMission={handleAddMission}
                   onEditMission={handleEditMission}
                   onDeleteMission={handleDeleteMission}
@@ -558,7 +558,7 @@ function MissionPageContent() {
       {['father', 'mother'].includes(profile?.user_type || '') && (
         <ActionSelectionModal
           isOpen={showActionModal}
-          onClose={() => setShowActionModal(false)}
+          onClose={() => closeActionModal()}
           onSelectAddMission={() => handleActionSelect('mission')}
           onSelectCreateTemplate={() => handleActionSelect('template')}
           onSelectManageProposals={() => handleActionSelect('proposals')}
@@ -579,9 +579,9 @@ function MissionPageContent() {
       {/* 미션 제안 폼 (자녀용) */}
       <MissionProposalForm
         isOpen={showProposalForm}
-        onClose={() => setShowProposalForm(false)}
+        onClose={() => closeProposalForm()}
         onSuccess={() => {
-          setShowProposalForm(false)
+          closeProposalForm()
           console.log('✅ 미션 제안이 성공적으로 전송되었습니다')
         }}
       />
@@ -593,7 +593,7 @@ function MissionPageContent() {
           onClose={() => setShowProposalNotification(false)}
           onViewProposals={() => {
             setShowProposalNotification(false)
-            setShowProposalManager(true)
+            openProposalManager()
           }}
           pendingCount={pendingProposals?.length || 0}
           latestProposals={pendingProposals?.slice(0, 3) || []}
@@ -625,7 +625,7 @@ function MissionPageContent() {
       {/* 미션 제안 관리 모달 (부모용) */}
       <MissionProposalManager
         isOpen={showProposalManager}
-        onClose={() => setShowProposalManager(false)}
+        onClose={() => closeProposalManager()}
       />
 
       {/* 부모용 첫 로그인 가이드 모달 */}
